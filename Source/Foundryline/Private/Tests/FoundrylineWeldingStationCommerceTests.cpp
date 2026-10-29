@@ -58,6 +58,7 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  TestTrue(TEXT("Staged racks validate: ")+E,M.Valid(E));
  Guide=FFoundrylineERPViewModel::Guide(M.State);TestTrue(TEXT("Overview says book a truck, and that a van won't do: ")+Guide.Detail,Guide.Title==TEXT("Book a pickup truck")&&Guide.Detail.Contains(TEXT("flatbed or larger")));
  TestEqual(TEXT("Finished products at the bay are listed apart from parts"),Guide.FinishedAtBayProducts,Quantity);
+ TestEqual(TEXT("Racks are not counted as finished cut parts at the bay"),Guide.FinishedAtBay,0);
 
  // Carrier footprint and weight: a 6 ft 6 in rack does not fit a pallet van; a pallet of racks takes two deck spaces.
  A={};A.Action=Act::BookPickup;A.Arrival=M.State.Commerce.Clock+60;for(const auto& P:M.State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==OrderId){A.Pallets.Add(P.Id);A.Quantities.Add(P.Quantity);}

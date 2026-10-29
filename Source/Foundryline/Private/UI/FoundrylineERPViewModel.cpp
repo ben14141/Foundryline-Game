@@ -72,7 +72,10 @@ FFoundrylineStarterGuide FFoundrylineERPViewModel::Guide(const FFoundrylineFacto
   if(P.Place==Place::InTransit)continue;
   if(P.Part==EFoundrylinePart::Sheet){Out.SteelOnHandLb+=P.Quantity*P.UnitLb;continue;}
   if(P.BookingId||!FFoundrylineCommerceCatalog::Saleable(uint8(P.Part)))continue;
-  Out.FinishedParts+=P.Quantity;FreeByPart.FindOrAdd(int(P.Part))+=P.Quantity;if(P.Place==Place::Pickup)Out.FinishedAtBay+=P.Quantity;
+  // Welded products are counted with finished products (below), not as cut parts.
+  // Kit parts already in a welding station (IN or its bins) are committed to racks, not stock for sale.
+  if(P.Place==Place::StationIn||P.Place==Place::Buffer&&S.WeldingStations.ContainsByPredicate([&](const auto& V){return V.Id==P.Owner;}))continue;
+  FreeByPart.FindOrAdd(int(P.Part))+=P.Quantity;if(P.Part==EFoundrylinePart::HeadacheRack)continue;Out.FinishedParts+=P.Quantity;if(P.Place==Place::Pickup)Out.FinishedAtBay+=P.Quantity;
  }
  const auto* Plasma=S.Machines.FindByPredicate([](const auto& M){return M.Id==1;});
  TMap<int32,int32> CuttingByPart;
