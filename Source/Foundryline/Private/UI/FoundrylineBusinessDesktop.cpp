@@ -129,8 +129,8 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
  const int GuidePage=!C.Enabled?-1:Guide.Step==EFoundrylineGuideStep::AcceptOrder?0:Guide.Step==EFoundrylineGuideStep::BuySteel?3:Guide.Step==EFoundrylineGuideStep::StaffWork?7:Guide.Step==EFoundrylineGuideStep::ProgramPlasma?10:4;
  for(int I=0;I<7;++I){const auto& N=Nav[I];const bool On=Page==N.Page||(N.Page==0&&Page==2)||(N.Page==10&&Page==6)||(N.Page==4&&Page==11);const float At=Y+HeadH+18+I*66;const float V=Hit(FString::Printf(TEXT("Page%d"),N.Page),X+10,At,NavW-20,60,true,N.Help);
   if(On||V>.01f)Rect(X+10,At,NavW-20,60,On?Paper:FMath::Lerp(Rail,Hex(TEXT("ECEFF1")),V));if(On){Border(X+10,At,NavW-20,60,Line);Rect(X+10,At,4,60,Orange);}else Hover(X+10,At,NavW-20,60,V);
-  Icon(N.Icon,X+26,At+17,26,On?Orange:Graphite);Text(N.Label,X+66,At+10,16,true,Ink,NavW-(N.Badge>0?118:84));Text(N.Sub,X+66,At+33,12,false,Muted,NavW-(N.Badge>0?118:84));
-  if(N.Badge>0){const FString B=FString::FromInt(N.Badge);const float D=FMath::Max(26.f,Width(B,12,true)+14);Rect(X+NavW-22-D,At+18,D,24,N.BadgeCol);Text(B,X+NavW-22-D+(D-Width(B,12,true))/2,At+22,12,true,Paper);}
+  Icon(N.Icon,X+26,At+17,26,On?Orange:Graphite);Text(N.Label,X+66,At+10,16,true,Ink,NavW-84);Text(N.Sub,X+66,At+33,12,false,Muted,NavW-84);
+  if(N.Badge>0){const FString B=FString::FromInt(N.Badge);const float D=FMath::Max(20.f,Width(B,11,true)+10);Rect(X+42,At+8,D,20,Paper);Rect(X+43,At+9,D-2,18,N.BadgeCol);Text(B,X+42+(D-Width(B,11,true))/2,At+10,11,true,Paper);}
   else if(N.Page==GuidePage&&Page==9){Rect(X+NavW-36,At+25,10,10,Orange);}}
  {const float B=Y+H-FootH-178;Text(TEXT("OTHER SCREENS"),X+22,B,11,true,Faint);
   Button(TEXT("Tablet"),TEXT("Loading tablet"),X+16,B+22,NavW-32,40,EStyle::Secondary,true,TEXT("Choose finished pallets and book a pickup truck for an order. Same screen as the tablet by the loading bay."));
