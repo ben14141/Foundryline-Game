@@ -13,7 +13,7 @@ namespace {
  // Measured Handyman head rest transform: hood neutral root is ear hinge at native Z170cm.
  // Final asset metadata must agree with these constants before native acceptance.
  const FTransform HoodFromHead(FQuat(-.02512077,-.70663461,.02516714,-.70668457).GetNormalized(),FVector(14.55806393,-1.85629664,.00112296));
- const TCHAR* Folder=TEXT("/Game/Foundryline/Employees/Equipment/WeldingHood/");
+ const TCHAR* HoodFolder=TEXT("/Game/Foundryline/Employees/Equipment/WeldingHood/");
 }
 UFoundrylineWeldingHoodComponent::UFoundrylineWeldingHoodComponent(){PrimaryComponentTick.bCanEverTick=false;SetIsReplicatedByDefault(false);}
 bool UFoundrylineWeldingHoodComponent::WantsHood(const FFoundrylineEmployeeRecord& R){return R.Role==EFoundrylineEmployeeRole::Welder&&R.Assignment>0&&!R.bSeated;}
@@ -32,7 +32,7 @@ USkeletalMesh* UFoundrylineWeldingHoodComponent::NoHatOutfit(UFoundrylineEmploye
 }
 void UFoundrylineWeldingHoodComponent::CreateMeshes(){
  if(bTriedAssets||!GetOwner()||GetOwner()->GetNetMode()==NM_DedicatedServer)return;bTriedAssets=true;
- auto Make=[&](const TCHAR* Name){auto* C=NewObject<UStaticMeshComponent>(GetOwner(),MakeUniqueObjectName(GetOwner(),UStaticMeshComponent::StaticClass(),Name));C->SetupAttachment(this);C->SetMobility(EComponentMobility::Movable);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->SetCastShadow(true);C->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*(FString(Folder)+Name)));C->RegisterComponent();GetOwner()->AddInstanceComponent(C);return C;};
+ auto Make=[&](const TCHAR* Name){auto* C=NewObject<UStaticMeshComponent>(GetOwner(),MakeUniqueObjectName(GetOwner(),UStaticMeshComponent::StaticClass(),Name));C->SetupAttachment(this);C->SetMobility(EComponentMobility::Movable);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->SetCastShadow(true);C->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*(FString(HoodFolder)+Name)));C->RegisterComponent();GetOwner()->AddInstanceComponent(C);return C;};
  Harness=Make(TEXT("SM_WeldingHood_Harness"));Visor=Make(TEXT("SM_WeldingHood_Visor"));SetVisibility(false,true);
 }
 bool UFoundrylineWeldingHoodComponent::HasModelAssets(){CreateMeshes();return Harness&&Visor&&Harness->GetStaticMesh()&&Visor->GetStaticMesh();}
