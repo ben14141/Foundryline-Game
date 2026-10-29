@@ -543,9 +543,9 @@ Run the actual player flow, relevant authority/save tests, a five-player/indepen
   - 2 + 3 racks are shipped, and each order is paid exactly once.
   - One welder takes 138 plant seconds of welding per rack; two take 80 (×0.58, the configured 1/1.7).
   - Cash goes from $4,000.00 to $4,418.26, and the plant validates throughout.
-- **Rendered PIE** (`Tools/Unreal/review_welding_phase6.py`, real controller commands): 8 of 9 checks pass.
+- **Rendered PIE** (`Tools/Unreal/review_welding_phase6.py`, real controller commands): 9 of 9 checks pass.
   - Both orders are paid exactly once ($900.00 and $1,350.00), Welder B is assigned, and the host ledger is valid.
-  - The "made money" check fails: this run ends at $3,540.65. The automation test of the same flow ends at $4,418.26. The difference was not broken down; see the open items.
+  - Made money: ends at $4,419.02 (+$419.02), matching the automation test.
   - Screenshots are in `Phase6/` on `review/welding-screenshots`.
 - **Independent companies** (`Tools/Unreal/validate_welding_companies_network.py`, five players on one listen server): 19 of 19 checks pass.
   - Two players found businesses on their own plots, and a third joins A; the host and the fifth player stay in the starter co-op.
@@ -567,7 +567,7 @@ Run the actual player flow, relevant authority/save tests, a five-player/indepen
 
 Open items found in this review (not fixed here):
 
-- **Rendered run's cash:** the PIE run ends $459.35 below its starting cash although the automation test of the same flow makes $418.26. I did not capture its cost breakdown; the likely suspects are staff wages over the longer real-time run and leftover kit stock. Check the Money page before tuning rack prices.
+- **Rendered run's cash (resolved):** the first PIE run ended $877.71 short. The review advanced time with `AdvanceFactoryTest`, which steps the model without the company cash sync, so order 1's $900 payment, less about $22 of running costs, was overwritten. With `AdvanceCommerceTest` the rendered run ends at +$419.02, matching the automation test's +$418.11. See `ECONOMY_REVIEW_WELDING.md` for the full cost breakdown, process times and the proposed price set.
 - **Hidden station panel:** in Construction view the station panel is hidden, so the panel's BUY FRAMES / BUY LIGHT KITS buttons do not show in the Phase 6 shots. They are shown in the Phase 2 and Phase 5 shots.
 - **Wide shots:** the overview and eye-level shots are framed wide; a closer first-person pass with a player walking the station was not done.
 

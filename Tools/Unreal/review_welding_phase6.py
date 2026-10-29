@@ -2,6 +2,8 @@
 paint and place the station, take a headache-rack order on Sales, hire and assign one welder, set the station from the
 order, buy frame sections and light kits from the station panel, buy steel and cut the plates and brackets on the plasma,
 build, ship and get paid; then hire a second welder (Welder B), take the next rack order and run it again.
+Time is advanced with AdvanceCommerceTest (real plant ticks with the company cash sync); AdvanceFactoryTest steps the model
+directly, so cash moved in those steps is overwritten by the company balance and it adds free steel for the tanker fixture.
 Screenshots go to Saved/Screenshots/Reviews (Phase6_*); the report goes to Saved/Logs/WeldingPhase6VisualQA.json."""
 import unreal,time,json,traceback
 from pathlib import Path
@@ -130,7 +132,7 @@ def tick(dt):
    if o['status']==2:
     q['notes']['run%d_paid'%run]=o;q['checks']['order_%d_paid_once'%run]=o['paid']==o['quantity']*45000 and o['delivered']==o['quantity'];q['notes']['run%d_seconds'%run]=t-q['notes']['run%d_start'%run]
     action(p,'Office');action(p,'Page2');action(p,'Order'+str(oid));go('paid_shot',t)
-   else:T.advance_factory_test(p,6)
+   else:T.advance_commerce_test(p,6)
   elif stage=='paid_shot' and t-last>2.5:go('after_paid',t);shot('Phase6_Run%d_OrderPaid'%run)
   elif stage=='after_paid' and t-last>1:
    p=player()
@@ -149,7 +151,7 @@ def tick(dt):
   elif stage=='parts2' and t-last>2.5:
    p=player();s=station(p);q['checks']['second_welder_assigned']=s['welders'][1]==q['notes']['welder_b'];plan_parts(p);action(p,'Close');T.queue_factory_action(p,'Speed8');run=2;q['notes']['run2_start']=t;go('run',t)
   elif stage=='final' and t-last>2.5:
-   go('final_done',t);shot('Phase6_Overview_AfterTwoOrders');p=player();c=commerce(p);q['notes']['end_cash']=c['cash'];q['checks']['made_money']=c['cash']>q['notes']['start']['cash'];q['checks']['host_valid']=c.get('authoritative_valid',False)
+   go('final_done',t);shot('Phase6_Overview_AfterTwoOrders');p=player();c=commerce(p);q['notes']['end_cash']=c['cash'];q['notes']['final_commerce']={k:c[k] for k in ('cash','cost','revenue','clock','bookings','orders')};q['checks']['made_money']=c['cash']>q['notes']['start']['cash'];q['checks']['host_valid']=c.get('authoritative_valid',False)
    action(p,'Close');go('done',t)
   elif stage=='final_done':pass
   elif stage=='done' and t-last>1:
