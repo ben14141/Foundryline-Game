@@ -15,6 +15,7 @@
 #include "Production/FoundrylineWorkshopLayout.h"
 #include "Production/FoundrylineMachineCellLayout.h"
 #include "Pathing/FoundrylineFloorLaneGeometry.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 namespace {
  // The decal's local Z/Y axes are world X/Y with a -90 degree pitch.
  // Bake in those same coordinates: camera position and viewport size never enter paint placement.
@@ -47,7 +48,7 @@ void AFoundrylineFactoryPlant::SetupFloorVisuals(){
  FloorPaintDecal->RegisterComponent();AddInstanceComponent(FloorPaintDecal);
 }
 void AFoundrylineFactoryPlant::RebuildFloor(){
- FString Key;for(const auto& L:Snapshot.Lanes)Key+=FString::Printf(TEXT("%d:%d:%s:%s:%d;"),L.Id,int(L.Kind),*L.Min.ToString(),*L.Max.ToString(),L.Direction);for(const auto& Z:Snapshot.Zones)Key+=FString::Printf(TEXT("%d:%s:%s:%s:%s:%d;"),Z.Id,*Z.Min.ToString(),*Z.Max.ToString(),*Z.DropMin.ToString(),*Z.DropMax.ToString(),Z.QuarterTurns);if(FloorLayoutKey==Key)return;FloorLayoutKey=Key;
+ FString Key;for(const auto& L:Snapshot.Lanes)Key+=FString::Printf(TEXT("%d:%d:%s:%s:%d;"),L.Id,int(L.Kind),*L.Min.ToString(),*L.Max.ToString(),L.Direction);for(const auto& Z:Snapshot.Zones)Key+=FString::Printf(TEXT("%d:%s:%s:%s:%s:%d;"),Z.Id,*Z.Min.ToString(),*Z.Max.ToString(),*Z.DropMin.ToString(),*Z.DropMax.ToString(),Z.QuarterTurns);for(const auto& S:Snapshot.WeldingStations)Key+=FString::Printf(TEXT("W%d:%d:%s:%d:%d;"),S.Id,S.Number,*S.Center.ToString(),S.QuarterTurns,S.bSwapSides?1:0);if(FloorLayoutKey==Key)return;FloorLayoutKey=Key;
  if(!FloorPaintTexture)return;
  UKismetRenderingLibrary::ClearRenderTarget2D(this,FloorPaintTexture,FLinearColor::Transparent);
  UCanvas* Canvas=nullptr;FVector2D CanvasSize;FDrawToRenderTargetContext Context;
@@ -61,9 +62,9 @@ void AFoundrylineFactoryPlant::RebuildFloor(){
  };
  auto Outline=[&](int Style,FVector2D A,FVector2D B,float Width){const FVector2D C=(A+B)/2,D=B-A;Box(Style,{C.X,A.Y,22},{D.X,Width,1});Box(Style,{C.X,B.Y,22},{D.X,Width,1});Box(Style,{A.X,C.Y,22},{Width,D.Y,1});Box(Style,{B.X,C.Y,22},{Width,D.Y,1});};
  auto Hatch=[&](int Style,FVector2D A,FVector2D B,float Spacing,float Width){for(float K=A.Y-B.X;K<=B.Y-A.X;K+=Spacing){TArray<FVector2D> Points;for(FVector2D P:{FVector2D(A.X,A.X+K),FVector2D(B.X,B.X+K),FVector2D(A.Y-K,A.Y),FVector2D(B.Y-K,B.Y)})if(P.X>=A.X-.01&&P.X<=B.X+.01&&P.Y>=A.Y-.01&&P.Y<=B.Y+.01)Points.AddUnique(P);if(Points.Num()<2)continue;const FVector2D Delta=Points.Last()-Points[0],Center=(Points.Last()+Points[0])/2;if(Delta.Size()<5)continue;Box(Style,FVector(Center,22.1),{Delta.Size(),Width,.8},FRotator(0,FMath::RadiansToDegrees(FMath::Atan2(Delta.Y,Delta.X)),0));}};
- auto Text=[&](FString Value,FVector P,float Size,float Yaw=0){
+ auto Text=[&](FString Value,FVector P,float Size,float Yaw=0,FLinearColor Color=FLinearColor(.025,.03,.035,1)){
   const auto Pixel=PaintPixel(FVector2D(P));auto* Font=GEngine->GetMediumFont();
-  FCanvasTextItem Item(FVector2D::ZeroVector,FText::FromString(Value),Font,FLinearColor(.025,.03,.035,1));
+  FCanvasTextItem Item(FVector2D::ZeroVector,FText::FromString(Value),Font,Color);
   Item.Scale=FVector2D(FMath::Max(Size,25.f)*PaintWidth/(PaintMax.X-PaintMin.X)/Font->GetMaxCharHeight());
   Item.BlendMode=SE_BLEND_Translucent;
   Canvas->Canvas->PushRelativeTransform(FTransform(FRotator(0,Yaw,0),FVector(Pixel,0)).ToMatrixWithScale());
@@ -109,6 +110,16 @@ void AFoundrylineFactoryPlant::RebuildFloor(){
  for(int ZI=0;ZI<Snapshot.Zones.Num();++ZI){const auto& Z=Snapshot.Zones[ZI];const auto Bounds=FFoundrylineWorkZoneLayout::Bounds(Z);Outline(4,Bounds.Min,Bounds.Max,12);Hatch(4,FVector2D(Z.Min),FVector2D(Z.Max),150,8);Text(FString::Printf(TEXT("WORK ZONE %02d / TANKER"),ZI+1),Z.Min+FVector(60,65,3),38);
   const auto Equipment=FFoundrylineWorkZoneLayout::WelderBounds(Z).ExpandBy(10);Outline(2,Equipment.Min,Equipment.Max,3);Text(TEXT("MIG WELDER"),FVector(Equipment.Min+FVector2D(0,-20),23),14);
   Text(FString::Printf(TEXT("ZONE %02d / SUPPLIES"),ZI+1),Z.DropMin+FVector(25,15,3),22);for(int I=0;I<6;++I){const auto P=View.BufferPosition(Z,Parts[I]);const auto Size=FFoundrylineWorkZoneLayout::BaySize(Z,Parts[I]);Outline(3,FVector2D(P)-Size/2,FVector2D(P)+Size/2,6);Hatch(3,FVector2D(P)-Size/2,FVector2D(P)+Size/2,45,2);Text(Names[I],P+FVector(-Size.X/2+10,-Size.Y/2+15,3),15);}
+ }
+ // Welding stations: 3 in orange border, blue IN and green OUT with light hatch and white labels.
+ // Lines sit inside each reserved rectangle; worker clearances stay unpainted.
+ for(const auto& S:Snapshot.WeldingStations){using Layout=FFoundrylineWeldingStationLayout;const float Width=Layout::PaintWidthCm,Yaw=Layout::Rotation(S).Yaw;
+  auto Inset=[&](const FBox2D& B,float By){return FBox2D(B.Min+FVector2D(By),B.Max-FVector2D(By));};
+  auto Label=[&](const FString& Value,FVector Center,float Size,FLinearColor Color){Text(Value,Center+FRotator(0,Yaw,0).RotateVector(FVector(-.31f*Size*Value.Len(),-.55f*Size,0)),Size,Yaw,Color);};
+  const auto Outer=Inset(Layout::Bounds(S),Width/2);Outline(4,Outer.Min,Outer.Max,Width);
+  for(bool Out:{false,true}){const int Style=Out?1:3;const auto Port=Inset(Layout::Port(S,Out),Width/2);Outline(Style,Port.Min,Port.Max,Width);Hatch(Style,Port.Min+FVector2D(Width),Port.Max-FVector2D(Width),30.48f,2.5f);
+   Label(Out?TEXT("OUT"):TEXT("IN"),Layout::PortCenter(S,Out)+FVector(0,0,3),36,FLinearColor(.96,.96,.93,1));}
+  Text(FString::Printf(TEXT("WS %02d"),S.Number),Layout::Point(S,.35,.45,3),25,Yaw);
  }
  UKismetRenderingLibrary::EndDrawCanvasToRenderTarget(this,Context);
  FloorPaintTexture->UpdateResourceImmediate(false);

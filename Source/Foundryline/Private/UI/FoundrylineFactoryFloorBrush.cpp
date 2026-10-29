@@ -2,14 +2,27 @@
 #include "Grid/FoundrylineFloorPlacement.h"
 #include "Production/FoundrylineWorkZoneLayout.h"
 #include "Core/FoundrylineUnits.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
+#include "Production/FoundrylineWorkshopLayout.h"
 double AFoundrylinePlayerController::FactoryGridStep()const{if(IsInputKeyDown(EKeys::LeftShift)||IsInputKeyDown(EKeys::RightShift))return 2.54;return FactorySnapIndex==0?15.24:FactorySnapIndex==1?30.48:60.96;}
 bool AFoundrylinePlayerController::FactoryFloorCursor(FVector& Out)const{FVector O,D;return IsLocalController()&&DeprojectMousePositionToWorld(O,D)&&FFoundrylineFloorPlacement::FloorPoint(O,D,Out);}
 bool AFoundrylinePlayerController::PreviewFactoryFloor(FVector Cursor){
  auto* Plant=FactoryPlant();if(!Plant||Cursor.ContainsNaN())return false;
  FFoundrylineFactorySimulation Check;Check.State=Plant->Snapshot;Check.Solids=Plant->Model.Solids;
- TArray<FBox2D> Targets=Check.Solids;for(const auto& Z:Check.State.Zones)Targets.Add(FFoundrylineWorkZoneLayout::Bounds(Z));if(FactoryTool!=TEXT("Zone"))for(const auto& L:Check.State.Lanes)Targets.Emplace(L.Min,L.Max);
+ // Clients never seed the plant model; rebuild the authored equipment footprint from replicated state.
+ if(!Plant->HasAuthority())Check.Solids=FFoundrylineWorkshopLayout::PlantSolids(Check.State);
+ TArray<FBox2D> Targets=Check.Solids;for(const auto& Z:Check.State.Zones)Targets.Add(FFoundrylineWorkZoneLayout::Bounds(Z));for(const auto& S:Check.State.WeldingStations)Targets.Add(FFoundrylineWeldingStationLayout::Bounds(S));if(FactoryTool!=TEXT("Zone"))for(const auto& L:Check.State.Lanes)Targets.Emplace(L.Min,L.Max);
  const FBox2D Floor(Check.State.FloorMin,Check.State.FloorMax);const double Step=FactoryGridStep(),Gap=FactoryGapIndex==0?0:FactoryGapIndex==1?15.24:30.48;FString Error;bFactorySnapped=false;
- if(FactoryTool==TEXT("Zone")){
+ if(FactoryTool==TEXT("Station")){
+  const auto Size=FFoundrylineWeldingStationLayout::FootprintCm(FactoryStationQuarter);
+  const auto Center=FFoundrylineFloorPlacement::Snap(FVector2D(Cursor),Size/2,Step,Floor,Targets,Gap,bFactoryEdgeSnap,bFactorySnapped);
+  FactoryPreviewA=FactoryPreviewB=FVector(Center,20);FactoryPreviewBounds=FBox2D(Center-Size/2,Center+Size/2);
+  FFoundrylineWeldingStationRecord S;S.Center=FactoryPreviewA;S.QuarterTurns=FactoryStationQuarter;S.bSwapSides=bFactoryStationSwap;
+  uint32 Layout=GetTypeHash(Check.State.Lanes.Num());for(const auto& L:Check.State.Lanes)Layout=HashCombine(Layout,HashCombine(GetTypeHash(L.Min),GetTypeHash(L.Max)));for(const auto& O:Check.State.WeldingStations)Layout=HashCombine(Layout,GetTypeHash(O.Center));
+  const FString Key=FString::Printf(TEXT("%s|%d|%d|%u|%d"),*Center.ToString(),FactoryStationQuarter,bFactoryStationSwap?1:0,Layout,Check.State.Zones.Num());const double Now=GetWorld()->GetRealTimeSeconds();
+  if(Key!=FactoryStationCheckKey||Now-FactoryStationCheckAt>1.5){FactoryStationCheckKey=Key;FactoryStationCheckAt=Now;bFactoryStationCheckValid=Check.CanPlaceWeldingStation(S,FactoryStationCheckError);}
+  bFactoryPresetValid=bFactoryStationCheckValid;Error=FactoryStationCheckError;
+ }else if(FactoryTool==TEXT("Zone")){
   auto Size=FFoundrylineWorkZoneLayout::TotalSize(FactoryZonePreset);if(FactoryZoneQuarter%2)Swap(Size.X,Size.Y);
   const auto Center=FFoundrylineFloorPlacement::Snap(FVector2D(Cursor),Size/2,Step,Floor,Targets,Gap,bFactoryEdgeSnap,bFactorySnapped);
   FactoryPreviewA=FVector(Center,20);FactoryPreviewB=FactoryPreviewA;FactoryPreviewBounds=FBox2D(Center-Size/2,Center+Size/2);
@@ -36,7 +49,7 @@ bool AFoundrylinePlayerController::PreviewFactoryFloor(FVector Cursor){
   bFactoryPresetValid=Check.PaintLane(Crossing?EFoundrylineFloorLane::Crossing:FactoryTool==TEXT("Pedestrian")?EFoundrylineFloorLane::Pedestrian:EFoundrylineFloorLane::Forklift,FactoryPreviewA,FactoryPreviewB,FactoryWidth,FactoryDirection,Error);
   if(bFactoryPresetValid){const auto& L=Check.State.Lanes.Last();FactoryPreviewBounds=FBox2D(L.Min,L.Max);}
  }
- if(Plant->Snapshot.Running){bFactoryPresetValid=false;Error=TEXT("Pause the plant before painting");}
+ if(Plant->Snapshot.Running&&FactoryTool!=TEXT("Station")){bFactoryPresetValid=false;Error=TEXT("Pause the plant before painting");}
  const auto Size=FactoryPreviewBounds.GetSize();FactoryBrushDimensions=FFoundrylineUnits::Length(Size.X)+TEXT(" x ")+FFoundrylineUnits::Length(Size.Y);
  FactoryPlacementHint=bFactoryPresetValid?(bFactorySnapped?TEXT("EDGE ALIGNED / ready"):TEXT("GRID ALIGNED / ready")):Error;
  return bFactoryPresetValid;
@@ -44,5 +57,6 @@ bool AFoundrylinePlayerController::PreviewFactoryFloor(FVector Cursor){
 
 bool AFoundrylinePlayerController::CommitFactoryFloorBrush(){
  if(!bFactoryPresetValid)return false;FFoundrylineFactoryCommand C;const bool Zone=FactoryTool==TEXT("Zone");
+ if(FactoryTool==TEXT("Station")){auto* Plant=FactoryPlant();if(!Plant)return false;C.Action=EFoundrylineFactoryAction::AddWeldingStation;C.A=FactoryPreviewA;C.QuarterTurns=FactoryStationQuarter;C.SupplySide=bFactoryStationSwap?-1:1;C.TargetPlantId=Plant->BusinessPlantId;FactoryStationCheckKey.Reset();SendFactory(C);return true;}
  C.Action=Zone?EFoundrylineFactoryAction::AddPresetZone:EFoundrylineFactoryAction::PaintLane;C.A=FactoryPreviewA;C.B=FactoryPreviewB;C.Id=Zone?FactoryZonePreset:FactoryTool==TEXT("Pedestrian")?1:FactoryTool==TEXT("Crossing")?2:0;C.WidthCm=FactoryWidth;C.QuarterTurns=FactoryZoneQuarter;C.SupplySide=FactoryZoneSide;C.Other=Zone?FactoryRoute:FactoryDirection;SendFactory(C);return true;
 }

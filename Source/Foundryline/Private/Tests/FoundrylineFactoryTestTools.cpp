@@ -70,3 +70,39 @@ bool UFoundrylineNetworkTestTools::AimFactoryBrush(APlayerController* Player,FVe
  return false;
 #endif
 }
+
+bool UFoundrylineNetworkTestTools::QueueWeldingStation(APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bForeignPlant,bool bRemove,int32 StationId){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
+ FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Center,Quarter,bSwap,bForeignPlant,bRemove,StationId](float){if(Weak.IsValid())if(auto* Plant=Weak->FactoryPlant()){FFoundrylineFactoryCommand C;C.Action=bRemove?EFoundrylineFactoryAction::RemoveWeldingStation:EFoundrylineFactoryAction::AddWeldingStation;C.A=Center;C.QuarterTurns=Quarter;C.SupplySide=bSwap?-1:1;C.Id=StationId;C.TargetPlantId=bForeignPlant?FGuid::NewGuid():Plant->BusinessPlantId;Weak->SendFactory(C);}return false;}));return true;
+#else
+ return false;
+#endif
+}
+bool UFoundrylineNetworkTestTools::QueueFactoryLane(APlayerController* Player,int32 Kind,FVector A,FVector B,float Width){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
+ FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Kind,A,B,Width](float){if(Weak.IsValid()){FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::PaintLane;C.Id=Kind;C.A=A;C.B=B;C.WidthCm=Width;C.Other=0;Weak->SendFactory(C);}return false;}));return true;
+#else
+ return false;
+#endif
+}
+FString UFoundrylineNetworkTestTools::WeldingStationReport(APlayerController* Player){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC)return TEXT("{}");auto* Plant=PC->FactoryPlant();if(!Plant)return TEXT("{}");
+ FString Items;for(const auto& S:Plant->Snapshot.WeldingStations)Items+=FString::Printf(TEXT("%s{\"id\":%d,\"number\":%d,\"x\":%.2f,\"y\":%.2f,\"quarter\":%d,\"swap\":%s}"),Items.IsEmpty()?TEXT(""):TEXT(","),S.Id,S.Number,S.Center.X,S.Center.Y,S.QuarterTurns,S.bSwapSides?TEXT("true"):TEXT("false"));
+ return FString::Printf(TEXT("{\"authority\":%s,\"lanes\":%d,\"revision\":%d,\"status\":\"%s\",\"stations\":[%s]}"),Plant->HasAuthority()?TEXT("true"):TEXT("false"),Plant->Snapshot.Lanes.Num(),Plant->Snapshot.Revision,*PC->FactoryStatus.Replace(TEXT("\""),TEXT("'")),*Items);
+#else
+ return TEXT("{}");
+#endif
+}
+FString UFoundrylineNetworkTestTools::PreviewWeldingStation(APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bCommit){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController())return TEXT("{}");
+ PC->bFactoryMenu=true;PC->FactoryTool=TEXT("Station");PC->FactoryStationQuarter=Quarter;PC->bFactoryStationSwap=bSwap;PC->FactoryStationCheckKey.Reset();PC->bFactoryEdgeSnap=false;
+ const bool Valid=PC->PreviewFactoryFloor(Center);const bool Sent=bCommit&&PC->CommitFactoryFloorBrush();
+ return FString::Printf(TEXT("{\"sent\":%s,\"valid\":%s,\"hint\":\"%s\",\"x\":%.2f,\"y\":%.2f}"),Sent?TEXT("true"):TEXT("false"),Valid?TEXT("true"):TEXT("false"),*PC->FactoryPlacementHint.Replace(TEXT("\""),TEXT("'")),PC->FactoryPreviewA.X,PC->FactoryPreviewA.Y);
+#else
+ return TEXT("{}");
+#endif
+}

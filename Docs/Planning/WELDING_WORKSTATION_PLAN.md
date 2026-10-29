@@ -42,49 +42,53 @@ These later systems must not block a simple headache-rack order from reaching de
 
 ### Default dimensions
 
+Revised 29 October 2026 (Phase 1): Ben asked for a welding machine on each side of the table. The existing Welder_Machine (4 ft 0.3 in x 2 ft 3.8 in) does not fit the spare corners of the original 16 x 12 ft layout without shrinking a worker clearance or a port, so the reserved station grew by 1 ft in each direction to 17 x 13 ft.
+
 | Element | Size | Treatment |
 | --- | --- | --- |
-| Complete reserved station | 16 ft x 12 ft | Foundryline-orange perimeter. |
+| Complete reserved station | 17 ft x 13 ft | Foundryline-orange perimeter. |
 | Welding bench | 8 ft x 4 ft, 36 in high | Glossy painted frame and polished bare-steel worktop. |
 | IN position | 4 ft x 8 ft | Blue outline, light diagonal hatch, white IN label. |
 | OUT position | 4 ft x 8 ft | Green outline, light diagonal hatch, white OUT label. |
-| Worker A clearance | 8 ft x 4 ft along one long table side | Unpainted clear floor. |
-| Worker B clearance | 8 ft x 4 ft along opposite long side | Unpainted clear floor. |
+| Worker A clearance | 8 ft x 4.5 ft along one long table side | Unpainted clear floor. |
+| Worker B clearance | 8 ft x 4.5 ft along opposite long side | Unpainted clear floor. |
+| Welder A / Welder B machine bays | 4.5 ft x 2.5 ft each, diagonal corners | One existing MIG welding machine per welder, with its own gun, lead and holster. |
+| Outside access ring | 4 ft on every side | Forklift docking at both port ends; people walk the whole ring to reach both welder sides. |
 | Painted line width | 3 in | Real floor-aligned paint, not floating lines. |
 
 Both worker areas are reserved when placing the station, even when only one employee is assigned. Adding a second employee must not require enlarging the layout.
 
-### Exact draft placement within the 16 ft x 12 ft footprint
+### Exact placement within the 17 ft x 13 ft footprint
 
-Local station coordinates use feet below. The origin is the lower-left corner of the reserved footprint; these are planning coordinates, not a change to Unreal's centimetre storage.
+Local station coordinates use feet below. The origin is the lower-left corner of the reserved footprint; these are planning coordinates, not a change to Unreal's centimetre storage. `FFoundrylineWeldingStationLayout` is the single source for these values.
 
 | Element | Local X range | Local Y range |
 | --- | --- | --- |
-| Bench | 4–12 ft | 4–8 ft |
-| Worker A area | 4–12 ft | 0–4 ft |
-| Worker B area | 4–12 ft | 8–12 ft |
-| IN area | 0–4 ft | 2–10 ft |
-| OUT area | 12–16 ft | 2–10 ft |
+| Bench | 4.5–12.5 ft | 4.5–8.5 ft |
+| Worker A area | 4.5–12.5 ft | 0–4.5 ft |
+| Worker B area | 4.5–12.5 ft | 8.5–13 ft |
+| IN area (default side) | 0–4 ft | 2.5–10.5 ft |
+| OUT area (default side) | 13–17 ft | 2.5–10.5 ft |
+| Welder A machine | 0–4.5 ft | 0–2.5 ft |
+| Welder B machine | 12.5–17 ft | 10.5–13 ft |
 
 ```text
-                          16 ft overall
-             +---------------------------------------+
-             |          WORKER B CLEARANCE            |
-             |                                       |
-             |  BLUE IN     +----------------+ GREEN |
-             |  4 x 8 ft    | WELDING BENCH  |  OUT  |
-             |             |    8 x 4 ft    | 4 x 8 |
-             |             +----------------+   ft  |
-             |                                       |
-             |          WORKER A CLEARANCE            |
-             +---------------------------------------+
-                          12 ft overall
+                              17 ft overall
+             +--------------------------------------------+
+             |  (IN)    |     WORKER B CLEARANCE    |MACH B|
+             |  BLUE IN    +------------------+   GREEN    |
+             |  4 x 8 ft   |  WELDING BENCH   |    OUT     |
+             |             |     8 x 4 ft     |   4 x 8    |
+             |             +------------------+            |
+             |MACH A|      WORKER A CLEARANCE    |  (OUT)  |
+             +--------------------------------------------+
+                              13 ft overall
 
           Forklift approaches are outside the left/right ends.
           Worker approaches are outside the upper/lower sides.
 ```
 
-The diagram is schematic; the coordinate table controls actual geometry. Orange perimeter and internal paint must not shrink the required clearance.
+The diagram is schematic; the coordinate table controls actual geometry. Orange perimeter and internal paint must not shrink the required clearance. Swapping sides exchanges IN and OUT only; the bench, clearances and machines stay put.
 
 ### Placement options
 
