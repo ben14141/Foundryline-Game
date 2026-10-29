@@ -72,11 +72,9 @@ bool FFoundrylineFactorySimulation::RemoveWeldingStation(int32 Id,FString& E){
  if(State.Pallets.ContainsByPredicate([&](const auto& P){return P.Owner==Id&&(P.Place==Place::Buffer||P.Place==Place::StationIn||P.Place==Place::StationOut);})||State.Jobs.ContainsByPredicate([&](const auto& J){return J.Destination==Id;})||State.Commerce.Bookings.ContainsByPredicate([&](const auto& B){return B.StationId==Id&&B.Status!=EFoundrylineBookingState::Delivered;})){E=TEXT("Return the station's supplies and finish its transport before removing it");return false;}
  // Its welder goes back to the waiting area, unassigned.
  for(auto& W:State.Walkers)if(W.Station==Id){W.Station=W.StationSide=0;W.Path.Reset();W.Distance=0;W.Retry=0;}
- State.WeldingStations.RemoveAt(I);for(auto& R:State.Routes)R.Destinations.Remove(Id);++State.Revision;return true;
+ State.WeldingStations.RemoveAt(I);for(auto& R:State.Routes){R.Destinations.Remove(Id);R.Sources.Remove(Id);}++State.Revision;return true;
 }
 void FFoundrylineFactorySimulation::MigrateWeldingStations(){
- // Every saved station is a route source too, so its finished products can be collected from OUT.
- for(const auto& S:State.WeldingStations)for(auto& R:State.Routes)if(R.Sources.Num()<80)R.Sources.AddUnique(S.Id);
  if(State.Version==9)State.Version=10;
  if(State.Version==10){
  // Zone part ledgers grow to cover frame sections, light kits and finished racks; saved stations join existing routes.
@@ -91,7 +89,9 @@ void FFoundrylineFactorySimulation::MigrateWeldingStations(){
  // moves onto the first OUT pallet. Validation still rejects the plant if the longer station no longer fits its spot.
  if(State.Version==13){State.Version=14;for(auto& S:State.WeldingStations){
   S.Center+=Layout::Schema14Shift(S);
-  for(auto& P:State.Pallets)if(P.Owner==S.Id&&P.Place==Place::StationOut)P.Position=Layout::OutPalletPoint(S,0);}}
+  for(auto& P:State.Pallets)if(P.Owner==S.Id&&P.Place==Place::StationOut)P.Position=Layout::OutPalletPoint(S,0);
+  // Forklifts now collect from OUT, so every saved station becomes a source on every route too.
+  for(auto& R:State.Routes)if(R.Sources.Num()<80)R.Sources.AddUnique(S.Id);}}
 }
 bool FFoundrylineFactorySimulation::ConfigureWeldingStation(int32 Id,int32 Recipe,int32 Batch,FString& E){
  auto* S=State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==Id;});if(!S){E=TEXT("Choose a welding station in this plant");return false;}
@@ -127,12 +127,14 @@ bool FFoundrylineFactorySimulation::StationPortBusy(const FFoundrylineWeldingSta
 // An OUT pallet is collected whole when it is full, when its station will add nothing more (no batch and no unit on the
 // bench), or when an accepted order for its product needs more than finished-goods storage holds free.
 bool FFoundrylineFactorySimulation::OutPalletReady(const FFoundrylineWeldingStationRecord& S,const FFoundrylineFactoryPallet& A)const{
- if(A.Place!=Place::StationOut||A.Owner!=S.Id||A.Reserved||A.BookingId||A.Quantity<1)return false;
+ if(A.Place!=Place::StationOut||A.Owner!=S.Id||A.Reserved||A.BookingId||A.Quantity<1||!OutCollected(S))return false;
  if(A.Quantity>=Layout::RacksPerOutPallet||!S.Stage&&(!S.Recipe||S.BatchRemaining<=0))return true;
  int Stored=0;for(const auto& P:State.Pallets)if(P.Part==A.Part&&P.Place==Place::Rack&&!P.BookingId)Stored+=P.Quantity-P.Reserved;
  for(const auto& O:State.Commerce.Orders)if(O.Status==EFoundrylineOrderState::Accepted&&O.Part==uint8(A.Part)&&O.Quantity-O.Delivered>Stored)return true;
  return false;
 }
+// A forklift route that picks up from this station's OUT (new stations join every route; a player can take them off).
+bool FFoundrylineFactorySimulation::OutCollected(const FFoundrylineWeldingStationRecord& S)const{return State.Routes.ContainsByPredicate([&](const auto& R){return R.Sources.Contains(S.Id);});}
 // Where a finished product on OUT goes when no accepted order is collecting it: a finished-goods rack slot already holding
 // that product with room, else an empty slot that is not a machine's supply rack.
 int32 FFoundrylineFactorySimulation::FinishedGoodsSlot(Part P,int32 Count)const{
@@ -204,6 +206,7 @@ int32 FFoundrylineFactorySimulation::OutTotal(const FFoundrylineWeldingStationRe
 FString FFoundrylineFactorySimulation::StationOutStatus(const FFoundrylineWeldingStationRecord& S,const FString& Lead)const{
  if(!OutTotal(S))return FString();
  if(State.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::StationOut&&A.Reserved;}))return Lead+TEXT(" / forklift collecting a pallet");
+ if(!OutCollected(S))return Lead+TEXT(" / add this station to a forklift route");
  if(!State.Drivers.ContainsByPredicate([](const auto& D){return D.EmployeeId!=0;}))return Lead+TEXT(" / assign a forklift driver");
  const auto* Ready=State.Pallets.FindByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::StationOut&&OutPalletReady(S,A);});
  if(!Ready)return Lead+FString::Printf(TEXT(" / collected at %d per pallet"),Layout::RacksPerOutPallet);

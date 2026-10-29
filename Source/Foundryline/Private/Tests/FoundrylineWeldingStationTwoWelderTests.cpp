@@ -17,6 +17,8 @@ bool TwoWelderStation(FFoundrylineFactorySimulation& M,FString& E){
  return true;
 }
 int Hire(FFoundrylineFactorySimulation& M,FString& E){return M.HireEmployee(Role::Welder,FGuid::NewGuid(),E)?M.State.UnassignedEmployees.Last().Id:0;}
+// Assembly-only checks: no forklift route collects from OUT (Phase 5 covers collection), so finished racks stay there.
+void LeaveOut(FFoundrylineFactorySimulation& M){for(const auto& S:M.State.WeldingStations)for(auto& R:M.State.Routes)R.Sources.Remove(S.Id);}
 int OutCount(const FFoundrylineFactorySimulation& M,int Station){int V=0;for(const auto& A:M.State.Pallets)if(A.Owner==Station&&A.Place==Place::StationOut)V+=A.Quantity;return V;}
 template<class F> bool StepUntil(FFoundrylineFactorySimulation& M,F Done,int Steps=20000){for(int I=0;I<Steps;++I){if(Done())return true;M.Step(.1f);}return Done();}
 // Work done per second of plant time over a short stretch of welding.
@@ -24,7 +26,7 @@ float MeasuredRate(FFoundrylineFactorySimulation& M){const float W0=M.State.Weld
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeldingStationTwoWelders,"Foundryline.Factory.WeldingStation.TwoWelders",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FWeldingStationTwoWelders::RunTest(const FString&){using namespace WeldingTwoWelderTest;
- FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station with two kits: ")+E,TwoWelderStation(M,E)))return false;
+ FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station with two kits: ")+E,TwoWelderStation(M,E)))return false;LeaveOut(M);
  const int Id=M.State.WeldingStations[0].Id;TestTrue(TEXT("Headache racks x2: ")+E,M.ConfigureWeldingStation(Id,1,2,E));
  FFoundrylineAssemblyRecipe R;FFoundrylineFactoryCatalog::Recipe(1,R);TestEqual(TEXT("The two-welder rate is recipe balance data: 170%"),R.TwoWelderRate,1.7f);
  const int A=Hire(M,E),B=Hire(M,E),Late=Hire(M,E);if(!TestTrue(TEXT("Hire three welders: ")+E,A&&B&&Late))return false;
