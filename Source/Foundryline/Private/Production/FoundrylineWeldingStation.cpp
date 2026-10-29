@@ -25,7 +25,8 @@ void AFoundrylineWeldingStation::BeginPlay(){
  for(int X:{90,162})for(int Y:{-28,28}){auto* L=Mesh(NAME_None,TEXT("/Engine/BasicShapes/Cube.Cube"),FVector(X,Y,38),FVector(.05,.05,.76));if(Steel)L->SetMaterial(0,Steel);}
  // Fixture supports the demonstration gun until worker-hand animation is connected.
  auto* Stand=Mesh(TEXT("GunFixture"),TEXT("/Engine/BasicShapes/Cube.Cube"),FVector(94,0,85),FVector(.035,.12,.12));if(Steel)Stand->SetMaterial(0,Steel);
- const FVector LeadPoints[]={{54,-12,53},{75,-45,30},{85,-65,4},{60,-70,4},{76,-55,75},{88,-40,88},{90.38f,0,82.65f}};
+ // Codex's rebuild is imported with Blender's Y mirrored: the lead leaves the +Y-side sockets.
+ const FVector LeadPoints[]={{54,12,53},{75,45,30},{85,65,4},{60,70,4},{76,55,75},{88,40,88},{90.38f,0,82.65f}};
  auto* Rubber=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Shared/Materials/MaterialHandling/M_MH_Rubber.M_MH_Rubber"));
  for(int32 I=0;I<6;++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.028f));Lead->SetEndScale(FVector2D(.028f));
   const FVector StartTangent=I==0?LeadPoints[1]-LeadPoints[0]:(LeadPoints[I+1]-LeadPoints[I-1])*.5;
