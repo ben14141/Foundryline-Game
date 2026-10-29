@@ -1,18 +1,15 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
 #include "Economy/FoundrylineEconomyTuning.h"
+#include "FoundrylineWeldingStationTestHelpers.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "SaveSystem/FoundrylineFactorySave.h"
 #include "Kismet/GameplayStatics.h"
 namespace {
 using Layout=FFoundrylineWeldingStationLayout;using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using Act=EFoundrylineCommerceAction;
-// Cut-parts starter reorganised exactly as the Phase 1 starter test: three paint strokes, then the station north of the burn table.
-bool StarterStation(FFoundrylineFactorySimulation& M,FString& E){
- M.SeedCutPartsShop(true);M.State.Commerce.CashCents=1000000;
- return M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,2170,20},304.8f,0,E)&&M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E)
-  &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1370,1450,20},{-1370,1450,20},200,0,E)&&M.AddWeldingStation({-1768.02,1823.12,20},0,false,E);
-}
+// The shared reorganised starter with the station placed.
+bool StarterStation(FFoundrylineFactorySimulation& M,FString& E){return FoundrylineWeldingTestHelpers::StarterStation(M,E);}
 // Cut plates and brackets already in the finished-parts racks, as the plasma table leaves them.
 void RackStock(FFoundrylineFactorySimulation& M,Part P,int Slot,int Quantity,float UnitLb){auto* S=M.State.Slots.FindByPredicate([&](const auto& V){return V.Id==Slot;});S->Part=P;FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Quantity;A.Place=Place::Rack;A.Owner=Slot;A.Position=S->Position;A.UnitLb=UnitLb;M.State.Pallets.Add(A);}
 bool Buy(FFoundrylineFactorySimulation& M,int Station,Part P,int Quantity,FString& E){FFoundrylineCommerceCommand A;A.Action=Act::BuyParts;A.Id=Station;A.Choice=int(P);A.Quantity=Quantity;return M.CommerceCommand(A,E);}
@@ -36,12 +33,12 @@ bool FWeldingStationSupplies::RunTest(const FString&){
  TestFalse(TEXT("Unknown recipe rejected"),M.ConfigureWeldingStation(Id,7,10,E));
  TestTrue(TEXT("Choose headache racks x10: ")+E,M.ConfigureWeldingStation(Id,1,10,E));
  const auto& S=M.State.WeldingStations[0];
- TestTrue(TEXT("Buffer target is two kits within the bins"),M.StationTarget(S,Part::MountingPlate)==4&&M.StationTarget(S,Part::Bracket)==8&&M.StationTarget(S,Part::FrameSection)==12&&M.StationTarget(S,Part::LightKit)==4);
+ TestTrue(TEXT("Stock target is two kits within the IN capacity"),M.StationTarget(S,Part::MountingPlate)==4&&M.StationTarget(S,Part::Bracket)==8&&M.StationTarget(S,Part::FrameSection)==12&&M.StationTarget(S,Part::LightKit)==4);
  TestTrue(TEXT("Missing bought parts produce a Buy parts status: ")+M.WeldingStationStatus(S),M.WeldingStationStatus(S).Contains(TEXT("buy parts"))||M.WeldingStationStatus(S).Contains(TEXT("plasma")));
 
  RackStock(M,Part::Bracket,107,20,5);RackStock(M,Part::MountingPlate,108,10,2);
  const int64 Cash=M.State.Commerce.CashCents;
- TestFalse(TEXT("Cannot buy more than the bins lack"),Buy(M,Id,Part::FrameSection,13,E));
+ TestFalse(TEXT("Cannot buy more than the IN stock lacks"),Buy(M,Id,Part::FrameSection,13,E));
  TestTrue(TEXT("Buy 12 frame sections: ")+E,Buy(M,Id,Part::FrameSection,12,E));TestTrue(TEXT("Buy 4 light kits: ")+E,Buy(M,Id,Part::LightKit,4,E));
  TestEqual(TEXT("Paid parts plus two supplier freight bookings"),Cash-M.State.Commerce.CashCents,12*Frame.PriceCents+4*Light.PriceCents+2*FFoundrylineEconomyTuning::SupplierFreightCents);
  TestFalse(TEXT("Booked parts count; a second purchase is refused"),Buy(M,Id,Part::LightKit,1,E));
@@ -86,7 +83,7 @@ bool FWeldingStationSupplies::RunTest(const FString&){
    if(O->Quantity>=20)TestTrue(TEXT("Station asks for more cutting instead"),T.WeldingStationStatus(T.State.WeldingStations[0]).Contains(TEXT("plasma"))||T.WeldingStationStatus(T.State.WeldingStations[0]).Contains(TEXT("buy")));}
   else AddError(TEXT("Starter offers no bracket order"));}}
 
- // Stopping the batch stops requests but keeps parts in the bins.
+ // Stopping the batch stops requests but keeps parts in the IN stock.
  TestTrue(TEXT("Stop the batch"),M.ConfigureWeldingStation(Id,0,0,E));TestEqual(TEXT("Stopped station targets nothing"),M.StationTarget(M.State.WeldingStations[0],Part::FrameSection),0);TestEqual(TEXT("Bins keep their parts"),Bin(M,Id,Part::FrameSection),12);
  {auto T=M;T.State.WeldingStations[0].BatchRemaining=5;TestFalse(TEXT("Batch without a recipe rejected"),T.Valid(E));}
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Part==Part::FrameSection)A.Quantity=13;TestFalse(TEXT("Overfilled bin rejected"),T.Valid(E));}

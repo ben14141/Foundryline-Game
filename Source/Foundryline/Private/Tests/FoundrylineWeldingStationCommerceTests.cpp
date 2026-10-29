@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "FoundrylineWeldingStationTestHelpers.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "SaveSystem/FoundrylineFactorySave.h"
@@ -7,17 +8,11 @@
 #include "UI/FoundrylineERPViewModel.h"
 namespace WeldingCommerceTest {
 using Layout=FFoundrylineWeldingStationLayout;using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using Act=EFoundrylineCommerceAction;using Role=EFoundrylineEmployeeRole;
-// Reorganised cut-parts starter with the station north of the burn table, as in the assembly tests.
-bool Station(FFoundrylineFactorySimulation& M,FString& E){
- return M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,2170,20},304.8f,0,E)&&M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E)
-  &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1370,1450,20},{-1370,1450,20},200,0,E)&&M.AddWeldingStation({-1768.02,1823.12,20},0,false,E);
-}
-const float KitLb=2*2+4*5+6*16+2*4.5f;
-// Bins topped up to two whole kits (Phase 2 delivers exactly these), so the batch never waits on supplies.
-void TopUpBins(FFoundrylineFactorySimulation& M){const auto& S=M.State.WeldingStations[0];
- for(auto [P,Q,Lb]:{TTuple<Part,int,float>{Part::MountingPlate,4,2},{Part::Bracket,8,5},{Part::FrameSection,12,16},{Part::LightKit,4,4.5f}}){
-  auto* Bin=M.State.Pallets.FindByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::Buffer&&A.Part==P;});
-  if(Bin)Bin->Quantity=Q;else{FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Q;A.Place=Place::Buffer;A.Owner=S.Id;A.Position=Layout::BinPoint(S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}}}
+// The shared reorganised starter layout with the station placed.
+bool Station(FFoundrylineFactorySimulation& M,FString& E){return FoundrylineWeldingTestHelpers::PaintStarterAndPlaceStation(M,E);}
+using FoundrylineWeldingTestHelpers::KitLb;
+// Kit stock topped up to exactly two whole kits, so the batch never waits on supplies.
+void TopUpBins(FFoundrylineFactorySimulation& M){FoundrylineWeldingTestHelpers::KitStock(M,M.State.WeldingStations[0],true);}
 int Racks(const FFoundrylineFactorySimulation& M,Place Where){int N=0;for(const auto& A:M.State.Pallets)if(A.Part==Part::HeadacheRack&&A.Place==Where)N+=A.Quantity;return N;}
 bool Welder(FFoundrylineFactorySimulation& M,FString& E){return M.HireEmployee(Role::Welder,FGuid::NewGuid(),E)&&M.AssignEmployee(M.State.UnassignedEmployees.Last().Id,Role::Welder,M.State.WeldingStations[0].Id,E);}
 template<class F> bool Pump(FFoundrylineFactorySimulation& M,F Done,int Steps=30000,bool Refill=true){for(int I=0;I<Steps;++I){if(Done())return true;if(Refill&&!M.State.WeldingStations[0].Stage)TopUpBins(M);M.Step(.1f);}return Done();}
