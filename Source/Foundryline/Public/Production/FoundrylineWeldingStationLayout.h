@@ -40,13 +40,21 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static TArray<FBox2D> AccessRing(const FFoundrylineWeldingStationRecord& S){return {EndAccess(S,false),EndAccess(S,true),WorkerApproach(S,0),WorkerApproach(S,1)};}
  // Welder A's machine sits at the left end of their strip, Welder B's at the right: diagonal, so leads never cross.
  static FBox2D MachineBay(const FFoundrylineWeldingStationRecord& S,int32 Side){return Side?Rect(S,12.5,10.5,17,13):Rect(S,0,0,4.5,2.5);}
- // Existing Welder_Machine footprint (manifest), long side along the station length. Its front panel (display, controls and
- // lead terminals) is the model's +X end, which faces in along the bench toward that machine's own welder; the gun holster,
- // modelled on the -Y long side, is then on the machine's outer side within the bay.
- static FVector MachineSizeCm(){return {122.5561,70.7,160.8};}
- static FTransform MachineTransform(const FFoundrylineWeldingStationRecord& S,int32 Side){const FBox2D B=MachineBay(S,Side);return FTransform(FRotator(0,Rotation(S).Yaw+(Side?180:0),0),FVector(B.GetCenter(),20));}
- // Idle lead from the front terminals, along the floor and up the machine's side to the holstered gun (machine-local cm).
- static TArray<FVector> IdleLead(){return {{54,-12,53},{66,-24,5},{30,-38,5},{17,-38,78}};}
+ // Codex's MIG welder rebuild (SM_Welder_Machine): cart, power unit and bottle, bounds as imported (Blender's Y is mirrored
+ // by the FBX import, so the holster that the source places at Y -38 cm is at +38 here). It stands lengthwise in its bay,
+ // centred on the bounds. Its front panel (display, controls and lead sockets, the model's +X end) faces in along the bench
+ // toward that machine's own welder; the gun holster is then on the machine's outer side.
+ static FVector MachineSizeCm(){return {112.15,76.05,162.1};}
+ static FVector MachineBoundsCentreCm(){return {.875,1.475,0};}
+ static FTransform MachineTransform(const FFoundrylineWeldingStationRecord& S,int32 Side){const FBox2D B=MachineBay(S,Side);const FRotator R(0,Rotation(S).Yaw+(Side?180:0),0);return FTransform(R,FVector(B.GetCenter(),20)-R.RotateVector(MachineBoundsCentreCm()));}
+ // Machine-local anchors (cm): holstered gun, front lead sockets, and the idle lead from the sockets to the holstered gun.
+ static FVector HolsterCm(){return {17,38,87};}
+ static FVector LeadSocketCm(){return {54,12,53};}
+ // The ground (work) clamp hangs on the cart's inner side when idle.
+ static FVector ClampIdleCm(){return {5,-44,8};}
+ static TArray<FVector> IdleLead(){return {LeadSocketCm(),{66,24,5},{30,38,5},{17,38,78}};}
+ // Torch support-hand anchor (gun-local cm, the imported SOCKET_Support).
+ static FVector GunSupportCm(){return {3,3,8};}
  static FVector WorkPoint(const FFoundrylineWeldingStationRecord& S,int32 Side);
  static float WorkYaw(const FFoundrylineWeldingStationRecord& S,int32 Side){return Rotation(S).Yaw+(Side?-90:90);}
  static FTransform BenchTransform(const FFoundrylineWeldingStationRecord& S);

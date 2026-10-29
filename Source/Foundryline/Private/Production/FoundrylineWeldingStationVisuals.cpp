@@ -37,6 +37,7 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
  // One welding machine per welder side, front panel facing in, each with its own holstered gun and the lead to it.
  auto* Machine=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_Machine.SM_Welder_Machine")):nullptr;
  auto* Gun=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_MIGGun.SM_Welder_MIGGun")):nullptr;
+ auto* Clamp=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_WorkClamp.SM_Welder_WorkClamp")):nullptr;
  auto* Cable=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cylinder.Cylinder")):nullptr;auto* Rubber=Render?LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Shared/Materials/MaterialHandling/M_MH_Rubber.M_MH_Rubber")):nullptr;
  StationIdleLeads.Reset();
  for(const auto& S:Snapshot.WeldingStations)for(int Side=0;Side<2;++Side){const FTransform T=Layout::MachineTransform(S,Side);const FVector Size=Layout::MachineSizeCm();
@@ -44,7 +45,7 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   Box->SetRelativeLocationAndRotation(T.GetLocation()+FVector(0,0,Size.Z/2),T.Rotator());StationCollision.Add(Box);
   if(!Render)continue;
   auto Mesh=[&](UStaticMesh* M,const FTransform& At)->UStaticMeshComponent*{if(!M)return nullptr;auto* C=NewObject<UStaticMeshComponent>(this);C->SetupAttachment(RootComponent);C->SetStaticMesh(M);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);C->SetRelativeTransform(At);StationMeshes.Add(C);return C;};
-  Mesh(Machine,T);StationHolsteredGuns.Add(Mesh(Gun,FTransform(T.Rotator(),T.TransformPosition(FVector(17,-38,87)))));
+  Mesh(Machine,T);StationHolsteredGuns.Add(Mesh(Gun,FTransform(T.Rotator(),T.TransformPosition(Layout::HolsterCm()))));Mesh(Clamp,FTransform(T.Rotator(),T.TransformPosition(Layout::ClampIdleCm())));
   // The coiled-lead model would spill into the walkway once the front faces in, so the idle lead is routed instead.
   const auto P=Layout::IdleLead();if(Cable)for(int I=0;I+1<P.Num();++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetMobility(EComponentMobility::Movable);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(Cable);Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.024f));Lead->SetEndScale(FVector2D(.024f));
    const FVector A=T.TransformPosition(P[I]),B=T.TransformPosition(P[I+1]);Lead->SetStartAndEnd(A,B-A,B,B-A);Lead->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lead->SetCanEverAffectNavigation(false);if(Rubber)Lead->SetMaterial(0,Rubber);Lead->RegisterComponent();AddInstanceComponent(Lead);StationMeshes.Add(Lead);StationIdleLeads.Add(Lead);}
@@ -91,7 +92,7 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   for(int Side=0;Side<2;++Side){const FRotator GunRotation(-30,Layout::WorkYaw(S,Side),0);auto* InHand=Add(Gun,FTransform(GunRotation,On.GetLocation()));StationGuns.Add(InHand);
    if(InHand){auto* Effect=NewObject<UFoundrylineWeldingEffectComponent>(this);Effect->SetIsReplicated(false);Effect->SetLocalActivity(false);Effect->SetupAttachment(InHand,TEXT("WeldTip"));Effect->RegisterComponent();AddInstanceComponent(Effect);StationUnitParts.Add(Effect);StationWeldEffects.Add(Effect);}else StationWeldEffects.Add(nullptr);
    const FTransform Own=Layout::MachineTransform(S,Side);const FVector Work=Layout::WorkPoint(S,Side),ToMachine=(Own.GetLocation()-Work).GetSafeNormal2D();
-   const FVector Points[]={Own.TransformPosition({54,-12,53}),Own.TransformPosition({80,-12,4}),Work+ToMachine*25+FVector(0,0,4),Work+FVector(0,0,85),On.GetLocation()};
+   const FVector Points[]={Own.TransformPosition(Layout::LeadSocketCm()),Own.TransformPosition({80,12,4}),Work+ToMachine*25+FVector(0,0,4),Work+FVector(0,0,85),On.GetLocation()};
    for(int I=0;I<4;++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetMobility(EComponentMobility::Movable);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(Cable);Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.024f));Lead->SetEndScale(FVector2D(.024f));
     Lead->SetStartAndEnd(Points[I],Points[I+1]-Points[I],Points[I+1],Points[I+1]-Points[I]);Lead->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lead->SetCanEverAffectNavigation(false);if(Rubber)Lead->SetMaterial(0,Rubber);Lead->RegisterComponent();AddInstanceComponent(Lead);Lead->SetVisibility(false);StationUnitParts.Add(Lead);StationLeads.Add(Lead);}}
   StationShownStage.Add(-1);
@@ -147,7 +148,7 @@ void AFoundrylineFactoryPlant::AnimateWeldingStations(float Dt,double Age){
    const FVector Seam=Bench.GetLocation()+FVector(0,0,Layout::RackOnBenchCm().Max.Z-8)+Toward*30+Along*(Half*40+28*FMath::Sin(Work*.18f+Side*1.3f))+FVector(0,0,1.5f*FMath::Sin(Work*2.6f+Side));
    const FVector Socket=G->GetSocketTransform(TEXT("WeldTip"),RTS_Component).GetLocation();const FVector Target=Seam-G->GetRelativeRotation().RotateVector(Socket);
    const FVector Position=FMath::VInterpTo(G->GetRelativeLocation(),Target,Dt,18);G->SetRelativeLocation(Position);if(StationLeads.IsValidIndex(K*4+3))StationLeads[K*4+3]->SetEndPosition(Position);
-   for(const auto& Employee:CachedEmployees)if(Welder&&Employee.Id==Welder->Id&&Employee.Role==EFoundrylineEmployeeRole::Welder)if(auto* Visual=EmployeeVisuals.FindRef(Employee.Key).Get())Visual->PresentWeldingGrip(G->GetComponentLocation(),G->GetComponentTransform().TransformPosition(FVector(3,-3,8)));}
+   for(const auto& Employee:CachedEmployees)if(Welder&&Employee.Id==Welder->Id&&Employee.Role==EFoundrylineEmployeeRole::Welder)if(auto* Visual=EmployeeVisuals.FindRef(Employee.Key).Get())Visual->PresentWeldingGrip(G->GetComponentLocation(),G->GetComponentTransform().TransformPosition(Layout::GunSupportCm()));}
  }
 }
 // Fit-up's first part: the kit's frame sections, plates and brackets laid out on the worktop beside the fixture, one by one.
