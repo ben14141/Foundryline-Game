@@ -1,5 +1,5 @@
-#include "Construction/FoundrylineEquipmentCollision.h"
 #include "Production/FoundrylineWeldingStation.h"
+#include "Construction/FoundrylineEquipmentCollision.h"
 #include "Production/FoundrylineWeldingEffectComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"

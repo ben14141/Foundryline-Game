@@ -14,7 +14,6 @@ public:
  UFUNCTION(BlueprintPure,Category="Driving") int32 GetParkingTargetCount();
  UFUNCTION(BlueprintPure,Category="Driving") int32 GetTruckTargetCount();
  UFUNCTION(BlueprintPure,Category="Driving") FString GetDrivingDigest();
- void DrawOverlay(FVector ViewLocation,const FFoundrylineVehicleRoute* Route=nullptr,bool Semi=false) const;
  bool ReserveTarget(FGuid Target,FGuid Vehicle);void ReleaseTarget(FGuid Target,FGuid Vehicle);
  bool IsTargetAvailable(FGuid Target) const;
 private:

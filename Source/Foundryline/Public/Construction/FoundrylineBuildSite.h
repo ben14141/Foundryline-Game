@@ -46,7 +46,10 @@ public:
  bool CanRedo() const {return !RedoStack.IsEmpty();}
  const FFoundrylinePlacedObject* GetSelectedObject() const;
  const FFoundrylinePlacedObject* ObjectAt(FIntVector Cursor) const {return Pick(Cursor);}
- void DrawSelection(FIntVector Cursor,bool Hover);
+ // Selection/hover outlines are recorded here each frame and drawn by the HUD, so they survive Shipping builds.
+ struct FSelectionOutline{FVector2D Min,Max;float Z=0;bool Hover=false;};
+ TArray<FSelectionOutline> SelectionOutlines;
+ void RecordSelection(FIntVector Cursor,bool Hover);
  UFUNCTION(BlueprintCallable,Category="Property") void SaveProperty(const FString& Slot=TEXT("Property01"));
  UFUNCTION(BlueprintCallable,Category="Property") void LoadProperty(const FString& Slot=TEXT("Property01"));
  bool IsPropertyBusy() const;

@@ -1,6 +1,5 @@
 #include "UI/FoundrylinePlayerController.h"
 #include "Components/InputComponent.h"
-#include "DrawDebugHelpers.h"
 #include "World/FoundrylineViewMath.h"
 #include "Construction/FoundrylineBuildSite.h"
 #include "EngineUtils.h"
@@ -270,8 +269,9 @@ void AFoundrylinePlayerController::PlayerTick(float DeltaSeconds)
 		for (TActorIterator<AFoundrylineBuildSite> It(GetWorld()); It; ++It)
 		{
 			FIntVector SelectionCursor=FIntVector::ZeroValue;const bool HasCursor=!IsOverBuildHUD() && GetCursorAnchor(SelectionCursor);
-            It->DrawSelection(FIntVector::ZeroValue,false);
-            if(HasCursor && (BuildTool.IsNone() || AFoundrylineBuildSite::IsEditTool(BuildTool)) && !bDraggingBuild) It->DrawSelection(SelectionCursor,true);
+            It->SelectionOutlines.Reset();
+            if(!IsWalking()) It->RecordSelection(FIntVector::ZeroValue,false);
+            if(!IsWalking() && HasCursor && (BuildTool.IsNone() || AFoundrylineBuildSite::IsEditTool(BuildTool)) && !bDraggingBuild) It->RecordSelection(SelectionCursor,true);
             if (It->IsPropertyBusy() || BuildTool.IsNone() || IsOverBuildHUD() || !GetCursorAnchor(BuildAnchor)) It->HidePreview();
 			else if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock")) It->PreviewDoor(BuildTool, BuildAnchor);
 			else if(BuildTool==TEXT("Columns")) It->PreviewColumns(BuildAnchor);
