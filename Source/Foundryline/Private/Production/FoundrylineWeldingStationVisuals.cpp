@@ -50,28 +50,19 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   const auto P=Layout::IdleLead();if(Cable)for(int I=0;I+1<P.Num();++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetMobility(EComponentMobility::Movable);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(Cable);Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.024f));Lead->SetEndScale(FVector2D(.024f));
    const FVector A=T.TransformPosition(P[I]),B=T.TransformPosition(P[I+1]);Lead->SetStartAndEnd(A,B-A,B,B-A);Lead->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lead->SetCanEverAffectNavigation(false);if(Rubber)Lead->SetMaterial(0,Rubber);Lead->RegisterComponent();AddInstanceComponent(Lead);StationMeshes.Add(Lead);StationIdleLeads.Add(Lead);}
  }
- // Parts bay rack beside IN (frame cradle below, three bins on the shelf), built from painted blocks, and the two OUT pallets.
+ // The two OUT pallets (the IN stock pallets come and go with their stock; see RebuildVisuals).
  // The OUT pallets are always there: a forklift that takes a loaded one leaves an empty in its place.
- // SM_PalletRack_1Level is a 10 ft x 4 ft 10 in floor pallet bay with no shelf, so it cannot stand in the 4.5 x 2.5 ft parts bay.
  auto* Block=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube")):nullptr;
  auto* Orange=Render?LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Shared/Materials/MaterialHandling/M_MH_FoundryOrange.M_MH_FoundryOrange")):nullptr;
  auto* Steel=Render?LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Construction/Materials/M_Metal.M_Metal")):nullptr;
  auto* Wood=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Inventory/Storage/Pallets/SM_Pallet_Wood.SM_Pallet_Wood")):nullptr;
  for(const auto& S:Snapshot.WeldingStations){const FRotator Yaw=Layout::Rotation(S);
   auto Collide=[&](FVector Center,FVector Extent,FRotator Rot){auto* Box=NewObject<UBoxComponent>(this);Box->SetupAttachment(RootComponent);Box->SetBoxExtent(Extent);Box->ComponentTags.Add(TEXT("FoundrylinePhysicalCollision"));Box->SetCollisionProfileName(TEXT("BlockAllDynamic"));Box->SetCanEverAffectNavigation(false);Box->RegisterComponent();AddInstanceComponent(Box);Box->SetRelativeLocationAndRotation(Center,Rot);StationCollision.Add(Box);};
-  const FBox2D Bay=Layout::PartsBay(S);const FVector BayCenter(Bay.GetCenter(),20);
-
-  Collide(BayCenter+FVector(0,0,50),FVector(Bay.GetSize()/2,50),FRotator::ZeroRotator);
   for(int Slot=0;Slot<Layout::OutPallets;++Slot){const FTransform T=Layout::OutPalletTransform(S,Slot);Collide(T.GetLocation()+FVector(0,0,Layout::PalletTopCm/2),Layout::PalletSizeCm()/2,T.Rotator());
    if(!Wood)continue;auto* Mc=NewObject<UStaticMeshComponent>(this);Mc->SetupAttachment(RootComponent);Mc->SetStaticMesh(Wood);Mc->SetCollisionEnabled(ECollisionEnabled::NoCollision);Mc->SetCanEverAffectNavigation(false);Mc->RegisterComponent();AddInstanceComponent(Mc);Mc->SetRelativeTransform(T);StationMeshes.Add(Mc);}
   if(!Block)continue;
   // Box in a local frame: centre and size in cm, turned with that frame.
   auto Part=[&](const FTransform& Frame,FVector Center,FVector Size,UMaterialInterface* M){auto* Mc=NewObject<UStaticMeshComponent>(this);Mc->SetupAttachment(RootComponent);Mc->SetStaticMesh(Block);Mc->SetCollisionEnabled(ECollisionEnabled::NoCollision);Mc->SetCanEverAffectNavigation(false);Mc->RegisterComponent();AddInstanceComponent(Mc);Mc->SetRelativeTransform(FTransform(Frame.Rotator(),Frame.TransformPosition(Center),Size/100));if(M)Mc->SetMaterial(0,M);StationMeshes.Add(Mc);};
-  const FTransform BayFrame(Yaw,BayCenter);const double HX=Layout::Foot*4.5/2-4,HY=Layout::Foot*2.5/2-4,Shelf=Layout::BinShelfCm;
-  for(int Corner=0;Corner<4;++Corner)Part(BayFrame,FVector(Corner&1?HX:-HX,Corner&2?HY:-HY,52),FVector(5,5,104),Orange);
-  Part(BayFrame,FVector(0,0,Shelf-1.5),FVector(2*HX+5,2*HY+5,3),Steel);
-  for(double X:{-21.,21.})Part(BayFrame,FVector(X,0,Shelf+6),FVector(1,2*HY,12),Steel);
-  for(double X:{-45.,45.})Part(BayFrame,FVector(X,0,6),FVector(8,2*HY,12),Orange);
  }
  if(!Render)return;
  // The unit on the bench, Welder A's gun in hand with its lead back to their own machine, and the sparks at the tip.

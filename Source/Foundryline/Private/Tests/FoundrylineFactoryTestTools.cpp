@@ -116,6 +116,35 @@ bool UFoundrylineNetworkTestTools::SetWeldingOutStacks(APlayerController* Host,i
  return false;
 #endif
 }
+bool UFoundrylineNetworkTestTools::SetupWeldingAssemblyReviewForPlant(APlayerController* Host,int32 StationId,FGuid PlantId){
+#if WITH_EDITOR
+ if(!Host||!Host->HasAuthority()||Host->GetWorld()->WorldType!=EWorldType::PIE)return false;
+ for(TActorIterator<AFoundrylineFactoryPlant> It(Host->GetWorld());It;++It)if(It->BusinessPlantId==PlantId){auto& M=It->Model;const auto* S=M.State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==StationId;});if(!S)return false;
+  for(auto [P,Q,Lb]:{TTuple<EFoundrylinePart,int,float>{EFoundrylinePart::MountingPlate,4,2},{EFoundrylinePart::Bracket,8,5},{EFoundrylinePart::FrameSection,12,16},{EFoundrylinePart::LightKit,4,4.5f}}){
+   const int Room=FMath::Min(Q,FFoundrylineWeldingStationLayout::BinCapacity(P)-M.StationStock(*S,P));if(Room<=0)continue;
+   FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Room;A.Place=EFoundrylinePalletPlace::Buffer;A.Owner=StationId;A.Position=FFoundrylineWeldingStationLayout::BinPoint(*S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}
+  M.State.Running=true;++M.State.Revision;return true;}
+#endif
+ return false;
+}
+bool UFoundrylineNetworkTestTools::QueueWeldingCommandForPlant(APlayerController* Player,FGuid PlantId,const FString& Action,int32 StationId,FVector Center,int32 Count){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
+ FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,PlantId,Action,StationId,Center,Count](float){if(Weak.IsValid()){FFoundrylineFactoryCommand C;
+  C.Action=Action==TEXT("Add")?EFoundrylineFactoryAction::AddWeldingStation:Action==TEXT("Remove")?EFoundrylineFactoryAction::RemoveWeldingStation:EFoundrylineFactoryAction::ConfigureWeldingStation;
+  C.Id=StationId;C.A=Center;C.QuarterTurns=0;C.SupplySide=1;C.Other=Count>0?1:0;C.Count=Count;C.TargetPlantId=PlantId;Weak->SendFactory(C);}return false;}));return true;
+#else
+ return false;
+#endif
+}
+bool UFoundrylineNetworkTestTools::QueuePlasmaProgram(APlayerController* Player,int32 Part,int32 Batch){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
+ FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Part,Batch](float){if(Weak.IsValid())if(auto* Plant=Weak->FactoryPlant()){FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::Program;C.Id=1;C.Part=EFoundrylinePart(Part);C.Count=Batch;C.Flag=false;C.TargetPlantId=Plant->BusinessPlantId;Weak->SendFactory(C);}return false;}));return true;
+#else
+ return false;
+#endif
+}
 bool UFoundrylineNetworkTestTools::SetupWeldingAssemblyReview(APlayerController* Host,int32 StationId){
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Host);if(!PC||!PC->HasAuthority()||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;auto* Plant=PC->FactoryPlant();if(!Plant)return false;
