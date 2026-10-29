@@ -4,10 +4,10 @@
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "SaveSystem/FoundrylineFactorySave.h"
 #include "Kismet/GameplayStatics.h"
-namespace {
+namespace WeldingAssemblyTest {
 using Layout=FFoundrylineWeldingStationLayout;using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using Role=EFoundrylineEmployeeRole;
 // Same reorganised cut-parts starter as the Phase 1/2 tests, with the station north of the burn table.
-bool StarterStation(FFoundrylineFactorySimulation& M,FString& E){
+bool AssemblyStarterStation(FFoundrylineFactorySimulation& M,FString& E){
  M.SeedCutPartsShop(true);M.State.Commerce.CashCents=1000000;
  return M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,2170,20},304.8f,0,E)&&M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E)
   &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1394,1450,20},{-1394,1450,20},200,0,E)&&M.AddWeldingStation({-1806.12,1823.12,20},0,false,E);
@@ -17,15 +17,15 @@ void FillBins(FFoundrylineFactorySimulation& M,const FFoundrylineWeldingStationR
  for(auto [P,Q,Lb]:{TTuple<Part,int,float>{Part::MountingPlate,4,2},{Part::Bracket,8,5},{Part::FrameSection,12,16},{Part::LightKit,4,4.5f}}){
   FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Q;A.Place=Place::Buffer;A.Owner=S.Id;A.Position=Layout::BinPoint(S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}
 }
-int Bin(const FFoundrylineFactorySimulation& M,int Station,Part P){int V=0;for(const auto& A:M.State.Pallets)if(A.Owner==Station&&A.Place==Place::Buffer&&A.Part==P)V+=A.Quantity;return V;}
+int KitBin(const FFoundrylineFactorySimulation& M,int Station,Part P){int V=0;for(const auto& A:M.State.Pallets)if(A.Owner==Station&&A.Place==Place::Buffer&&A.Part==P)V+=A.Quantity;return V;}
 int OnOut(const FFoundrylineFactorySimulation& M,int Station){int V=0;for(const auto& A:M.State.Pallets)if(A.Owner==Station&&A.Place==Place::StationOut)V+=A.Quantity;return V;}
 const FFoundrylineWeldingStationRecord& Station(const FFoundrylineFactorySimulation& M){return M.State.WeldingStations[0];}
 // Steps until the condition holds; false if it never does.
 template<class F> bool RunUntil(FFoundrylineFactorySimulation& M,F Done,int Steps=20000){for(int I=0;I<Steps;++I){if(Done())return true;M.Step(.1f);}return Done();}
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeldingStationAssembly,"Foundryline.Factory.WeldingStation.Assembly",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
-bool FWeldingStationAssembly::RunTest(const FString&){
- FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station places: ")+E,StarterStation(M,E)))return false;
+bool FWeldingStationAssembly::RunTest(const FString&){using namespace WeldingAssemblyTest;
+ FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station places: ")+E,AssemblyStarterStation(M,E)))return false;
  const int Id=Station(M).Id;TestTrue(TEXT("Headache racks x2: ")+E,M.ConfigureWeldingStation(Id,1,2,E));FillBins(M,Station(M));
  FFoundrylineAssemblyRecipe R;FFoundrylineFactoryCatalog::Recipe(1,R);const float KitLb=2*2+4*5+6*16+2*4.5f;
  M.State.Running=true;M.State.Speed=8;const float Mass=M.SteelMass();
@@ -44,7 +44,7 @@ bool FWeldingStationAssembly::RunTest(const FString&){
  // They walk to Welder A's work point; the kit is reserved only then, exactly once.
  if(!TestTrue(TEXT("Welder reaches the work point and a unit starts"),RunUntil(M,[&]{return Station(M).Stage>0;})))return false;
  TestTrue(TEXT("Welder stands at Welder A's work point"),M.StationWelderReady(Station(M)));
- TestTrue(TEXT("Exactly one kit left the bins"),Bin(M,Id,Part::MountingPlate)==2&&Bin(M,Id,Part::Bracket)==4&&Bin(M,Id,Part::FrameSection)==6&&Bin(M,Id,Part::LightKit)==2);
+ TestTrue(TEXT("Exactly one kit left the bins"),KitBin(M,Id,Part::MountingPlate)==2&&KitBin(M,Id,Part::Bracket)==4&&KitBin(M,Id,Part::FrameSection)==6&&KitBin(M,Id,Part::LightKit)==2);
  TestTrue(TEXT("The unit holds the recipe's whole kit"),Station(M).Reserved==R.Bill&&FMath::IsNearlyEqual(Station(M).ReservedLb,KitLb,.01f)&&Station(M).UnitRecipe==1);
  TestEqual(TEXT("One unit of the batch is in work"),Station(M).BatchRemaining,1);
  TestTrue(TEXT("Material mass is conserved at kit reservation"),FMath::Abs(M.SteelMass()-Mass)<.01f);
@@ -82,7 +82,7 @@ bool FWeldingStationAssembly::RunTest(const FString&){
  TestTrue(TEXT("Exactly one headache rack on the OUT cradle, never two"),Out&&Out->Part==Part::HeadacheRack&&Out->Quantity==1&&MaxOut==1);
  TestTrue(TEXT("The rack carries the whole kit's mass"),Out&&FMath::IsNearlyEqual(Out->UnitLb,KitLb,.01f));
  TestTrue(TEXT("Bench is clear and the unit counted once"),Station(M).Stage==0&&Station(M).UnitsCompleted==1&&Station(M).ReservedLb==0&&!Station(M).UnitRecipe);
- TestTrue(TEXT("The stopped batch starts no new unit; the second kit stays in the bins"),Bin(M,Id,Part::FrameSection)==6&&Bin(M,Id,Part::LightKit)==2);
+ TestTrue(TEXT("The stopped batch starts no new unit; the second kit stays in the bins"),KitBin(M,Id,Part::FrameSection)==6&&KitBin(M,Id,Part::LightKit)==2);
  TestTrue(TEXT("Material mass is conserved through to the finished rack"),FMath::Abs(M.SteelMass()-Mass)<.01f);
  TestTrue(TEXT("Station with a rack on OUT validates: ")+E,M.Valid(E));
 

@@ -117,8 +117,11 @@ void AFoundrylineFactoryPlant::AnimateWeldingStations(float Dt,double Age){
    if(StationShownStage[I]!=Stage){R->EmptyOverrideMaterials();if(Stage==3)for(int Slot=0;Slot<R->GetNumMaterials();++Slot)if(IsRackLight(R->GetMaterial(Slot)))
      if(auto* Base=LoadObject<UMaterialInterface>(nullptr,*(FString(TEXT("/Game/Foundryline/Production/Materials/M_FactoryBuild"))+RackBuildSuffix(R->GetMaterial(Slot)))))R->SetMaterial(Slot,RackProgressMaterial(Base,A));}
    if(Stage==3)Fraction(R,Shown);
-   // A short lift from the fixture across to the OUT cradle; the OUT product replaces it when it lands.
-   if(Stage==4){const float T=FMath::SmoothStep(0.f,1.f,F);R->SetRelativeLocationAndRotation(FMath::Lerp(A.GetLocation(),B.GetLocation(),T)+FVector(0,0,45*FMath::Sin(PI*T)),FQuat::Slerp(A.GetRotation(),B.GetRotation(),T));}
+   // A controlled lift to the OUT cradle: straight up clear of welding machine B, across while turning, then down onto the
+   // runners. The OUT product replaces it when it lands.
+   if(Stage==4){const float Up=FMath::SmoothStep(0.f,.25f,F),Across=FMath::SmoothStep(.25f,.75f,F),Down=FMath::SmoothStep(.75f,1.f,F);
+    const double Top=A.GetLocation().Z+60;const FVector XY=FMath::Lerp(A.GetLocation(),B.GetLocation(),Across);
+    R->SetRelativeLocationAndRotation(FVector(XY.X,XY.Y,Down>0?FMath::Lerp(Top,B.GetLocation().Z,Down):FMath::Lerp(A.GetLocation().Z,Top,Up)),FQuat::Slerp(A.GetRotation(),B.GetRotation(),Across));}
    else if(StationShownStage[I]!=Stage)R->SetRelativeTransform(A);}
   StationShownStage[I]=Stage;
   // Welder A holds their own gun only while welding at the work point; sparks only while the weld advances.

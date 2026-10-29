@@ -164,12 +164,13 @@ FString FFoundrylineFactorySimulation::WeldingStationStatus(const FFoundrylineWe
   if(S.Stage<4&&!StationWelderReady(S))return FString::Printf(TEXT("%s paused at %d%% / Welder A walking"),Stages[S.Stage],Percent);
   return FString::Printf(TEXT("%s %s %d%%"),Stages[S.Stage],*FString(R.Name).ToLower(),Percent);}
  if(!Catalog::Recipe(S.Recipe,R)||S.BatchRemaining<=0)return State.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::StationOut;})?TEXT("Finished rack on OUT / awaiting collection"):TEXT("Choose a product and quantity");
+ // A finished product waiting on OUT is what holds the next unit back, whatever the bins still need.
+ if(State.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::StationOut;}))return TEXT("OUT cradle full / awaiting collection");
  for(Part P:Catalog::AssemblyParts())if(StationShortfall(S,P)>0){const FString Name=FString(Catalog::AssemblyName(P)).ToLower();
   if(StationRackSupply(P)>0)return TEXT("Requesting ")+Name;
   return Catalog::Bought(P)?TEXT("Missing ")+Name+TEXT(" / buy parts"):TEXT("Missing ")+Name+TEXT(" / cut more on the plasma table");}
  for(Part P:Catalog::AssemblyParts())if(StationStock(S,P,false)<StationTarget(S,P))return TEXT("Receiving ")+FString(Catalog::AssemblyName(P)).ToLower();
  const int Kits=FMath::Min(S.BatchRemaining,2);const FString Ready=FString::Printf(TEXT("Supplies ready for %d %s%s"),Kits,*FString(R.Name).ToLower(),Kits==1?TEXT(""):TEXT("s"));
- if(State.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::StationOut;}))return TEXT("OUT cradle full / awaiting collection");
  return Ready+(!HasWelder?TEXT(" / assign Welder A"):!StationWelderReady(S)?TEXT(" / Welder A walking"):TEXT(""));
 }
 bool FFoundrylineFactorySimulation::WeldingStationsValid(FString& E)const{
