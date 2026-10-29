@@ -81,6 +81,8 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetupWeldingAssemblyReviewForPlant(APlayerController* Host,int32 StationId,FGuid PlantId);
  // A real station command (Add / Configure / Remove) from this player aimed at the plant PlantId, which may belong to another company.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueWeldingCommandForPlant(APlayerController* Player,FGuid PlantId,const FString& Action,int32 StationId,FVector Center,int32 Count);
+ // The Program command the plasma computer's Apply button sends (machine 1, part, batch), from this player.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueuePlasmaProgram(APlayerController* Player,int32 Part,int32 Batch);
  // Selects a station in this player's HUD, as clicking it on the floor does.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SelectWeldingStation(APlayerController* Player,int32 StationId);
 

@@ -137,6 +137,14 @@ bool UFoundrylineNetworkTestTools::QueueWeldingCommandForPlant(APlayerController
  return false;
 #endif
 }
+bool UFoundrylineNetworkTestTools::QueuePlasmaProgram(APlayerController* Player,int32 Part,int32 Batch){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
+ FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Part,Batch](float){if(Weak.IsValid())if(auto* Plant=Weak->FactoryPlant()){FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::Program;C.Id=1;C.Part=EFoundrylinePart(Part);C.Count=Batch;C.Flag=false;C.TargetPlantId=Plant->BusinessPlantId;Weak->SendFactory(C);}return false;}));return true;
+#else
+ return false;
+#endif
+}
 bool UFoundrylineNetworkTestTools::SetupWeldingAssemblyReview(APlayerController* Host,int32 StationId){
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Host);if(!PC||!PC->HasAuthority()||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;auto* Plant=PC->FactoryPlant();if(!Plant)return false;
