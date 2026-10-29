@@ -12,6 +12,17 @@ def add_details(kind,g):
    put('Body',box('BedWearPad',(.74,y,1.006),(.025,.20,.022),steel,bevel=.003))
   put('Body',box('MachineIDPlate',(.774,1.42,.64),(.012,.27,.12),steel,bevel=.003))
   put('Body',label('MachineSerial','PB-10 / 001',(.782,1.31,.63),(math.pi/2,0,math.pi/2),.023,graphite))
+  for side in [-1,1]:
+   put('Body',box('LinearEncoderScale',(.742,side*1.63,1.93),(.018,.045,.70),steel,bevel=.002))
+   for j in range(24):put('Body',box('EncoderGraduation',(.753,side*1.63,1.61+j*.026),(.004,.035 if j%4==0 else .018,.002),dark))
+   put('Ram',box('EncoderReader',(.762,side*1.63,1.92),(.045,.08,.085),graphite,bevel=.004))
+   put('Ram',box('GuideWiper',(.699,side*1.59,1.59),(.065,.105,.025),g['rubber'],bevel=.003))
+   for y in [side*1.10,side*1.22]:
+    put('BackGauge',cyl('GaugeCarriageBearing',(-.12,y,1.15),.028,.075,steel,rot=(0,math.pi/2,0)))
+   put('Body',cyl('BackGaugeLeadScrew',(-.24,side*1.15,1.16),.016,.68,steel,rot=(0,math.pi/2,0)))
+  for j in range(12):
+   y=-1.397+j*.254
+   put('LowerDie',box('DieSegmentIdentification',(.616,y,.991),(.006,.08,.020),dark,bevel=.001))
  elif kind=='PlasmaTable':
   for x in [-.97,.97]:
    for y in [-1.73,1.73]:
@@ -33,3 +44,16 @@ def add_details(kind,g):
   put('Extraction',label('ExtractionLabel','FUME FILTER',(-1.73,-1.552,1.16),(math.pi/2,0,0),.055,white))
   put('Body',box('HotWorkWarning',(1.06,-1.0,.56),(.02,.37,.15),yellow,bevel=.003))
   put('Body',label('HotWorkText','HOT WORK',(1.075,-1.16,.54),(math.pi/2,0,math.pi/2),.035,graphite))
+
+  # Rail bearing shoes, bolted axis couplings and replaceable torch wear parts.
+  for x in [-.97,.97]:
+   for y in [.43,.67]:
+    put('Gantry',box('LinearBearingShoe',(x,y,1.105),(.11,.10,.035),steel,bevel=.003))
+    put('Gantry',cyl('BearingGreaseNipple',(x,y,1.145),.009,.025,yellow,rot=(0,0,0),verts=8))
+  for x in [-.365,-.235]:
+   for z in [1.27,1.56]:put('TorchCarriage',box('ZGuideLinearBushing',(x,.265,z),(.045,.055,.075),steel,bevel=.004))
+  put('TorchCarriage',cyl('ZMotorCoupler',(-.30,.29,1.59),.026,.065,steel,rot=(0,0,0)))
+  for x in [-.37,-.23]:
+   for z in [1.18,1.33]:put('Torch',cyl('TorchClampScrew',(x,.153,z),.006,.014,dark,verts=6))
+  for x in [-.45,.45]:
+   put('PowerUnit',box('PowerLiftingHandle',(-1.42+x*.24,1.0,.755),(.05,.26,.035),g['rubber'],bevel=.008))

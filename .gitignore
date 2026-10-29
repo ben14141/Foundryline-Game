@@ -21,8 +21,9 @@ Plugins/**/Intermediate/
 !.env.example
 
 
-# Public repository: licensed Fab packs and all local Unreal/source-art content
-# stay on disk; install licensed dependencies separately. See Docs/REPOSITORY_CONTENT.md.
+# Public repository: asset directories stay ignored by default. Only reviewed
+# original equipment files explicitly tracked by Git are published; never add
+# whole asset directories blindly. See Docs/REPOSITORY_CONTENT.md.
 /Content/
 /SourceAssets/
 

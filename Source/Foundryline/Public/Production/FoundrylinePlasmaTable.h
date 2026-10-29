@@ -44,6 +44,8 @@ private:
  UPROPERTY() TObjectPtr<class UStaticMeshComponent> Carriage;
  UPROPERTY() TObjectPtr<class UStaticMeshComponent> Torch;
  UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> Leads;
+ UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> EnergyChain;
+ float LastChainX=100000;
  bool bCutting=false;
  float FactoryPhase=0;
  bool FactoryActive=false,FactoryHasWork=false,FactoryHasStock=false;

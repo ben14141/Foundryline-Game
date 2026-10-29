@@ -66,6 +66,7 @@ private:
  UPROPERTY() TArray<TObjectPtr<class UInstancedStaticMeshComponent>> Sheets;
  UPROPERTY() TArray<TObjectPtr<class USceneComponent>> StockRoots;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> Rollers;
+ UPROPERTY() TObjectPtr<class UStaticMeshComponent> UpperCarriers;
  UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> FormingSheet;
  UPROPERTY() TObjectPtr<class UStaticMeshComponent> FeedSheet;
  UPROPERTY() TObjectPtr<class UStaticMeshComponent> CurvedOutput;

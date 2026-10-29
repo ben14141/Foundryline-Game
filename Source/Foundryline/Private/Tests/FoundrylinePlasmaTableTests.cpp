@@ -11,7 +11,7 @@ bool FFoundrylinePlasmaTest::RunTest(const FString&){
   const double T=Sample/10.;
   auto P=AFoundrylinePlasmaTable::EvaluateCycle(T);
   TestTrue(TEXT("Tool remains inside standard stock"),FMath::Abs(P.Tip.X)<76.2&&FMath::Abs(P.Tip.Y)<152.4);
-  TestEqual(TEXT("Only cutting interval emits"),P.bCutting,T>=5&&T<25);
+  TestEqual(TEXT("Only stationary piercing and the contour emit"),P.bCutting,T>=4.8&&T<24.75);
   if(P.bCutting)TestTrue(TEXT("Cutting tip is at sheet height"),FMath::IsNearlyEqual(P.Tip.Z,100.95));
   auto Next=AFoundrylinePlasmaTable::EvaluateCycle(T+.01);
   TestTrue(TEXT("No gantry teleport at phase boundaries"),FVector::Distance(P.Tip,Next.Tip)<.5);

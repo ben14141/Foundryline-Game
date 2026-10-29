@@ -1,0 +1,202 @@
+{
+  "work_envelope_cm": [
+    304.8,
+    426.72
+  ],
+  "standard_sheet_cm": [
+    152.4,
+    304.8
+  ],
+  "stock_thickness_cm": 0.3175,
+  "torch_tip_cm": [
+    -57.70909090909091,
+    38.65331230283912,
+    100.95
+  ],
+  "units": "Metres in Blender; centimetres in Unreal",
+  "assets": [
+    {
+      "name": "PlasmaTable_Body",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        375.6500244140625,
+        486.9200134277344,
+        117.49999237060547
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_SlatBed",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        317.3999938964844,
+        432.29693603515625,
+        15.49999713897705
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_Gantry",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        372.3999938964844,
+        38.0,
+        53.499996185302734
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_TorchCarriage",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        24.749998092651367,
+        30.5,
+        58.500003814697266
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_Torch",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        15.039229393005371,
+        9.999999046325684,
+        38.650001525878906
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_CableChain",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        308.6076354980469,
+        10.000001907348633,
+        6.599998474121094
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_Umbilical",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        79.71512603759766,
+        52.648807525634766,
+        55.151737213134766
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_ServiceLead",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        33.863712310791016,
+        132.7711639404297,
+        160.11550903320312
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_OperatorConsole",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        93.4136734008789,
+        72.0,
+        168.5
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_PowerUnit",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        82.29777526855469,
+        196.49998474121094,
+        81.26642608642578
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_Extraction",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        104.0,
+        87.99998474121094,
+        166.30001831054688
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    },
+    {
+      "name": "PlasmaTable_StockSheet",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        152.40000915527344,
+        304.8000183105469,
+        0.3175020217895508
+      ],
+      "domain": "Products/Components/Steel"
+    },
+    {
+      "name": "PlasmaTable_Complete",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        529.3999633789062,
+        486.9200134277344,
+        201.06039428710938
+      ],
+      "domain": "Production/Equipment/PlasmaTable"
+    }
+  ],
+  "status": "Independent components for the runtime cutting demonstration"
+}
