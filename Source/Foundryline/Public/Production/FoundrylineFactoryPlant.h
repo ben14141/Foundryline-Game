@@ -117,4 +117,22 @@ private:
  FString StationLayoutKey;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationMeshes;
  UPROPERTY() TArray<TObjectPtr<class UBoxComponent>> StationCollision;
+ // The unit on each station's bench, by snapshot station index: fixture kit stored on the shelf or lifted onto the
+ // worktop, the rack as hologram, as weld progress and as the finished product, and Welder A's gun, lead and sparks.
+ UPROPERTY() TArray<TObjectPtr<class USceneComponent>> StationUnitParts;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationStoredFixtures;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationLiftedFixtures;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRackGhosts;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRackBuilds;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRacks;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationHolsteredGuns;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationGuns;
+ UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> StationLeads;
+ UPROPERTY() TArray<TObjectPtr<class UFoundrylineWeldingEffectComponent>> StationWeldEffects;
+ TArray<int32> StationShownStage;
+ void AnimateWeldingStations(float Dt,double Age);
+ void AddStationFitUpParts();
+ static FString RackBuildSuffix(const class UMaterialInterface* Material);
+ static bool IsRackLight(const class UMaterialInterface* Material);
+ class UMaterialInstanceDynamic* RackProgressMaterial(class UMaterialInterface* Base,const FTransform& On);
 };

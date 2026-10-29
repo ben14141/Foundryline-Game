@@ -154,6 +154,8 @@ struct FFoundrylineFactoryWalker {
  UPROPERTY(SaveGame) float Speed=0;
  UPROPERTY(SaveGame) int32 Id=0;
  UPROPERTY(SaveGame) int32 Zone=0;
+ // Schema 12: welding station this welder works at (Welder A side), exclusive with Zone.
+ UPROPERTY(SaveGame) int32 Station=0;
  UPROPERTY(SaveGame) FVector Position=FVector::ZeroVector;
  UPROPERTY(SaveGame) TArray<FVector> Path;
  UPROPERTY(SaveGame) float Distance=0;
@@ -180,11 +182,21 @@ struct FFoundrylineWeldingStationRecord {
  UPROPERTY(SaveGame) int32 BatchRemaining=0;
  // Time spent transferring the single pallet on the IN port into the station's own bins.
  UPROPERTY(SaveGame) float UnloadSeconds=0;
+ // Schema 12: the one unit on the bench. Its whole kit leaves the bins when it starts and becomes the finished product
+ // only when it reaches OUT. Stage 0 none, 1 fit-up, 2 welding, 3 final assembly (lights), 4 moving to OUT.
+ UPROPERTY(SaveGame) int32 UnitRecipe=0;
+ UPROPERTY(SaveGame) int32 Stage=0;
+ UPROPERTY(SaveGame) float Work=0;
+ UPROPERTY(SaveGame) TArray<int32> Reserved;
+ UPROPERTY(SaveGame) float ReservedLb=0;
+ UPROPERTY(SaveGame) int32 UnitsCompleted=0;
+ // Presentation only: work advanced on the last step (sparks follow this, never the stage alone).
+ UPROPERTY() bool bAdvancing=false;
 };
 USTRUCT()
 struct FFoundrylineFactoryState {
  GENERATED_BODY()
- UPROPERTY(SaveGame) int32 Version=11;
+ UPROPERTY(SaveGame) int32 Version=12;
  UPROPERTY(SaveGame,NotReplicated) FFoundrylineCommerceState Commerce;
  UPROPERTY(SaveGame) bool bCutPartsStarter=false;
  UPROPERTY(SaveGame) FGuid CompanyId=FGuid(0xF001,1,1,1);

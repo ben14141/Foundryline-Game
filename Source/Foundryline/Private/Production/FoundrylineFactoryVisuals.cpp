@@ -79,6 +79,7 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
    const FVector At=P.Position+Yaw.RotateVector(Offset)-FVector(0,0,B.Min.Z*Scale);Ism->AddInstance(FTransform(ItemYaw,At,FVector(Scale)));}
  }
 
+ AddStationFitUpParts();
  // Recreate product components only if the number of zones changes, not each snapshot.
  FString Layout;for(const auto& Z:Snapshot.Zones)Layout+=FString::Printf(TEXT("%d:%s:%s:%d:%d;"),Z.Id,*Z.Min.ToString(),*Z.Max.ToString(),Z.QuarterTurns,Z.SupplySide);
  if(ProductZones.Num()!=Snapshot.Zones.Num()*26||VisualLayoutKey!=Layout){VisualLayoutKey=Layout;for(auto C:ProductMeshes)C->DestroyComponent();ProductMeshes.Reset();ProductMaterials.Reset();ProductZones.Reset();ProductParts.Reset();ProductThresholds.Reset();for(auto E:WeldEffects)E->DestroyComponent();WeldEffects.Reset();
@@ -127,6 +128,7 @@ void AFoundrylineFactoryPlant::Animate(float Dt){
   const FVector Position=FMath::VInterpTo(WeldingGuns[I]->GetRelativeLocation(),Target,Dt,18);if(!Position.Equals(WeldingGuns[I]->GetRelativeLocation(),.001)){WeldingGuns[I]->SetRelativeLocation(Position);if(WeldingLeads.IsValidIndex(I*5+4))WeldingLeads[I*5+4]->SetEndPosition(Position);}
   for(const auto& Employee:CachedEmployees)if(Employee.Role==EFoundrylineEmployeeRole::Welder&&Employee.Assignment==Z.Id)if(auto* Visual=EmployeeVisuals.FindRef(Employee.Key).Get())Visual->PresentWeldingGrip(WeldingGuns[I]->GetComponentLocation(),WeldingGuns[I]->GetComponentTransform().TransformPosition(FVector(3,-3,8)));
  }
+ AnimateWeldingStations(Dt,Age);
  for(const auto& M:Snapshot.Machines){const bool Work=M.Remaining>0,Active=FFoundrylineMachineMotion::Active(Snapshot,M);const float Phase=FFoundrylineMachineMotion::Phase(M.Remaining,M.Duration,Active,Snapshot.Speed,Age);
   if(M.Id==1&&Plasma)Plasma->SetFactoryPresentation(Phase,Active,Work,Work||M.BedLb>0,M.Making);
   if(M.Id==2&&Brake)Brake->SetFactoryPresentation(Phase,Active,Work,M.Making);

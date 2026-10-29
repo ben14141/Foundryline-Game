@@ -1,5 +1,6 @@
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWorkZoneLayout.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 #include "Inventory/FoundrylineSheetStock.h"
 namespace {using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;constexpr int FactoryPartCount=FFoundrylineFactoryCatalog::PartCount;
 Part Input(Part P){return P==Part::SupportChannel?Part::ReinforcementPlate:P==Part::BentBracket?Part::Bracket:P==Part::FrameRail?Part::RailBlank:Part::ShellBlank;}
@@ -117,9 +118,12 @@ void FFoundrylineFactorySimulation::Dispatch(){
   }
   if(Best){Best->Driver=D.Id;Best->Phase=1;D.Job=Best->Id;D.Path=MoveTemp(BestPath);D.Distance=0;D.Waiting=false;State.LastDriver=D.Id;CorridorBusy=true;}
  }
- for(auto& W:State.Walkers){const auto* Z=State.Zones.FindByPredicate([&](const auto& A){return A.Id==W.Zone;});const FVector Goal=Z&&Z->Ordered?FFoundrylineWorkZoneLayout::WorkPoint(*Z):W.Home;
-  if(Z&&!W.Path.IsEmpty()&&!W.Path.Last().Equals(Goal,1)){W.Path.Reset();W.Distance=0;W.Retry=0;}
-  if(!W.Path.IsEmpty()||W.Retry>0)continue;if(Z&&Z->Ordered&&W.Position.Equals(W.Home,1)&&State.Walkers.ContainsByPredicate([&](const auto& Other){return Other.Id!=W.Id&&!Other.Zone&&!Other.Position.Equals(Other.Home,1);}))continue;
+ for(auto& W:State.Walkers){const auto* Z=State.Zones.FindByPredicate([&](const auto& A){return A.Id==W.Zone;});
+  // A station welder stays at Welder A's work point while the station has a unit or a batch to make.
+  const auto* St=W.Station?State.WeldingStations.FindByPredicate([&](const auto& A){return A.Id==W.Station;}):nullptr;const bool AtStation=St&&StationNeedsWelder(*St);
+  const FVector Goal=Z&&Z->Ordered?FFoundrylineWorkZoneLayout::WorkPoint(*Z):AtStation?FFoundrylineWeldingStationLayout::WorkPoint(*St,0):W.Home;
+  if((Z||St)&&!W.Path.IsEmpty()&&!W.Path.Last().Equals(Goal,1)){W.Path.Reset();W.Distance=0;W.Retry=0;}
+  if(!W.Path.IsEmpty()||W.Retry>0)continue;if((Z&&Z->Ordered||AtStation)&&W.Position.Equals(W.Home,1)&&State.Walkers.ContainsByPredicate([&](const auto& Other){return Other.Id!=W.Id&&!Other.Zone&&!Other.Station&&!Other.Position.Equals(Other.Home,1);}))continue;
   W.Path=W.Position.Equals(Goal,1)?TArray<FVector>{Goal}:Path(W.Position,Goal,true);W.Distance=0;W.Retry=1;
  }
 }

@@ -49,8 +49,17 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  // Rack fixtured flat: its upright datum turned onto its back on the risers (from Foundryline_RackWeldingSetup).
  static FTransform ProductTransform(const FFoundrylineWeldingStationRecord& S);
  static FTransform ProductOnBench();
- // Headache rack fixtured flat on the bench, relative to the bench floor datum (from the source asset QA).
- static FBox RackOnBenchCm(){return FBox(FVector(-99.06,-40.64,92.71),FVector(99.06,40.64,120.65));}
+ // The fixture kit is authored in its stored pose on the bench's lower shelf (bottom 23.57 cm, top 51.26 cm above the
+ // floor datum). For a unit it is lifted unchanged onto the worktop; the rack lies on its back on top of it.
+ static constexpr double FixtureShelfCm=23.5712;
+ static constexpr double FixtureTopStoredCm=51.2572;
+ static FTransform FixtureOnBench(){return FTransform(FVector(0,0,BenchHeightCm-FixtureShelfCm));}
+ // Headache rack fixtured flat on the lifted kit, relative to the bench floor datum (bounds of SM_HeadacheRack, bed-rail datum).
+ static FBox RackOnBenchCm(){const double Z=BenchHeightCm-FixtureShelfCm+FixtureTopStoredCm;return FBox(FVector(-99.06,-40.64,Z),FVector(99.06,40.71,Z+27.94));}
+ // Assembly stage times at the 100% (one welder) rate, in plant seconds.
+ static float StageSeconds(int32 Stage){return Stage==1?30.f:Stage==2?90.f:Stage==3?20.f:Stage==4?6.f:0.f;}
+ // Finished product resting on the OUT cradle, relative to the cradle transform.
+ static FTransform ProductOnCradle(){return FTransform(FRotator(0,0,90),FVector(0,-30.48,CradleSizeCm().Z+13.97));}
  static FVector RackSizeCm(){return {198.12,81.28,27.94};}
  static bool ProductFits(const FBox& OnBench,FVector2D CarriedSize,FString& Error);
  static FString Name(int32 Number){return FString::Printf(TEXT("Welding Station %02d"),Number);}

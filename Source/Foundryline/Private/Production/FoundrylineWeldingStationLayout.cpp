@@ -16,7 +16,7 @@ FVector FFoundrylineWeldingStationLayout::BinPoint(const FFoundrylineWeldingStat
  switch(P){case EFoundrylinePart::FrameSection:return Point(S,X,Y,12);case EFoundrylinePart::MountingPlate:return Point(S,X-1.4,Y,BinShelfCm);case EFoundrylinePart::Bracket:return Point(S,X,Y,BinShelfCm);default:return Point(S,X+1.4,Y,BinShelfCm);}
 }
 FTransform FFoundrylineWeldingStationLayout::ProductOnBench(){
-return FTransform(FRotator(0,0,90),FVector(0,-30.48,106.68));}
+return FTransform(FRotator(0,0,90),FVector(0,-30.48,RackOnBenchCm().Min.Z+13.97));}
 FTransform FFoundrylineWeldingStationLayout::ProductTransform(const FFoundrylineWeldingStationRecord& S){return ProductOnBench()*BenchTransform(S);}
 bool FFoundrylineWeldingStationLayout::ProductFits(const FBox& P,FVector2D Carried,FString& E){
  const FVector2D Top(4*Foot,2*Foot);
