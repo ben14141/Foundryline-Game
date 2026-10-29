@@ -32,6 +32,10 @@ public:
  double OperationsDelay=60;
  bool bOperationsLocked=false,bOperationsPending=false;
  FString OperationsStatus;
+ // Local confirmation toasts: success text is shown only after the server accepts (or the snapshot shows the change).
+ FString OperationsConfirm,OperationsPendingConfirm;double OperationsConfirmAt=-100,OperationsStatusAt=-100,OperationsWatchAt=0;
+ uint8 OperationsWatch=0;int32 OperationsWatchId=0,OperationsWatchTarget=0;
+ void ConfirmOperations(const FString& Text);
  TMap<int32,int32> OperationsPallets;
  uint32 OperationsSequence=0,LastOperationsSequence=0;
  double OperationsRateStart=0;int32 OperationsRate=0;

@@ -2,6 +2,7 @@
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "Production/FoundrylineFactoryTypes.h"
 #include "Inventory/FoundrylineSheetStock.h"
+#include "Employees/FoundrylineEmployeeTypes.h"
 namespace {
  int64 Add(int64 A,int64 B){if(B>0&&A>MAX_int64-B)return MAX_int64;if(B<0&&A<MIN_int64-B)return MIN_int64;return A+B;}
  int64 Sub(int64 A,int64 B){if(B>0&&A<MIN_int64+B)return MIN_int64;if(B<0&&A>MAX_int64+B)return MAX_int64;return A-B;}
@@ -43,4 +44,75 @@ FFoundrylineERPWorkspace FFoundrylineERPViewModel::Build(const FFoundrylineComme
  }
  const int32 Limit=FMath::Clamp(MaxGraphBins,1,16);const int32 Size=FMath::Max(1,FMath::DivideAndRoundUp(W.Ledger.Num(),Limit));for(int I=0;I<W.Ledger.Num();I+=Size){FFoundrylineERPGraphBin B;B.FromAt=W.Ledger[I].At;B.ToAt=B.FromAt;B.OpeningNetCents=I?W.Ledger[I-1].NetAfterCents:W.OpeningRetainedNetCents;for(int J=I;J<FMath::Min(I+Size,W.Ledger.Num());++J){const auto& M=W.Ledger[J];B.ToAt=M.At;++B.EntryCount;if(M.MovementCents>=0)B.CreditsCents=Add(B.CreditsCents,M.MovementCents);else B.DebitsCents=Add(B.DebitsCents,M.MovementCents==MIN_int64?MAX_int64:-M.MovementCents);B.ClosingNetCents=M.NetAfterCents;}W.GraphBins.Add(B);}
  W.Activity.Sort([](const auto& A,const auto& B){return A.At==B.At?A.Key<B.Key:A.At>B.At;});return W;
+}
+FFoundrylineStarterGuide FFoundrylineERPViewModel::Guide(const FFoundrylineFactoryState& S){
+ using G=EFoundrylineGuideStep;using Place=EFoundrylinePalletPlace;FFoundrylineStarterGuide Out;const auto& C=S.Commerce;Out.bAvailable=C.Enabled;if(!C.Enabled)return Out;
+ const double SheetLb=FFoundrylineSteelSheet::PoundsEach();Out.CashCents=C.CashCents;
+ auto Need=[&](const FString& Text,const FString& Action){Out.Problems.Add({Text,Action});};
+ auto SteelLb=[&](int32 Part){const auto* P=S.Programs.FindByPredicate([&](const auto& V){return V.Machine==1&&int(V.Part)==Part;});return P?double(P->SteelLb):0.;};
+ // Staffing: an operator assigned to the plasma (machine 1) and a driver on any owned forklift.
+ for(const auto& E:FFoundrylineEmployeeRoster::Build(S)){
+  if(E.Role==EFoundrylineEmployeeRole::Operator&&E.Assignment==1&&!Out.bOperator){Out.bOperator=true;Out.OperatorName=E.Label;}
+  if(E.Role==EFoundrylineEmployeeRole::ForkliftDriver&&E.VehicleId&&!Out.bForkliftDriver){Out.bForkliftDriver=true;Out.DriverName=E.Label;}
+ }
+ // Physical stock. Sheets on the receiving truck already count as on hand; booked pallets are already shipping.
+ TMap<int32,int32> FreeByPart;
+ for(const auto& P:S.Pallets){
+  if(P.Place==Place::InTransit)continue;
+  if(P.Part==EFoundrylinePart::Sheet){Out.SteelOnHandLb+=P.Quantity*P.UnitLb;continue;}
+  if(P.BookingId||!FFoundrylineCommerceCatalog::Saleable(uint8(P.Part)))continue;
+  Out.FinishedParts+=P.Quantity;FreeByPart.FindOrAdd(int(P.Part))+=P.Quantity;if(P.Place==Place::Pickup)Out.FinishedAtBay+=P.Quantity;
+ }
+ const auto* Plasma=S.Machines.FindByPredicate([](const auto& M){return M.Id==1;});
+ TMap<int32,int32> CuttingByPart;
+ if(Plasma){Out.SteelOnHandLb+=FMath::Max(0.f,Plasma->BedLb-Plasma->ReservedLb);if(!Plasma->Auto){Out.PartsInProgress=Plasma->BatchRemaining+(Plasma->Remaining>0?1:0);if(Out.PartsInProgress)CuttingByPart.Add(int(Plasma->Making),Out.PartsInProgress);}}
+ for(const auto& B:C.Bookings){if(B.Status==EFoundrylineBookingState::Delivered)continue;if(B.Inbound){++Out.SteelDeliveriesDue;if(!B.SpawnedCargo)Out.SteelIncomingLb+=B.Sheets*SheetLb;}else ++Out.PickupsBooked;}
+ // Accepted orders, focused order first: the one assigned to the loading bay, else the oldest accepted.
+ TArray<const FFoundrylineCustomerOrder*> Accepted;
+ for(const auto& O:C.Orders){Out.OffersWaiting+=O.Status==EFoundrylineOrderState::Offered;Out.CompletedOrders+=O.Status==EFoundrylineOrderState::Completed;if(O.Status!=EFoundrylineOrderState::Offered)Out.ReceivedCents+=O.PaidCents;if(O.Status==EFoundrylineOrderState::Accepted){Accepted.Add(&O);Out.OwedToYouCents+=FMath::Max(int64(0),O.Quantity*O.UnitPriceCents-O.PaidCents);}}
+ Accepted.Sort([&](const auto& A,const auto& B){const bool AB=A.Id==C.PickupOrder,BB=B.Id==C.PickupOrder;if(AB!=BB)return AB;return A.AcceptedAt==B.AcceptedAt?A.Id<B.Id:A.AcceptedAt<B.AcceptedAt;});
+ Out.AcceptedOrders=Accepted.Num();
+ // Steel is needed for every accepted order's remaining work, after free finished stock and parts already cutting.
+ // The cut in progress already holds its reserved steel, so only queued cuts still need sheet weight.
+ int32 QueuedCuts=Plasma&&Plasma->Remaining>0?1:0;
+ for(int I=0;I<Accepted.Num();++I){
+  const auto& O=*Accepted[I];int OnTrucks=0;for(const auto& B:C.Bookings)if(!B.Inbound&&B.OrderId==O.Id&&B.Status!=EFoundrylineBookingState::Delivered)for(const auto& Item:B.Manifest)OnTrucks+=Item.Quantity;
+  const int ToShip=FMath::Max(0,O.Quantity-O.Delivered-OnTrucks);int& Free=FreeByPart.FindOrAdd(O.Part);int& Cutting=CuttingByPart.FindOrAdd(O.Part);
+  const int Ready=FMath::Min(Free,ToShip);Free-=Ready;const int InCut=FMath::Min(Cutting,ToShip-Ready);Cutting-=InCut;const int ToMake=ToShip-Ready-InCut;
+  const int Started=FMath::Min(QueuedCuts,InCut);QueuedCuts-=Started;Out.SteelNeededLb+=(ToMake+InCut-Started)*SteelLb(O.Part);
+  if(I)continue;
+  Out.OrderId=O.Id;Out.OrderPart=O.Part;Out.OrderPartName=FFoundrylineFactoryCatalog::Part(EFoundrylinePart(O.Part)).Name;Out.OrderReference=O.Reference;Out.OrderCustomer=O.Customer;Out.OrderRemaining=O.Quantity-O.Delivered;
+  Out.PartsToMake=ToMake;Out.PartsCutting=InCut;Out.PartsReady=Ready;Out.PartsOnTrucks=OnTrucks;Out.bAssignedToBay=C.PickupOrder==O.Id;
+  for(const auto& P:S.Pallets)if(int(P.Part)==O.Part&&P.Place==Place::Pickup&&!P.BookingId)Out.PartsAtBay+=P.Quantity;
+ }
+ Out.SheetsToBuy=FMath::Max(0,FMath::CeilToInt((Out.SteelNeededLb-Out.SteelOnHandLb-Out.SteelIncomingLb-.01)/SheetLb));
+ const auto* Focus=Accepted.IsEmpty()?nullptr:Accepted[0];
+ auto& Done=Out.bStepDone;
+ Done[int(G::AcceptOrder)]=Focus&&Out.bAssignedToBay;Done[int(G::BuySteel)]=Focus&&Out.SheetsToBuy==0;Done[int(G::StaffWork)]=Out.bOperator&&Out.bForkliftDriver;
+ Done[int(G::ProgramPlasma)]=Focus&&Out.PartsToMake==0;Done[int(G::BookFreight)]=Focus&&Out.PartsToMake+Out.PartsCutting+Out.PartsReady==0;Done[int(G::GetPaid)]=false;
+ Out.Step=G::GetPaid;for(int I=0;I<int(G::Count);++I)if(!Done[I]){Out.Step=G(I);break;}
+ const int64 SheetsCost=FMath::RoundToInt64(Out.SheetsToBuy*SheetLb*100)+2500;
+ switch(Out.Step){
+  case G::AcceptOrder:
+   if(!Focus){Out.Title=Out.CompletedOrders?TEXT("Accept your next order"):TEXT("Accept a customer order");Out.Detail=TEXT("Pick a job the plasma cutter can make, such as bracket blanks or plates. The customer pays after the parts are delivered.");Out.ActionLabel=TEXT("Choose an order");Out.Action=TEXT("Page0");}
+   else {Out.Title=TEXT("Send this order to the loading bay");Out.Detail=FString::Printf(TEXT("Finished %s for order %s will then be stacked at the loading bay, ready for a pickup truck."),*Out.OrderPartName,*Out.OrderReference);Out.ActionLabel=TEXT("Send to loading bay");Out.Action=FString::Printf(TEXT("AssignOrder%d"),Out.OrderId);}
+   break;
+  case G::BuySteel:Out.Title=FString::Printf(TEXT("Buy %d sheet%s of steel"),Out.SheetsToBuy,Out.SheetsToBuy==1?TEXT(""):TEXT("s"));Out.Detail=FString::Printf(TEXT("Your orders need about %.0f lb of steel. You have %.0f lb, and %.0f lb is on the way. One sheet weighs %.0f lb."),Out.SteelNeededLb,Out.SteelOnHandLb,Out.SteelIncomingLb,SheetLb);Out.ActionLabel=TEXT("Buy steel");Out.Action=FString::Printf(TEXT("BuySheets%d"),FMath::Clamp(Out.SheetsToBuy,1,10));break;
+  case G::StaffWork:Out.Title=TEXT("Put people on the plasma and forklift");Out.Detail=TEXT("Someone must run the plasma cutter, and a forklift driver unloads steel and moves finished parts. Assign them in Team.");Out.ActionLabel=TEXT("Open Team");Out.Action=TEXT("Page7");break;
+  case G::ProgramPlasma:Out.Title=FString::Printf(TEXT("Program the plasma: %d x %s"),Out.PartsToMake,*Out.OrderPartName);Out.Detail=TEXT("This fills in the part and quantity on the plasma screen. Check it, then press Start. Parts already made or cutting are not counted again.");Out.ActionLabel=TEXT("Program plasma");Out.Action=FString::Printf(TEXT("ProgramOrder%d"),Out.OrderId);break;
+  case G::BookFreight:
+   if(Out.PartsAtBay>0&&Out.PartsAtBay>=Out.PartsReady+Out.PartsCutting){Out.Title=TEXT("Book a pickup truck");Out.Detail=FString::Printf(TEXT("%d %s are waiting at the loading bay. Open the loading tablet, tick the pallets and book a truck that fits them."),Out.PartsAtBay,*Out.OrderPartName);Out.ActionLabel=TEXT("Open loading tablet");Out.Action=TEXT("Tablet");}
+   else {Out.Title=Out.PartsCutting?FString::Printf(TEXT("Cutting parts: %d left"),Out.PartsCutting):TEXT("Moving parts to the loading bay");Out.Detail=TEXT("The operator cuts the parts and the forklift stacks them at the loading bay. Speed up time with 4x or 8x at the top.");Out.ActionLabel=TEXT("View production");Out.Action=TEXT("Page10");}
+   break;
+  default:Out.Title=TEXT("Truck is on its way - payment follows");Out.Detail=FString::Printf(TEXT("%s: %s once the truck delivers. Nothing else to do for this order; try 8x speed."),*Out.OrderCustomer,FFoundrylineCommerceCatalog::PaymentName(Focus->Payment));Out.ActionLabel=TEXT("Track shipment");Out.Action=TEXT("Page4");break;
+ }
+ // Everything missing right now, in plain language, each with the screen that fixes it.
+ if(!Out.bOperator)Need(TEXT("No one is running the plasma cutter"),TEXT("Page7"));
+ if(!Out.bForkliftDriver)Need(TEXT("No forklift driver: steel can't be unloaded or parts moved"),TEXT("Page7"));
+ if(Focus&&Out.SheetsToBuy>0&&Out.Step!=G::BuySteel)Need(FString::Printf(TEXT("Not enough steel: need %.0f lb, have %.0f lb (+%.0f lb coming)"),Out.SteelNeededLb,Out.SteelOnHandLb,Out.SteelIncomingLb),FString::Printf(TEXT("BuySheets%d"),FMath::Clamp(Out.SheetsToBuy,1,10)));
+ if(Focus&&Out.SheetsToBuy>0&&C.CashCents<SheetsCost)Need(FString::Printf(TEXT("Not enough cash for %d sheets (%s)"),Out.SheetsToBuy,*FFoundrylineCommerceCatalog::Money(SheetsCost)),TEXT("Page5"));
+ if(Focus&&!Out.bAssignedToBay&&Out.Step!=G::AcceptOrder)Need(TEXT("This order is not at the loading bay yet"),FString::Printf(TEXT("AssignOrder%d"),Out.OrderId));
+ if(Focus&&!S.Running)Need(TEXT("Time is paused: press Resume at the top"),TEXT("Run"));
+ if(Focus&&Focus->Late)Need(TEXT("This order is past its deadline"),FString::Printf(TEXT("LinkedOrder%d"),Out.OrderId));
+ return Out;
 }

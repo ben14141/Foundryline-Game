@@ -35,6 +35,8 @@ private:
 	FName HoveredBox;
 	TMap<FName,float> HoverAmounts;
 	TMap<FName,float> PressAmounts;
+ // Office desktop hover help, rebuilt every frame from the drawn hit boxes. Local presentation only.
+ TMap<FName,FString> HelpTexts;
 	UPROPERTY(Transient) TObjectPtr<class UTexture2D> Logo;
  UPROPERTY(Transient) TObjectPtr<class UFont> ERPFont;
 };
