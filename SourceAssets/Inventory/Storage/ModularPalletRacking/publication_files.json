@@ -1,0 +1,24 @@
+{
+  "authorship": "All geometry and procedural materials original; review pallets are original dimension surrogates, not copied vendor art",
+  "include": [
+    "Tools/Blender/build_modular_pallet_racking.py",
+    "SourceAssets/Inventory/Storage/ModularPalletRacking/*.fbx",
+    "SourceAssets/Inventory/Storage/ModularPalletRacking/*.blend",
+    "SourceAssets/Inventory/Storage/ModularPalletRacking/PalletRack_AllLevels.png",
+    "SourceAssets/Inventory/Storage/ModularPalletRacking/manifest.json",
+    "SourceAssets/Inventory/Storage/ModularPalletRacking/geometry_qa.json",
+    "SourceAssets/Inventory/Storage/ModularPalletRacking/README.md",
+    "SourceAssets/Inventory/Storage/ModularPalletRacking/publication_files.json",
+    "Content/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_1Level.uasset",
+    "Content/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_2Levels.uasset",
+    "Content/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_3Levels.uasset",
+    "Tools/Blender/verify_modular_pallet_racking.py"
+  ],
+  "native_materials": "Include the isolated importer-created original rack material assets referenced by these3 native meshes",
+  "exclude": [
+    "*.blend1",
+    "build.log",
+    "Factory vendor assets",
+    "MaterialHandling/FactorySource"
+  ]
+}
