@@ -117,4 +117,6 @@ private:
  FString StationLayoutKey;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationMeshes;
  UPROPERTY() TArray<TObjectPtr<class UBoxComponent>> StationCollision;
+ // Lead from each machine to its holstered gun, three segments per machine (station index * 2 + side).
+ UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> StationIdleLeads;
 };

@@ -40,9 +40,13 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static TArray<FBox2D> AccessRing(const FFoundrylineWeldingStationRecord& S){return {EndAccess(S,false),EndAccess(S,true),WorkerApproach(S,0),WorkerApproach(S,1)};}
  // Welder A's machine sits at the left end of their strip, Welder B's at the right: diagonal, so leads never cross.
  static FBox2D MachineBay(const FFoundrylineWeldingStationRecord& S,int32 Side){return Side?Rect(S,12.5,10.5,17,13):Rect(S,0,0,4.5,2.5);}
- // Existing Welder_Machine footprint (manifest), long side along the station length; holster faces the station interior.
+ // Existing Welder_Machine footprint (manifest), long side along the station length. Its front panel (display, controls and
+ // lead terminals) is the model's +X end, which faces in along the bench toward that machine's own welder; the gun holster,
+ // modelled on the -Y long side, is then on the machine's outer side within the bay.
  static FVector MachineSizeCm(){return {122.5561,70.7,160.8};}
- static FTransform MachineTransform(const FFoundrylineWeldingStationRecord& S,int32 Side){const FBox2D B=MachineBay(S,Side);return FTransform(FRotator(0,Rotation(S).Yaw+(Side?0:180),0),FVector(B.GetCenter(),20));}
+ static FTransform MachineTransform(const FFoundrylineWeldingStationRecord& S,int32 Side){const FBox2D B=MachineBay(S,Side);return FTransform(FRotator(0,Rotation(S).Yaw+(Side?180:0),0),FVector(B.GetCenter(),20));}
+ // Idle lead from the front terminals, along the floor and up the machine's side to the holstered gun (machine-local cm).
+ static TArray<FVector> IdleLead(){return {{54,-12,53},{66,-24,5},{30,-38,5},{17,-38,78}};}
  static FVector WorkPoint(const FFoundrylineWeldingStationRecord& S,int32 Side);
  static float WorkYaw(const FFoundrylineWeldingStationRecord& S,int32 Side){return Rotation(S).Yaw+(Side?-90:90);}
  static FTransform BenchTransform(const FFoundrylineWeldingStationRecord& S);
