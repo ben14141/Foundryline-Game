@@ -20,6 +20,7 @@ public:
  UPROPERTY(EditAnywhere) bool bHandymanPose=false;
  UPROPERTY(EditAnywhere) TArray<FFoundrylineEmployeeOutfit> Outfits;
  UPROPERTY(Transient) TArray<TObjectPtr<USkeletalMesh>> RuntimeVariants;
+ UPROPERTY(Transient) TArray<TObjectPtr<USkeletalMesh>> RuntimeWeldingHoodVariants;
  UPROPERTY(EditAnywhere) FVector FootRootOffset=FVector::ZeroVector;
  UPROPERTY(EditAnywhere) FRotator FacingOffset=FRotator::ZeroRotator;
  UPROPERTY(EditAnywhere) TObjectPtr<UAnimSequence> Idle;

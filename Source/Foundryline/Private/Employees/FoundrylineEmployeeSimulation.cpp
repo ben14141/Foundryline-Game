@@ -22,10 +22,12 @@ void FFoundrylineFactorySimulation::MigrateEmployees(){
 bool FFoundrylineFactorySimulation::MachineStaffReady(int32 Machine)const{
  const FVector Station=OperatorWorkPoint(Machine);return State.Operators.ContainsByPredicate([&](const auto& O){return O.Machine==Machine&&FVector::Dist2D(O.Position,Station)<=1;});
 }
-bool FFoundrylineFactorySimulation::AssignEmployeeInternal(int32 Id,Role Type,int32 Target,FString& E){
+bool FFoundrylineFactorySimulation::AssignEmployeeInternal(int32 Id,Role Type,int32 Target,FString& E,int32 Slot){
  if(Target<0||int(Type)>2){E=TEXT("Choose a valid employee assignment");return false;}
  if(Type==Role::Operator){auto* O=State.Operators.FindByPredicate([&](const auto& V){return V.Id==Id;});if(!O||Target&&!State.Machines.ContainsByPredicate([&](const auto& M){return M.Id==Target;})||Target&&State.Operators.ContainsByPredicate([&](const auto& V){return V.Id!=Id&&V.Machine==Target;})){E=TEXT("Choose an installed machine with an available operator position");return false;}if(!Target&&O->Home.Equals(O->WorkPoint,1)){FVector Waiting;if(!FindEmployeeWaitingPosition(Waiting)){E=TEXT("No safe waiting space is available");return false;}O->Home=Waiting;}O->Machine=Target;O->WorkPoint=Target?OperatorWorkPoint(Target):O->Home;O->Path.Reset();O->Distance=0;O->Retry=0;O->Speed=0;O->Wait=Target?Wait::None:Wait::Unassigned;O->Activity=Activity::Idle;O->Target=FVector(MAX_flt,MAX_flt,20);}
- else if(Type==Role::Welder){auto* W=State.Walkers.FindByPredicate([&](const auto& V){return V.Id==Id;});if(!W||Target&&!State.Zones.ContainsByPredicate([&](const auto& Z){return Z.Id==Target;})){E=TEXT("Choose an existing work zone");return false;}W->Zone=Target;W->Path.Reset();W->Distance=0;W->Retry=0;W->Speed=0;for(auto& Z:State.Zones)Z.Welders=State.Walkers.FilterByPredicate([&](const auto& V){return V.Zone==Z.Id;}).Num();}
+ else if(Type==Role::Welder){auto* W=State.Walkers.FindByPredicate([&](const auto& V){return V.Id==Id;});const bool IsStation=Target&&State.WeldingStations.ContainsByPredicate([&](const auto& S){return S.Id==Target;});if(!W||Target&&!IsStation&&!State.Zones.ContainsByPredicate([&](const auto& Z){return Z.Id==Target;})){E=TEXT("Choose an existing work zone or welding station");return false;}
+  // Leaving a station never touches its unit: the work done stays on the bench until a welder returns.
+  W->Zone=IsStation?0:Target;W->Station=IsStation?Target:0;W->StationSide=IsStation?FMath::Clamp(Slot,0,1):0;W->Path.Reset();W->Distance=0;W->Retry=0;W->Speed=0;for(auto& Z:State.Zones)Z.Welders=State.Walkers.FilterByPredicate([&](const auto& V){return V.Zone==Z.Id;}).Num();}
  else if(!AssignDriverEmployee(Id,Target,E))return false;
  ++State.Revision;return true;
 }

@@ -1,0 +1,370 @@
+{
+  "variants": [
+    {
+      "variant": 0,
+      "head_parts": [
+        "SK_Head_1"
+      ],
+      "caps_removed": true,
+      "pose_checks": [
+        {
+          "open_degrees": 0,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 5,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 10,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 15,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 20,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 25,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 30,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 35,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 40,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 45,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 50,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 55,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 60,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 65,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 70,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 75,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 80,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 85,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 90,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 95,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 100,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        },
+        {
+          "open_degrees": 105,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 6.606813985854387
+        }
+      ]
+    },
+    {
+      "variant": 1,
+      "head_parts": [
+        "SK_Head_2",
+        "SK_Beard_1_2"
+      ],
+      "caps_removed": true,
+      "pose_checks": [
+        {
+          "open_degrees": 0,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 5,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 10,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 15,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 20,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 25,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 30,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 35,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 40,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 45,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 50,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 55,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 60,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 65,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 70,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 75,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 80,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 85,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 90,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 95,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 100,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        },
+        {
+          "open_degrees": 105,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 13.665630482137203
+        }
+      ]
+    },
+    {
+      "variant": 2,
+      "head_parts": [
+        "SK_Head_3",
+        "SK_Beard_2_3"
+      ],
+      "caps_removed": true,
+      "pose_checks": [
+        {
+          "open_degrees": 0,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 5,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 10,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 15,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 20,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 25,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 30,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 35,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 40,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 45,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 50,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 55,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 60,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 65,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 70,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 75,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 80,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 85,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 90,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 95,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 100,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        },
+        {
+          "open_degrees": 105,
+          "triangle_intersections": 0,
+          "minimum_vertex_clearance_mm": 5.443477537482977
+        }
+      ]
+    }
+  ],
+  "source_heads_inspected": 3,
+  "hat_extents_checked": {
+    "Hat1_front_cm": -23.39835,
+    "Hat2_back_cm": 18.9849
+  },
+  "no_vendor_geometry_in_original_source": true,
+  "passed": true
+}

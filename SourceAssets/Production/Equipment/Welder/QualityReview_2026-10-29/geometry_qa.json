@@ -1,0 +1,32 @@
+{
+  "checks": {
+    "gun_Grip_unchanged": true,
+    "gun_Support_unchanged": true,
+    "gun_WeldTip_unchanged": true,
+    "nozzle_has_real_open_bore": true,
+    "no_external_images": true,
+    "no_linked_vendor_libraries": true,
+    "bottle_foot_contacts_cart_top": true,
+    "eight_independent_groups": true,
+    "no_review_objects_saved_in_asset": true,
+    "all_wheels_ground_clear": true,
+    "fbx_tip_local_scale_preserved": true,
+    "fbx_grip_origin_preserved": true,
+    "original_source_assets_unchanged": true
+  },
+  "passed": true,
+  "gun_local_bounds_cm": {
+    "min_cm": [
+      -3.4267809242010117,
+      -3.150000050663948,
+      -12.418991327285767
+    ],
+    "max_cm": [
+      23.899999260902405,
+      3.150000050663948,
+      14.899998903274536
+    ]
+  },
+  "original_hashes_unchanged": true,
+  "no_engine_use": true
+}

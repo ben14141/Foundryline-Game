@@ -13,6 +13,8 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void MigrateEmployees();
  void MigrateEmployeeNames();
  void MigrateGenericEmployees();
+ // Schema 9 gains welding stations; schema 10 gains bought assembly parts (zone part arrays grow) and station supplies.
+ void MigrateWeldingStations();
  static constexpr int32 HireLimitTotal=12;
  static constexpr int32 HireLimitPerRole=4;
  int32 EmployeeHireCapacity(EFoundrylineEmployeeRole Role)const;
@@ -23,8 +25,9 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void UpdateOperators(float Dt);
  bool CanEmployeeAdvance(FVector From,FVector To,int32 EmployeeId)const;
  bool TryEmployeePassing(FVector From,FVector To,int32 EmployeeId,TArray<FVector>& Path,float& Distance)const;
- bool AssignEmployee(int32 Id,EFoundrylineEmployeeRole Role,int32 Target,FString& Error);
- bool AssignEmployeeInternal(int32 Id,EFoundrylineEmployeeRole Role,int32 Target,FString& Error);
+ // Slot: welding-station welder slot (0 Welder A, 1 Welder B); 0 for every other job.
+ bool AssignEmployee(int32 Id,EFoundrylineEmployeeRole Role,int32 Target,FString& Error,int32 Slot=0);
+ bool AssignEmployeeInternal(int32 Id,EFoundrylineEmployeeRole Role,int32 Target,FString& Error,int32 Slot=0);
  bool MachineStaffReady(int32 Machine)const;
  bool EmployeesValid(FString& Error)const;
  FVector OperatorWorkPoint(int32 Machine)const;
@@ -47,6 +50,41 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  bool AddZone(FVector A,FVector B,FString& Error);
  bool AddPresetZone(FVector Center,int32 Preset,int32 QuarterTurns,int32 Side,int32 Route,FString& Error);
  bool CanPlaceZone(const FFoundrylineFactoryZone& Zone,FString& Error)const;
+ // Validates a candidate and chooses its reachable forklift dock offsets.
+ bool CanPlaceWeldingStation(FFoundrylineWeldingStationRecord& Station,FString& Error)const;
+ bool WeldingStationAccess(FFoundrylineWeldingStationRecord& Station,FString& Error)const;
+ bool AddWeldingStation(FVector Center,int32 QuarterTurns,bool SwapSides,FString& Error);
+ bool RemoveWeldingStation(int32 Id,FString& Error);
+ bool WeldingStationsValid(FString& Error)const;
+ bool OverlapsWeldingStation(const FBox2D& Box,bool IncludeApproaches)const;
+ // Recipe 0 or batch 0 stops new supply requests; parts already in the bins stay there.
+ bool ConfigureWeldingStation(int32 Id,int32 Recipe,int32 Batch,FString& Error);
+ // Units of a part committed to a station: in its bins, on its IN port, on a forklift heading there or still on a booked supplier truck.
+ int32 StationStock(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part,bool IncludeIncoming=true)const;
+ // Bounded buffer: two kits of the recipe, capped by the station's bins. Zero when the station needs no more parts.
+ int32 StationTarget(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part)const;
+ int32 StationShortfall(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part)const{return FMath::Max(0,StationTarget(Station,Part)-StationStock(Station,Part));}
+ // Free stock a forklift could bring from this business's racks.
+ int32 StationRackSupply(EFoundrylinePart Part)const;
+ // Finished products on a station's OUT pallets.
+ int32 OutTotal(const FFoundrylineWeldingStationRecord& S)const;
+ FString WeldingStationStatus(const FFoundrylineWeldingStationRecord& Station)const;
+ // Why finished products are still on OUT, after Lead (empty when OUT is clear).
+ FString StationOutStatus(const FFoundrylineWeldingStationRecord& Station,const FString& Lead)const;
+ // Whether a forklift should now take this OUT pallet whole: full, the station finished, or an accepted order needs it.
+ bool OutPalletReady(const FFoundrylineWeldingStationRecord& Station,const FFoundrylineFactoryPallet& Pallet)const;
+ bool OutCollected(const FFoundrylineWeldingStationRecord& Station)const;
+ // Where a delivery of Part is set down at a station's IN: on its stock pallet, above any stock already there.
+ FVector StationInDrop(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part)const;
+ // Welders assigned to the station (AtWork: standing at their own slot's work point), and the shared work rate from those
+ // at work: 0, 1 (100%) or the recipe's TwoWelderRate.
+ int32 StationWelders(const FFoundrylineWeldingStationRecord& Station,bool AtWork)const;
+ bool StationWelderReady(const FFoundrylineWeldingStationRecord& Station)const{return StationWelders(Station,true)>0;}
+ float StationRate(const FFoundrylineWeldingStationRecord& Station,int32 AtWork=-1)const;
+ const FFoundrylineFactoryWalker* StationWelder(const FFoundrylineWeldingStationRecord& Station,int32 Side)const{return State.Walkers.FindByPredicate([&](const auto& W){return W.Station==Station.Id&&W.StationSide==Side;});}
+ // The station wants its welder: a unit is on the bench, or a batch is set.
+ static bool StationNeedsWelder(const FFoundrylineWeldingStationRecord& Station){return Station.Stage>0&&Station.Stage<4||Station.Recipe&&Station.BatchRemaining>0;}
+ bool IsStationStock(const FFoundrylineFactoryPallet& Pallet)const;
  bool AssignSlot(int32 Slot,EFoundrylinePart Part,FString& Error);
  bool Order(int32 Zone,FString& Error);
  bool Collect(int32 Zone,FString& Error);
@@ -70,6 +108,13 @@ private:
  mutable uint32 CrossingHash=0;
  mutable TArray<FFoundrylineFloorCrossing> CachedCrossings;
  void Plan();
+ void PlanWeldingStations();
+ // Rack slot with room for a whole pallet of Count finished products collected from OUT (0 if none is free).
+ int32 FinishedGoodsSlot(EFoundrylinePart Part,int32 Count)const;
+ void UnloadWeldingStations(float Dt);
+ void AssembleWeldingStations(float Dt);
+ bool StationPortBusy(const FFoundrylineWeldingStationRecord& Station)const;
+
  void Machines(float Dt);
  void Assembly(float Dt);
  void Dispatch();

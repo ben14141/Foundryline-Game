@@ -1,0 +1,125 @@
+{
+  "version": 2,
+  "original_authorship": true,
+  "source_blend_contains_no_vendor_reference": true,
+  "units": "Blender metres / Unreal centimetres; imperial display",
+  "meshes": [
+    "WeldingHood_Harness.fbx",
+    "WeldingHood_Visor.fbx"
+  ],
+  "native_paths": [
+    "/Game/Foundryline/Employees/Equipment/WeldingHood/SM_WeldingHood_Harness",
+    "/Game/Foundryline/Employees/Equipment/WeldingHood/SM_WeldingHood_Visor"
+  ],
+  "neutral_root": "ear hinge, axes match native Handyman component: front+Y/up+Z",
+  "head_bone": "head",
+  "head_relative_location_cm": [
+    14.558063928,
+    -1.856296644,
+    0.001122955
+  ],
+  "head_relative_quaternion_xyzw": [
+    -0.025120771857,
+    -0.706634613379,
+    0.025167143659,
+    -0.706684572406
+  ],
+  "visor_relative_location_cm": [
+    0,
+    0,
+    0
+  ],
+  "hinge_axis_native": [
+    1,
+    0,
+    0
+  ],
+  "closed_degrees": 0,
+  "open_degrees": 105,
+  "blender_open_degrees": -105,
+  "bare_head_rule": "Filter SK_Hat_* only for welding-hood outfits; preserve original head/beard/clothes and stable variant index. Caps cannot remain inside the merged mesh.",
+  "world_reference_ear_cm": [
+    0,
+    0,
+    170
+  ],
+  "materials": {
+    "Hood_GraphiteShell": {
+      "base_color": [
+        0.02500000037252903,
+        0.03700000047683716,
+        0.04899999871850014
+      ],
+      "metallic": 0.14000000059604645,
+      "roughness": 0.3400000035762787
+    },
+    "Hood_OrangeTrim": {
+      "base_color": [
+        0.7200000286102295,
+        0.12999999523162842,
+        0.017000000923871994
+      ],
+      "metallic": 0.10000000149011612,
+      "roughness": 0.30000001192092896
+    },
+    "Hood_RubberPad": {
+      "base_color": [
+        0.012000000104308128,
+        0.017000000923871994,
+        0.02199999988079071
+      ],
+      "metallic": 0.0,
+      "roughness": 0.699999988079071
+    },
+    "Hood_PivotSteel": {
+      "base_color": [
+        0.3100000023841858,
+        0.3700000047683716,
+        0.41999998688697815
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.25
+    },
+    "Hood_DarkFilterLens": {
+      "base_color": [
+        0.004000000189989805,
+        0.014999999664723873,
+        0.010999999940395355
+      ],
+      "metallic": 0.2199999988079071,
+      "roughness": 0.18000000715255737
+    },
+    "Hood_LensCover": {
+      "base_color": [
+        0.01600000075995922,
+        0.032999999821186066,
+        0.03500000014901161
+      ],
+      "metallic": 0.15000000596046448,
+      "roughness": 0.15000000596046448
+    }
+  },
+  "native_import_or_runtime_validation": false,
+  "bounds_cm": {
+    "min": [
+      -17.649999260902405,
+      -19.69445049762726,
+      -16.780000925064087
+    ],
+    "max": [
+      17.649999260902405,
+      16.4000004529953,
+      14.28000032901764
+    ],
+    "size": [
+      35.29999852180481,
+      36.09445095062256,
+      31.060001254081726
+    ]
+  },
+  "dimensions_inches": [
+    13.89763721330898,
+    14.210413760087622,
+    12.228346950425877
+  ]
+}

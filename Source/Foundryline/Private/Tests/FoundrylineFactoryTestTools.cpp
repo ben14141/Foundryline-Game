@@ -1,5 +1,7 @@
 #include "FoundrylineNetworkTestTools.h"
 #include "Production/FoundrylineFactoryPlant.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
+#include "Employees/FoundrylineWeldingHoodComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -51,8 +53,6 @@ bool UFoundrylineNetworkTestTools::AdvanceFactoryTest(APlayerController* Host,in
 #endif
  return false;
 }
-
-
 FString UFoundrylineNetworkTestTools::PreviewFactoryBrush(APlayerController* Player,FName Tool,FVector Start,FVector End,bool Dragging,bool Commit){
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController())return TEXT("{}");
@@ -80,5 +80,21 @@ FString UFoundrylineNetworkTestTools::StockRackReview(APlayerController* Host){
  ++M.State.Revision;return TEXT("{\"slots\":[")+Items+TEXT("]}");
 #else
  return TEXT("{}");
+#endif
+}
+bool UFoundrylineNetworkTestTools::QueueFactoryLane(APlayerController* Player,int32 Kind,FVector A,FVector B,float Width){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
+ FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Kind,A,B,Width](float){if(Weak.IsValid()){FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::PaintLane;C.Id=Kind;C.A=A;C.B=B;C.WidthCm=Width;C.Other=0;Weak->SendFactory(C);}return false;}));return true;
+#else
+ return false;
+#endif
+}
+bool UFoundrylineNetworkTestTools::QueuePlasmaProgram(APlayerController* Player,int32 Part,int32 Batch){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
+ FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Part,Batch](float){if(Weak.IsValid())if(auto* Plant=Weak->FactoryPlant()){FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::Program;C.Id=1;C.Part=EFoundrylinePart(Part);C.Count=Batch;C.Flag=false;C.TargetPlantId=Plant->BusinessPlantId;Weak->SendFactory(C);}return false;}));return true;
+#else
+ return false;
 #endif
 }

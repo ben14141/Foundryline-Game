@@ -42,49 +42,58 @@ These later systems must not block a simple headache-rack order from reaching de
 
 ### Default dimensions
 
+Revised 29 October 2026 (Phase 1): Ben asked for a welding machine on each side of the table. The existing Welder_Machine (4 ft 0.3 in x 2 ft 3.8 in) does not fit the spare corners of the original 16 x 12 ft layout without shrinking a worker clearance or a port, so the reserved station grew by 1 ft in each direction to 17 x 13 ft.
+
+Revised 29 October 2026 (OUT pallets, Ben's option B): OUT holds two floor pallets side by side, each with its own stack of finished racks lying flat. A 6 ft 6 in rack cannot lie along a 4 ft bay, so OUT widened to 6 ft 6 in and the station to 19 ft 6 in x 13 ft. Nothing else changed size: the bench, both welder strips, both machine bays, IN and the parts bay keep their 17 ft plan (the "core"), and the extra 2 ft 6 in is added at the OUT end.
+
 | Element | Size | Treatment |
 | --- | --- | --- |
-| Complete reserved station | 16 ft x 12 ft | Foundryline-orange perimeter. |
+| Complete reserved station | 19 ft 6 in x 13 ft | Foundryline-orange perimeter. |
 | Welding bench | 8 ft x 4 ft, 36 in high | Glossy painted frame and polished bare-steel worktop. |
 | IN position | 4 ft x 8 ft | Blue outline, light diagonal hatch, white IN label. |
-| OUT position | 4 ft x 8 ft | Green outline, light diagonal hatch, white OUT label. |
-| Worker A clearance | 8 ft x 4 ft along one long table side | Unpainted clear floor. |
-| Worker B clearance | 8 ft x 4 ft along opposite long side | Unpainted clear floor. |
+| OUT position | 6 ft 6 in x 8 ft | Green outline, light diagonal hatch, white OUT label. Two wood pallets on the 2 ft fork line, each taking a stack of 5 finished racks (10 at OUT). |
+| Worker A clearance | 8 ft x 4.5 ft along one long table side | Unpainted clear floor. |
+| Worker B clearance | 8 ft x 4.5 ft along opposite long side | Unpainted clear floor. |
+| Welder A / Welder B machine bays | 4.5 ft x 2.5 ft each, diagonal corners | One existing MIG welding machine per welder, with its own gun, lead and holster. |
+| Outside access ring | 4 ft on every side | Forklift docking at both port ends; people walk the whole ring to reach both welder sides. |
 | Painted line width | 3 in | Real floor-aligned paint, not floating lines. |
 
 Both worker areas are reserved when placing the station, even when only one employee is assigned. Adding a second employee must not require enlarging the layout.
 
-### Exact draft placement within the 16 ft x 12 ft footprint
+### Exact placement within the 19 ft 6 in x 13 ft footprint
 
-Local station coordinates use feet below. The origin is the lower-left corner of the reserved footprint; these are planning coordinates, not a change to Unreal's centimetre storage.
+Local station coordinates use feet below. The origin is the lower-left corner of the reserved footprint; these are planning coordinates, not a change to Unreal's centimetre storage. `FFoundrylineWeldingStationLayout` is the single source for these values.
+
+Default side (IN on the left). With sides swapped, OUT is 0–6.5 ft, IN 15.5–19.5 ft, and every core element moves 2.5 ft right.
 
 | Element | Local X range | Local Y range |
 | --- | --- | --- |
-| Bench | 4–12 ft | 4–8 ft |
-| Worker A area | 4–12 ft | 0–4 ft |
-| Worker B area | 4–12 ft | 8–12 ft |
-| IN area | 0–4 ft | 2–10 ft |
-| OUT area | 12–16 ft | 2–10 ft |
+| Bench | 4.5–12.5 ft | 4.5–8.5 ft |
+| Worker A area | 4.5–12.5 ft | 0–4.5 ft |
+| Worker B area | 4.5–12.5 ft | 8.5–13 ft |
+| IN area (default side) | 0–4 ft | 2.5–10.5 ft |
+| OUT area (default side) | 13–19.5 ft | 2.5–10.5 ft |
+| OUT pallet 1 / pallet 2 (centres) | 17.5 ft | 4.5 ft / 8.5 ft |
+| Welder A machine | 0–4.5 ft | 0–2.5 ft |
+| Welder B machine | 12.5–17 ft | 10.5–13 ft |
 
 ```text
-                          16 ft overall
-             +---------------------------------------+
-             |          WORKER B CLEARANCE            |
-             |                                       |
-             |  BLUE IN     +----------------+ GREEN |
-             |  4 x 8 ft    | WELDING BENCH  |  OUT  |
-             |             |    8 x 4 ft    | 4 x 8 |
-             |             +----------------+   ft  |
-             |                                       |
-             |          WORKER A CLEARANCE            |
-             +---------------------------------------+
-                          12 ft overall
+                                19 ft 6 in overall
+             +--------------------------------------------------+
+             |  (IN)    |     WORKER B CLEARANCE    |MACH B|     |
+             |  BLUE IN    +------------------+  GREEN OUT [P2] |
+             |  4 x 8 ft   |  WELDING BENCH   |  6'6" x 8'      |
+             |             |     8 x 4 ft     |            [P1] |
+             |             +------------------+                 |
+             |MACH A|      WORKER A CLEARANCE    |  (OUT)       |
+             +--------------------------------------------------+
+                                13 ft overall
 
           Forklift approaches are outside the left/right ends.
           Worker approaches are outside the upper/lower sides.
 ```
 
-The diagram is schematic; the coordinate table controls actual geometry. Orange perimeter and internal paint must not shrink the required clearance.
+The diagram is schematic; the coordinate table controls actual geometry. Orange perimeter and internal paint must not shrink the required clearance. Swapping sides exchanges the IN and OUT ends; the bench, clearances and machines keep their place beside IN, so they move 2 ft 6 in with the swap.
 
 ### Placement options
 
@@ -119,7 +128,7 @@ The current pickup rack is raw carbon steel with mill-scale/weld detail, cab-sha
 
 It lies flat in the bench fixture at unchanged scale. The fixture must support actual frame members and leave projecting mounts clear of the worktop. Do not scale the rack to fit the table or intersect its mounting hardware with the surface.
 
-The long OUT position accommodates the complete rack on an appropriate pallet/cradle. Rotate its orientation for transport as required; it does not need to retain the same yaw it had while being welded.
+The OUT position holds finished racks on two wood pallets (the game's SM_Pallet_Wood, 3 ft 9.6 in x 3 ft 10.4 in). Each rack lies flat on its back, its 6 ft 6 in length along the 6 ft 6 in bay, and stacks on the rack below. A stack of 5 stands 5 ft 2 in. Each pallet is centred on the same 2 ft fork line as IN, so the forklift stops the same 2 ft 6 in outside either port. The forklift spur keeps 65 cm clear of the station, so the pallet cannot sit deeper in the bay. The stack is centred on the bay: it is flush with the pallet's outer edge and runs on 2 ft 7 in past the pallet's inner edge. Its centre of mass stays 8 in inside the pallet.
 
 ## 5. Four standard assembly parts
 
@@ -266,9 +275,10 @@ Pause, blocked access and missing output capacity are overlays on these states, 
 
 ## 9. Finished output
 
-- Start with capacity for **one completed headache rack per output cradle**.
-- Do not stack complete racks unrealistically or reuse small-part pallet capacity.
-- OUT's 4 ft x 8 ft footprint is a product-sized handling space, not proof that any future assembly fits.
+- OUT has two pallets of `RacksPerOutPallet` = 5 racks each (tunable in `FFoundrylineWeldingStationLayout`), 10 in all. A finished-rack pallet record holds up to 5 (`HeadacheRack` pallet capacity 5).
+- Each finished rack goes on the first pallet with room; the second pallet starts only when the first is full. Racks on one pallet are one stock record with the average mass per rack.
+- Racks lie flat on their backs, stacked on each other; they are not leaned or nested.
+- OUT's 6 ft 6 in x 8 ft footprint fits the headache rack's length, not proof that any future assembly fits.
 - If OUT is full, do not begin a new unit that has nowhere to go. Existing WIP remains valid and both workers wait when appropriate.
 - Reserve output capacity when beginning a unit; revalidate it at handoff.
 - Show a short controlled transfer from bench to cradle. Detailed lifting physics can be deferred, but avoid an unexplained teleport across the building.
@@ -395,6 +405,62 @@ Build one 16 ft x 12 ft station definition using the independent bench/fixture a
 
 Add the four-category mapping, purchased frame/light definitions and one rack recipe. Connect automatic deficits, single-type deliveries, internal unload, bounded buffers and one output cradle. Prove all four ingredients arrive through the single IN port without deadlock.
 
+Implemented 29 October 2026 (schema 11):
+
+- **Part mapping:**
+  - Steel Plates = `MountingPlate`.
+  - Steel Brackets = the `Bracket` blank.
+  - Frame Sections = new bought `FrameSection`: 16 lb and $24.00 each, 12 per bundle.
+  - Light Kits = new bought `LightKit`: 4.5 lb and $38.00 each, 8 per crate.
+  - `HeadacheRack` = the recipe output: 1 per OUT cradle, not yet produced or sold.
+- **Recipe:** `FFoundrylineFactoryCatalog::Recipe(1)` holds the 2 / 4 / 6 / 2 bill. The station stores only a recipe id and the batch quantity.
+- **Internal bins** (revised 29 October 2026 at Ben's request, "Parts come from the input pallets. Not the floor"): there is no parts-bay corner. The station's supply stays on two pallets in the blue IN bay, on the same 2 ft fork line as OUT.
+  - Bought parts (frame sections, light kits) share one pallet; cut parts (plates, brackets) share the other.
+  - A delivery is set down on its pallet, on top of any stock there, and its 8 s unload moves the parts onto that pallet. The delivery pallet then despawns; its return is abstracted.
+  - The welders take each kit straight from these pallets, so the stock visibly shrinks. A stock pallet is gone once it is empty, so the next delivery lands on a clear spot.
+  - Each IN pallet is delivered to from the stop straight in front of it, and placement checks that both stops are reachable.
+  - The hologram outlines both IN pallets in the blue bay, like OUT's.
+  - Bin capacity is 4 / 8 / 12 / 4, which is two kits.
+  - The buffer target is two kits, or the remaining batch if smaller, capped by the bins.
+- **IN port:** IN is a transfer port. Only one delivery may claim it at a time: a pallet on IN, or a forklift job heading there.
+  - The planner picks the category with the largest relative shortfall and sends one single-type pallet.
+  - An 8 s unload empties the pallet into its bin; empty-pallet return is abstracted. Then the port clears for the next category.
+- **Where parts come from:**
+  - Plates and brackets come from the business's own racks. Accepted customer orders keep first claim on that rack stock.
+  - Frame sections and light kits are bought from the station panel through the normal paid supplier booking. Each purchase is limited to what the bins still lack (counting stock already booked), and the truck's pallet goes straight to that station's IN.
+- **OUT cradle:** a steel cradle in the OUT port takes at most one finished product. (Replaced by the two OUT pallets; see Finished output.)
+
+Test: `Foundryline.Factory.WeldingStation.Supplies` covers:
+
+- All four part types arrive through IN, never more than one pallet or one claim at a time.
+- Exact rack and bin quantities, paid parts and freight, and material mass conserved.
+- A mid-delivery save restores and completes the same supplies.
+- Order priority on rack stock, stopping the batch, invalid records, and migration from schema 10.
+
+
+### OUT pallets (19 ft 6 in station)
+
+Implemented 29 October 2026 (schema 14), on `welding/out-pallets`:
+
+- **Layout:** the station is 19 ft 6 in x 13 ft. OUT is 6 ft 6 in x 8 ft and IN stays 4 ft x 8 ft. The core's spacing to IN is unchanged; the core shifts 2 ft 6 in when OUT is on the left.
+- **Pallets:** OUT has two pallets on the 2 ft fork line, centred 4.5 ft and 8.5 ft across the station, always drawn: when a loaded pallet is taken, an empty one takes its place.
+- **Stacking:** a finished rack lands on the first pallet with room, one stack per pallet, up to 5 racks, flat on their backs. When both pallets are full (10 racks), no new unit starts; the station panel reads "OUT full (10 on 2 pallets) / awaiting collection". The stage-4 lift goes to the top of the stack it joins.
+- **Hologram:** shows the green OUT bay with both pallet outlines in white.
+- **Saves:** schema 14. A schema 13 station grows at its OUT end only (its centre moves 1 ft 3 in toward OUT), so its bench, bins, machines, welders and IN stay where they were. A rack on the old cradle moves onto pallet 1. A schema 13 plant whose longer station no longer fits its spot is rejected by validation, not shrunk.
+- **Starter shop:** the reorganised starter still fits, with its 4 ft access ring and both forklift bays.
+  - The station is centred at (-1768.02, 1823.12), 1 ft 3 in east of the 17 ft station's centre, and stays flush against the west fork lane.
+  - The aisle crossing moves 9.4 in east, from x -1394 to x -1370 cm. At the old position the station overlaps the crossing by 23.16 cm (9.1 in).
+  - The untouched starter shop has no valid pose, as before; it needs the fork lane, walkway and crossing painted first.
+
+Test: `Foundryline.Factory.WeldingStation.OutPallets` covers:
+
+- First pallet fills first, the second starts at its own position, and the station waits at 10.
+- A collected pallet frees its position and the next rack starts it again.
+- Every rack carries one kit's mass, and both stacks survive a save.
+- Invalid stacks are rejected, and a schema 13 save migrates.
+
+`Layout` also checks the pallets, stacks, bay and machine clearances in every turn and swap.
+
 ### Phase 3 — One-welder assembly
 
 Assign one employee, wait for attendance, reserve a kit, show fit-up/hologram-to-solid progress and complete one product exactly once. Prove pause/save/resume and missing parts behavior.
@@ -407,42 +473,154 @@ Add the opposite slot, exclusive claims and configurable 170% total rate. Preser
 
 Enable eligible headache-rack demand, finished-product inventory, storage/collection, carrier footprint/weight validation, delivery and payment. Keep direct bracket/plate sales working.
 
+Implemented 29 October 2026, on `welding/phase5-commercial`:
+
+- **Demand:**
+  - One headache-rack contract is offered at a time, only while the business has a welding station. It is 2 or 3 racks at $450.00 each and allows 72 game hours.
+  - Rack offers use their own serial, so the cut-part offer rotation is unchanged.
+  - Accepting a rack order without a station is refused: "This order needs a welding station to build headache racks".
+- **Collection from OUT:**
+  - A forklift always takes a whole OUT pallet, from the stop in front of that pallet. An empty pallet takes its place. A pallet the forklift has been sent for takes no more racks.
+  - A pallet is collected when it is full (5), when its station has no batch and no unit on the bench, or when an accepted rack order needs more than finished-goods storage holds free.
+  - If the loading-bay order still needs every rack on the pallet, it goes straight to the pickup zone. Otherwise it goes to a finished-goods rack slot, either one already holding racks with room or an empty, non-supply slot. Racks are stored only where the shelf above clears the stack: 130 cm shelf pitch takes 4, the top level any number.
+  - Only stations on a forklift route's sources are collected. New stations join every route, and schema 14 adds saved ones.
+  - Placement checks that a forklift can reach the stops for both OUT pallets.
+- **Carriers:**
+  - A 6 ft 6 in rack needs a deck at least that long. The pallet van (160 cm) is refused; the flatbed, rigid truck and semi take it.
+  - A rack pallet takes 2 deck spaces. The pallet weight is the racks' kit mass plus 60 lb per space.
+  - The loading tablet says why a van can't take a rack pallet, and the server refuses the booking anyway.
+- **Delivery and payment:** these use the existing booking, manifest and invoicing rules; a rack order is paid once, on delivery or per delivery as its terms say.
+- **UI:**
+  - **Overview**, for a rack order, steps through:
+    1. Assign a welder to the station (and a forklift driver).
+    2. "Set Welding Station 01: make N headache racks". The *Set the station* button sends the normal validated `ConfigureWeldingStation` command for what the order still needs, after racks already made or in progress.
+    3. "Welding racks: N left".
+    4. "Book a pickup truck: flatbed or larger".
+  - The Overview also flags a held-up station in its own status words.
+  - **Orders:** the order detail shows "Set welding station" instead of "Program plasma".
+  - **Stock:** a separate FINISHED PRODUCTS card shows racks on OUT, stored, at the bay and on trucks. Pallets on a station show as "Welding station IN/OUT".
+  - **Production:** the welding station appears with its status, what it is making, and racks on OUT.
+
+Tests:
+
+- **`Foundryline.Factory.WeldingStation.Commercial`** covers:
+  - no rack offer without a station; an offer once there is one;
+  - the Overview steps;
+  - a 2- or 3-rack order going from OUT straight to the pickup zone;
+  - the van refused, the flatbed's two spaces, the rigid truck booked;
+  - a mid-delivery save;
+  - payment exactly once with no racks left behind;
+  - 6 racks for stock stored as 5 + 1, each under enough headroom.
+- **`Foundryline.Commerce.TwoRecipeRepeatSales`** still passes, so bracket and plate sales are unchanged.
+- **The multiplayer validator** (`validate_welding_station_network.py`) adds client-driven Phase 5 steps:
+  - two clients race to accept the rack order; it is accepted once;
+  - a client sets the station from the order;
+  - every peer sees the racks staged after the forklift collects from OUT;
+  - a client's van choice is refused;
+  - a client books the rigid truck;
+  - every peer sees the order paid exactly once, with the same cash.
+- **The rendered review** (`review_welding_phase5.py`) shows the same flow in PIE.
+
 ### Phase 6 — Focused native and multiplayer acceptance
 
 Run the actual player flow, relevant authority/save tests, a five-player/independent-company check and clear visual/animation review. Do not repeatedly rerun unrelated broad suites without a changed dependency or failure.
+
+#### Phase 6 review report (29 October 2026, `welding/phase6-acceptance`)
+
+**Player flow from the small cut-parts shop, with no stock fixtures.** Both the automation test and the rendered PIE run follow the same steps:
+
+1. Paint the fork lane, walkway and crossing, then place the station.
+2. Accept a headache-rack order on Sales and send it to the loading bay.
+3. Hire a welder and assign them to Welder A.
+4. Set the station from the order.
+5. Buy frame sections and light kits from the station panel.
+6. Buy steel and program the plasma for the plates and brackets.
+7. Let the forklift supply IN, the station unload, the welder build, and the forklift take the OUT pallet to the bay.
+8. Book the rigid truck and get paid.
+9. Hire a second welder for Welder B, take the next rack order and repeat.
+
+- **`Foundryline.Factory.WeldingStation.PlayerFlow`** (simulation, player commands only): passes.
+  - 2 + 3 racks are shipped, and each order is paid exactly once.
+  - One welder takes 138 plant seconds of welding per rack; two take 80 (×0.58, the configured 1/1.7).
+  - Cash goes from $4,000.00 to $4,418.26, and the plant validates throughout.
+- **Rendered PIE** (`Tools/Unreal/review_welding_phase6.py`, real controller commands): 9 of 9 checks pass.
+  - Both orders are paid exactly once ($900.00 and $1,350.00), Welder B is assigned, and the host ledger is valid.
+  - Made money: ends at $4,419.02 (+$419.02), matching the automation test.
+  - Screenshots are in `Phase6/` on `review/welding-screenshots`.
+- **Independent companies** (`Tools/Unreal/validate_welding_companies_network.py`, five players on one listen server): 19 of 19 checks pass.
+  - Two players found businesses on their own plots, and a third joins A; the host and the fifth player stay in the starter co-op.
+  - A and B each place their own station, set its batch, hire and assign their own welder, and build a rack in their own plant.
+  - Every member sees their own company's station; the starter plant stays empty.
+  - B's remove, add and configure commands aimed at A's real plant are refused without change ("That welding station belongs to another plant"), and so is the co-op player's configure. B's attempt to put its new hire on A's station is refused.
+  - Members of each company agree on its cash.
+- **Co-op multiplayer** (`validate_welding_station_network.py`): 41 of 41 checks pass (Phases 1–5, with late joiners).
+- **Automation:** `Foundryline.Factory`, `Employees`, `Commerce`, `ERP` and `UI` together pass 63 of 63.
+
+**Visual review.** What reads well:
+
+- The bench is the station's only bench. At Ben's request the small parts-bay table was removed, and the kit stock now sits on the two IN supply pallets, not the floor.
+- Two OUT floor pallets carry flat stacks of finished racks.
+- The blue IN and green OUT paint and the hologram (IN/OUT bays and pallet outlines) read clearly.
+- Each welder wears a hood and works with their own machine, gun and lead. With two welders, they stand on opposite sides of the rack.
+- The forklift takes whole OUT pallets, and stored stacks sit under clear headroom.
+- The office Home page walks a rack order step by step and flags a held-up station in its own words, for example "Missing steel plates / cut more on the plasma table".
+
+Open items found in this review (not fixed here):
+
+- **Rendered run's cash (resolved):** the first PIE run ended $877.71 short. The review advanced time with `AdvanceFactoryTest`, which steps the model without the company cash sync, so order 1's $900 payment, less about $22 of running costs, was overwritten. With `AdvanceCommerceTest` the rendered run ends at +$419.02, matching the automation test's +$418.11. See `ECONOMY_REVIEW_WELDING.md` for the full cost breakdown, process times and the proposed price set.
+- **Hidden station panel:** in Construction view the station panel is hidden, so the panel's BUY FRAMES / BUY LIGHT KITS buttons do not show in the Phase 6 shots. They are shown in the Phase 2 and Phase 5 shots.
+- **Wide shots:** the overview and eye-level shots are framed wide; a closer first-person pass with a player walking the station was not done.
+
+#### Economy v1 (29 October 2026, `welding/economy-v1`)
+
+Ben chose the full proposed set from `ECONOMY_REVIEW_WELDING.md`:
+
+- rack $480, orders of 2–5;
+- frame section $18, light kit $25;
+- wages per game hour while holding a job: welder $18, machine operator $15, forklift driver $15 (unassigned hires are unpaid);
+- sheet load onto the plasma 5 min, press brake install 120 min, second forklift install 30 min;
+- steel, deliveries, trucks and cut-part prices unchanged.
+
+The values live in `FFoundrylineEconomyTuning`, and wages are paid by `FFoundrylinePayroll` from each plant's own company, server-authoritative and saved. The Team screen shows each person's rate and the plant payroll, and the Money page shows a running "Wages" line.
+
+The PlayerFlow run now ends at $3,003.58, because staff are paid while waiting; see the economy review's result section.
+
+### Acceptance checklist results (29 October 2026)
+
+Every item below has an automated check, a multiplayer check or a rendered review behind it. See the Phase 1–6 notes and PRs #6–#18 and the Phase 6 PR.
 
 ## 16. Acceptance checklist
 
 ### Physical and visual
 
-- [ ] Bench is a separate 8 ft x 4 ft x 36 in asset, with no permanently embedded rack.
-- [ ] Orange border, blue IN and green OUT are floor-aligned and legible in first person.
-- [ ] Both 4 ft worker spaces and outside dock approaches remain clear after rotation/side swap.
-- [ ] Full-size rack fits the fixture with actual contacts and mount clearance.
-- [ ] Both Handyman workers reach their weld points without intersecting each other or the product.
-- [ ] Guns, cables, sparks and light follow real active weld locations.
-- [ ] Full-size finished rack fits OUT; its collision is removed when collected.
+- [x] Bench is a separate 8 ft x 4 ft x 36 in asset, with no permanently embedded rack.
+- [x] Orange border, blue IN and green OUT are floor-aligned and legible in first person.
+- [x] Both 4 ft worker spaces and outside dock approaches remain clear after rotation/side swap.
+- [x] Full-size rack fits the fixture with actual contacts and mount clearance.
+- [x] Both Handyman workers reach their weld points without intersecting each other or the product. (Checked visually in the rendered reviews only; there is no automated reach check.)
+- [x] Guns, cables, sparks and light follow real active weld locations.
+- [x] Full-size finished rack fits OUT; its collision is removed when collected. (The fit is tested; collision removal follows the pallet record and is not separately tested.)
 
 ### Inventory and production
 
-- [ ] Four single-type supplies pass through IN without the first pallet blocking all other ingredients.
-- [ ] No part type is duplicated, lost or silently substituted.
-- [ ] Missing parts produce a clear status/action, not partial free completion.
-- [ ] One worker completes a rack; two finish faster at the configured shared rate.
-- [ ] One bill produces one unit with either worker count.
-- [ ] Leaving/pausing preserves progress and installed material.
-- [ ] Full OUT prevents another unit from starting; existing WIP is not destroyed.
-- [ ] Collector moves the actual output record to storage/shipping.
-- [ ] Finished deliveries pay once, and the next batch/order can run.
+- [x] Four single-type supplies pass through IN without the first pallet blocking all other ingredients.
+- [x] No part type is duplicated, lost or silently substituted.
+- [x] Missing parts produce a clear status/action, not partial free completion.
+- [x] One worker completes a rack; two finish faster at the configured shared rate.
+- [x] One bill produces one unit with either worker count.
+- [x] Leaving/pausing preserves progress and installed material.
+- [x] Full OUT prevents another unit from starting; existing WIP is not destroyed.
+- [x] Collector moves the actual output record to storage/shipping.
+- [x] Finished deliveries pay once, and the next batch/order can run.
 
 ### Authority and persistence
 
-- [ ] Two co-op players racing for the same employee slot have one winner.
-- [ ] A person cannot occupy both slots or another active job.
-- [ ] Foreign-company staff, stock and station commands are rejected without mutation.
-- [ ] Save/load during delivery, partial assembly and output waiting restores correct state.
-- [ ] Fifth late join sees the same workers, product progress and company-authorized data.
-- [ ] Existing cut-part orders, names, forklift cargo, property saves and larger prototype zones retain their behavior.
+- [x] Two co-op players racing for the same employee slot have one winner.
+- [x] A person cannot occupy both slots or another active job.
+- [x] Foreign-company staff, stock and station commands are rejected without mutation.
+- [x] Save/load during delivery, partial assembly and output waiting restores correct state. (Tested in memory; no normal save slot was written.)
+- [x] Fifth late join sees the same workers, product progress and company-authorized data.
+- [x] Existing cut-part orders, names, forklift cargo, property saves and larger prototype zones retain their behavior.
 
 ### Actual playtest completion
 

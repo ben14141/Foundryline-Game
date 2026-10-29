@@ -5,7 +5,7 @@ UENUM() enum class EFoundrylinePayment:uint8 {PerDelivery,OnCompletion,Upfront};
 UENUM() enum class EFoundrylineOrderState:uint8 {Offered,Accepted,Completed};
 UENUM() enum class EFoundrylineBookingState:uint8 {Booked,Approaching,Waiting,Loading,Departing,InTransit,Delivered};
 UENUM() enum class EFoundrylineForkTask:uint8 {Truck,Machine,Storage};
-UENUM() enum class EFoundrylineCommerceAction:uint8 {AcceptOrder,BuySteel,AssignPickup,BookPickup,Reschedule,DriverPriority,BuyBrake,BuyForklift};
+UENUM() enum class EFoundrylineCommerceAction:uint8 {AcceptOrder,BuySteel,AssignPickup,BookPickup,Reschedule,DriverPriority,BuyBrake,BuyForklift,BuyParts};
 USTRUCT() struct FFoundrylineCustomerOrder {
  GENERATED_BODY()
  UPROPERTY(SaveGame) int32 Id=0;
@@ -37,7 +37,11 @@ USTRUCT() struct FFoundrylineFreightBooking {
  UPROPERTY(SaveGame) int32 Id=0;
  UPROPERTY(SaveGame) int32 OrderId=0;
  UPROPERTY(SaveGame) bool Inbound=false;
+ // Inbound quantity: steel sheets, or units of Part for a bought-parts delivery.
  UPROPERTY(SaveGame) int32 Sheets=0;
+ // Schema 11: inbound part (0 = steel sheet). Bought assembly parts go straight to StationId's IN port.
+ UPROPERTY(SaveGame) uint8 Part=0;
+ UPROPERTY(SaveGame) int32 StationId=0;
  UPROPERTY(SaveGame) int32 Carrier=1;
  UPROPERTY(SaveGame) int64 OriginalFeeCents=4000;
  UPROPERTY(SaveGame) double ArrivalAt=0;
@@ -66,10 +70,19 @@ USTRUCT() struct FFoundrylineCommerceState {
  UPROPERTY(SaveGame) int64 EarnedRevenueCents=0;
  UPROPERTY(SaveGame) int64 CostCents=0;
  UPROPERTY(SaveGame) double ExpenseFraction=0;
+ // Wages owed but not yet a whole cent and the wages paid so far (FFoundrylinePayroll), and equipment still being
+ // installed (game minutes left; times in FFoundrylineEconomyTuning).
+ UPROPERTY(SaveGame) double WageFraction=0;
+ UPROPERTY(SaveGame) int64 WagesPaidCents=0;
+ UPROPERTY(SaveGame) float BrakeInstallMinutes=0;
+ UPROPERTY(SaveGame) float ForkliftInstallMinutes=0;
+ UPROPERTY(SaveGame) int32 ForkliftInstallDriver=0;
  UPROPERTY(SaveGame) bool BrakeOwned=false;
  UPROPERTY(SaveGame) int32 PickupOrder=0;
  UPROPERTY(SaveGame) int32 ActiveBooking=0;
  UPROPERTY(SaveGame) int32 OfferSerial=0;
+ // Headache-rack offers keep their own serial so the cut-part offer rotation is unchanged.
+ UPROPERTY(SaveGame) int32 RackOfferSerial=0;
  UPROPERTY(SaveGame) TArray<FFoundrylineCustomerOrder> Orders;
  UPROPERTY(SaveGame) TArray<FFoundrylineFreightBooking> Bookings;
  UPROPERTY(SaveGame) TArray<FFoundrylineMoneyEntry> Money;
@@ -85,7 +98,8 @@ USTRUCT() struct FFoundrylineCommerceCommand {
  UPROPERTY() TArray<int32> Pallets;
  UPROPERTY() TArray<int32> Quantities;
 };
-struct FFoundrylineCarrierSpec {const TCHAR* Name;const TCHAR* Vehicle;int32 Spaces;double PayloadLb;int64 FeeCents;double LeadMinutes;double TransitMinutes;};
+// DeckCm: the longest item the deck carries lying flat across it (a pallet van's box is too narrow for a 6 ft 6 in rack).
+struct FFoundrylineCarrierSpec {const TCHAR* Name;const TCHAR* Vehicle;int32 Spaces;double PayloadLb;int64 FeeCents;double LeadMinutes;double TransitMinutes;double DeckCm=240;};
 struct FOUNDRYLINE_API FFoundrylineCommerceCatalog {
  static FFoundrylineCarrierSpec Carrier(int32 Id);
  static int64 SalePrice(uint8 Part);
@@ -96,4 +110,10 @@ struct FOUNDRYLINE_API FFoundrylineCommerceCatalog {
  static int32 PalletSpaces(uint8 Part);
  static double PalletWeight(uint8 Part,int32 Quantity,double UnitLb);
  static bool Saleable(uint8 Part);
+ // Longest dimension of one shipped item (0 for parts that sit within a pallet), and whether a carrier's deck takes it.
+ static double ItemLengthCm(uint8 Part);
+ static bool CarrierFits(int32 Vehicle,uint8 Part){return ItemLengthCm(Part)<=Carrier(Vehicle).DeckCm;}
+ // "4 sheets of steel" / "6 frame sections" for an inbound delivery.
+ static FString InboundLabel(const FFoundrylineFreightBooking& Booking);
+
 };
