@@ -23,6 +23,7 @@ private:
  void DrawFreightControls(class AFoundrylinePlayerController* PC);
  void DrawSurfaceSizing(class AFoundrylinePlayerController* PC);
  void DrawPlacementGuide(class AFoundrylinePlayerController* PC);
+ void DrawSelectionOutlines(class AFoundrylinePlayerController* PC);
  void DrawNetworkPanel(class AFoundrylinePlayerController* PC);
  void DrawLogisticsMap(class AFoundrylinePlayerController* PC);
 	bool bEditTab=false;

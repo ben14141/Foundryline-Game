@@ -1,5 +1,5 @@
-#include "Construction/FoundrylineEquipmentCollision.h"
 #include "Construction/FoundrylineBuildSite.h"
+#include "Construction/FoundrylineEquipmentCollision.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "Construction/FoundrylineFacadeLayout.h"
 #include "Construction/FoundrylineSizing.h"
@@ -85,41 +85,91 @@ void AFoundrylineBuildSite::EndPlay(const EEndPlayReason::Type Reason)
  Super::EndPlay(Reason);
 }
 
-bool AFoundrylineBuildSite::RectangleRequest(FName Tool,FIntVector Start,FIntVector End,FFoundrylinePlacementRequest& Out,bool SnapConnections)
+FFoundrylinePlacementContext AFoundrylineBuildSite::LocalContext() const
+{
+ // Previews, picking and magnets follow the local player's real company once
+ // the registry has bound the world. Bootstrap seeding keeps the site context.
+ const auto* Registry=AFoundrylineBusinessRegistry::Find(GetWorld());
+ if(!Registry || (HasAuthority() && !Registry->IsWorldBound())) return Context;
+ for(TActorIterator<AFoundrylinePlayerController> It(GetWorld());It;++It) if(It->IsLocalController())
+ {
+  FFoundrylinePlacementContext Out;
+  if(Registry->ConstructionContext(*It,Out)) return Out;
+  break;
+ }
+ return Context;
+}
+
+TArray<FFoundrylineGridBounds> AFoundrylineBuildSite::SnapTargets(bool bBuilding,FGuid Exclude) const
+{
+ // Buildings join the same plant's buildings. Pavement meets any pavement or
+ // wall flush, including the town street, because touching edges never overlap.
+ TArray<FFoundrylineGridBounds> Out;const auto Local=LocalContext();
+ for(const auto& Existing:Placement->GetObjects())
+ {
+  const auto* ED=Placement->FindDefinition(Existing.DefinitionId);
+  if(!ED || Existing.ObjectId==Exclude) continue;
+  const bool Shell=ED->FunctionId==TEXT("BuildingShell");
+  if(bBuilding?(!Shell || Existing.CompanyId!=Local.CompanyId || Existing.PlantId!=Local.PlantId):(!Shell && !FFoundrylineDrivingLayout::IsPaved(ED->FunctionId))) continue;
+  Out.Add(FFoundrylineGrid::RotateBounds(ED->Footprint,Existing.Anchor,Existing.QuarterTurns));
+ }
+ return Out;
+}
+
+bool AFoundrylineBuildSite::RectangleRequest(FName Tool,FIntVector Start,FIntVector End,FFoundrylinePlacementRequest& Out,uint8 SnapEdges,bool bExtend)
 {
 	bConnected=false;
 	if(!bReady || (!IsBuilding(Tool) && Tool!=TEXT("Parking") && Tool!=TEXT("FreightYard") && Tool!=TEXT("Walkway") && !IsRoad(Tool))) return false;
 	if(!FFoundrylineGrid::SnapWorld(FVector(Start),EFoundrylineSnap::Structural100cm,Start) || !FFoundrylineGrid::SnapWorld(FVector(End),EFoundrylineSnap::Structural100cm,End)) {Status=TEXT("Outside the supported grid range");return false;}
-	const int64 DX=FMath::Abs(int64(End.X)-Start.X), DY=FMath::Abs(int64(End.Y)-Start.Y);
 	int32 W=0,D=0;
-	Out.Anchor={FMath::Min(Start.X,End.X),FMath::Min(Start.Y,End.Y),0};
 	if(IsBuilding(Tool) || Tool==TEXT("Parking") || Tool==TEXT("FreightYard") || Tool==TEXT("Walkway"))
 	{
         // Rectangles are allowed in either world orientation; their local layout
         // keeps its real car/truck dimensions and is never stretched to fit.
         const auto Minimum=FFoundrylineSizing::Minimum(Tool);
-        const bool Rotate=FFoundrylineSizing::Surface(Tool) && (DraftAreaRotation%2 || (Tool==TEXT("Parking") && DY<Minimum.Y && DX>=Minimum.Y && DY>=Minimum.X));
-        const int64 LocalW=Rotate?DY:DX,LocalD=Rotate?DX:DY;
-        if(LocalW<Minimum.X || LocalD<Minimum.Y || LocalW>6400 || LocalD>6400) {Status=FFoundrylineSizing::Limits(Tool)+TEXT(". Drag to draw the area");return false;}
-
-		FIntVector Max(FMath::Max(Start.X,End.X),FMath::Max(Start.Y,End.Y),0);
-		TArray<FFoundrylineGridBounds> Neighbors;
-		for(const auto& Existing:Placement->GetObjects())
+		FIntVector Min(FMath::Min(Start.X,End.X),FMath::Min(Start.Y,End.Y),0),Max(FMath::Max(Start.X,End.X),FMath::Max(Start.Y,End.Y),0);
+		const auto Targets=SnapTargets(IsBuilding(Tool),SelectedObject);
+		// A drag that never leaves the building stays a plain rectangle, so the
+		// player sees the usual red overlap ghost and its reason.
+		if(IsBuilding(Tool) && bExtend) for(const auto& Host:Targets)
 		{
-			const auto* ED=Placement->FindDefinition(Existing.DefinitionId);
-			if(Existing.ObjectId==SelectedObject || !ED || !IsBuilding(Tool) || ED->FunctionId!=TEXT("BuildingShell") || Existing.CompanyId!=Context.CompanyId || Existing.PlantId!=Context.PlantId) continue;
-			const auto B=FFoundrylineGrid::RotateBounds(ED->Footprint,Existing.Anchor,Existing.QuarterTurns);
-			// Candidate scoring is local to the footprint, not quadratic in the town.
-			if(B.Max.X<Out.Anchor.X-150 || B.Min.X>Max.X+150 || B.Max.Y<Out.Anchor.Y-150 || B.Min.Y>Max.Y+150) continue;
-			Neighbors.Add(B);
+			if(Start.X<Host.Min.X || Start.Y<Host.Min.Y || Start.X>Host.Max.X || Start.Y>Host.Max.Y) continue;
+			if(FFoundrylineBuildingConnections::ExtendFrom(Host,Start,End,Min,Max)) break;
 		}
-		if(IsBuilding(Tool) && SnapConnections) bConnected=FFoundrylineBuildingConnections::Snap(Out.Anchor,Max,Neighbors,400);
-		W=Max.X-Out.Anchor.X; D=Max.Y-Out.Anchor.Y;
-        if(Rotate) {Swap(W,D);Out.Anchor={Max.X,FMath::Min(Start.Y,End.Y),0};Out.QuarterTurns=1;}
+		const FIntVector RawMin=Min,RawMax=Max;
+		auto Fits=[&](bool& Rotate,int64& LocalW,int64& LocalD)
+		{
+			const int64 DX=Max.X-Min.X,DY=Max.Y-Min.Y;
+			Rotate=FFoundrylineSizing::Surface(Tool) && (DraftAreaRotation%2 || (Tool==TEXT("Parking") && DY<Minimum.Y && DX>=Minimum.Y && DY>=Minimum.X));
+			LocalW=Rotate?DY:DX;LocalD=Rotate?DX:DY;
+			return LocalW>=Minimum.X && LocalD>=Minimum.Y && LocalW<=6400 && LocalD<=6400;
+		};
+		bool Rotate=false;int64 LocalW=0,LocalD=0;
+		if(SnapEdges && bExactDraftPlacement && !IsBuilding(Tool))
+		{
+			// A stamped size never changes; the magnet slides the whole footprint instead.
+			FFoundrylineGridBounds Stamp;Stamp.Min=Min;Stamp.Max=Max;
+			const auto Offset=FFoundrylineBuildingConnections::SnapOffset(Stamp,Targets);Min+=Offset;Max+=Offset;
+		}
+		else if(SnapEdges)
+		{
+			const bool Joined=FFoundrylineBuildingConnections::Snap(Min,Max,Targets,FMath::Min(Minimum.X,Minimum.Y),SnapEdges);
+			if(!Fits(Rotate,LocalW,LocalD)) {Min=RawMin;Max=RawMax;}
+			else if(IsBuilding(Tool)) bConnected=Joined;
+		}
+		if(!Fits(Rotate,LocalW,LocalD))
+		{
+			Status=FFoundrylineSizing::Limits(Tool)+TEXT(". Drag to draw the area");
+			return false;
+		}
+		Out.Anchor={Min.X,Min.Y,0};
+		W=Max.X-Min.X; D=Max.Y-Min.Y;
+        if(Rotate) {Swap(W,D);Out.Anchor={Max.X,Min.Y,0};Out.QuarterTurns=1;}
 		if(!FFoundrylineSizing::Valid(Tool,W,D)) {Status=FFoundrylineSizing::Limits(Tool);return false;}
 	}
 	else
 	{
+		const int64 DX=FMath::Abs(int64(End.X)-Start.X), DY=FMath::Abs(int64(End.Y)-Start.Y);
 		const bool Horizontal=DX>DY;
 		FIntVector A=Start,B=End;
 		W=Tool==TEXT("Service")?400:Tool==TEXT("Driveway")?600:Tool==TEXT("TruckAccess")?DraftTruckWidthCm:Tool==TEXT("Road2")?800:1400;
@@ -148,9 +198,10 @@ bool AFoundrylineBuildSite::RectangleRequest(FName Tool,FIntVector Start,FIntVec
 				else B.Y=A.Y>B.Y?EB.Max.Y:EB.Min.Y;
 			}
 		}
+		if(!bExactDraftPlacement) SnapRoadEnds(Horizontal,W,Start,A,B);
 		const int64 Length=Horizontal?FMath::Abs(int64(B.X)-A.X):FMath::Abs(int64(B.Y)-A.Y);
 		if(Length<400 || Length>6400) { Status=TEXT("Road: drag a straight 4-64 m run"); return false; }
-		W=Tool==TEXT("Service")?400:Tool==TEXT("Driveway")?600:Tool==TEXT("TruckAccess")?DraftTruckWidthCm:Tool==TEXT("Road2")?800:1400; D=int32(Length);
+		D=int32(Length);
 		if(Horizontal) { Out.Anchor={FMath::Max(A.X,B.X),Start.Y-W/2,0}; Out.QuarterTurns=1; }
 		else Out.Anchor={Start.X-W/2,FMath::Min(A.Y,B.Y),0};
 	}
@@ -179,11 +230,11 @@ bool AFoundrylineBuildSite::RectangleRequest(FName Tool,FIntVector Start,FIntVec
 	{
 		Out.bOfficeAnnex=true;FFoundrylineOfficeSpace Zone;Zone.SpaceId=FGuid::NewGuid();Zone.Min={0,0};Zone.Max={W,D};Out.OfficeAreas={Zone};
 		// An office always starts with a shop connection and an exterior entrance.
-		bool bEntrances=false;
+		bool bEntrances=false;const auto Local=LocalContext();
 		for(const auto& Other:Placement->GetObjects())
 		{
 			if(bEntrances) break;
-			const auto* OD=Placement->FindDefinition(Other.DefinitionId);if(!OD || OD->FunctionId!=TEXT("BuildingShell") || Other.bOfficeAnnex) continue;
+			const auto* OD=Placement->FindDefinition(Other.DefinitionId);if(!OD || OD->FunctionId!=TEXT("BuildingShell") || Other.bOfficeAnnex || Other.CompanyId!=Local.CompanyId || Other.PlantId!=Local.PlantId) continue;
 			const auto B=FFoundrylineGrid::RotateBounds(OD->Footprint,Other.Anchor,Other.QuarterTurns);
 			const FIntVector Min=B.Min-Out.Anchor,Max=B.Max-Out.Anchor;
 			for(uint8 Edge=0;Edge<4;++Edge)
@@ -200,12 +251,54 @@ bool AFoundrylineBuildSite::RectangleRequest(FName Tool,FIntVector Start,FIntVec
 		}
 
   if(!bEntrances) {
-   FFoundrylineOpening Door;Door.OpeningId=FGuid::NewGuid();Door.Edge=0;
-   Door.Kind=EFoundrylineOpeningKind::OfficeDoor;Door.OffsetCm=(W/2-50)/100*100;
+   // A standalone office, or one joined only to another office, gets its
+   // entrance on the first wall that still faces outside.
+   FFoundrylineGridBounds Self;Self.Max={W,D,0};Self=FFoundrylineGrid::RotateBounds(Self,Out.Anchor,Out.QuarterTurns);
+   const auto Neighbors=SnapTargets(true,SelectedObject);
+   uint8 Outside=0;
+   for(uint8 Edge=0;Edge<4;++Edge) {
+    const bool Covered=Neighbors.ContainsByPredicate([&](const auto& N){
+     const bool Touch=Edge==0?N.Max.Y==Self.Min.Y:Edge==1?N.Min.X==Self.Max.X:Edge==2?N.Min.Y==Self.Max.Y:N.Max.X==Self.Min.X;
+     return Touch && FFoundrylineBuildingConnections::SharedLength(Self,N)>0;});
+    if(!Covered) {Outside=Edge;break;}
+   }
+   FFoundrylineOpening Door;Door.OpeningId=FGuid::NewGuid();Door.Edge=Outside;
+   Door.Kind=EFoundrylineOpeningKind::OfficeDoor;Door.OffsetCm=((Outside%2==0?W:D)/2-50)/100*100;
    Out.Openings.Add(Door);
   }
 	}
 	Out.ExpectedRevision=Placement->GetRevision(); return true;
+}
+
+void AFoundrylineBuildSite::SnapRoadEnds(bool Horizontal,int32 Width,FIntVector& Center,FIntVector& A,FIntVector& B) const
+{
+ // Road ends reach for whatever they nearly touch: another road, parking, a
+ // yard or a building wall within 3 m becomes a flush, connected edge. A run
+ // continuing a parallel road also lines up with its centre.
+ const int32 Axis=Horizontal?0:1,Cross=1-Axis,Range=300,Grid=Width%200?25:100;
+ FIntVector* Ends[2]={&A,&B};
+ for(int32 I=0;I<2;++I)
+ {
+  auto& P=*Ends[I];const auto& Q=*Ends[1-I];
+  const int32 Dir=P[Axis]>=Q[Axis]?1:-1,Low=Center[Cross]-Width/2,High=Low+Width;
+  int32 Best=P[Axis],BestDistance=Range+1,ParallelCenter=MAX_int32;
+  for(const auto& Existing:Placement->GetObjects())
+  {
+   const auto* ED=Placement->FindDefinition(Existing.DefinitionId);
+   if(!ED || (ED->FunctionId!=TEXT("BuildingShell") && !FFoundrylineDrivingLayout::IsPaved(ED->FunctionId))) continue;
+   const auto EB=FFoundrylineGrid::RotateBounds(ED->Footprint,Existing.Anchor,Existing.QuarterTurns);
+   if(EB.Max[Cross]<=Low || EB.Min[Cross]>=High) continue;
+   // An end already past the far side is a crossing, not an approach.
+   if(Dir>0?P[Axis]>=EB.Max[Axis]:P[Axis]<=EB.Min[Axis]) continue;
+   const int32 Face=Dir>0?EB.Min[Axis]:EB.Max[Axis],Gap=(Face-P[Axis])*Dir;
+   if(Gap<-Range || Gap>Range || Face%Grid || FMath::Abs(Gap)>=BestDistance) continue;
+   Best=Face;BestDistance=FMath::Abs(Gap);
+   const bool Parallel=IsRoad(ED->FunctionId) && Existing.QuarterTurns%2==(Horizontal?1:0);
+   ParallelCenter=Parallel?(EB.Min[Cross]+EB.Max[Cross])/2:MAX_int32;
+  }
+  P[Axis]=Best;
+  if(ParallelCenter!=MAX_int32 && FMath::Abs(ParallelCenter-Center[Cross])<=Range && (ParallelCenter-Width/2)%Grid==0) Center[Cross]=ParallelCenter;
+ }
 }
 
 bool AFoundrylineBuildSite::BuildRectangle(FName Tool,FIntVector Start,FIntVector End)
@@ -213,9 +306,10 @@ bool AFoundrylineBuildSite::BuildRectangle(FName Tool,FIntVector Start,FIntVecto
 	FFoundrylinePlacementRequest R;
 	if(!RectangleRequest(Tool,Start,End,R)) {DraftBlocked(Status,true);return false;}
 	const auto Result=ExecuteConstruction(R);
+	if(SentToHost(Result.Error)) return true;
 	if(!Result.IsSuccess()) { Status=ErrorText(Result.Error); return false; }
 	R.Action=EFoundrylinePlacementAction::Remove; R.ObjectId=Result.ObjectId; RecordUndo(R);
-	Status=IsBuilding(Tool)?(bConnected?TEXT("Building expanded. Shared walls removed."):TEXT("Building placed. Add personnel and garage doors.")):Tool==TEXT("Parking")?TEXT("Parking lot placed"):TEXT("Road placed");
+	Status=Tool==TEXT("Office")?(bConnected?TEXT("Office built with a door into the joined building. Draw rooms in the Office tab."):TEXT("Office built. Draw rooms in the Office tab.")):IsBuilding(Tool)?(bConnected?TEXT("Building expanded. Shared walls removed."):TEXT("Building placed. Add personnel and garage doors.")):Tool==TEXT("Parking")?TEXT("Parking lot placed"):TEXT("Road placed");
 	HidePreview(); return true;
 }
 
@@ -225,19 +319,17 @@ void AFoundrylineBuildSite::PreviewRectangle(FName Tool,FIntVector Start,FIntVec
 	if(!RectangleRequest(Tool,Start,End,R)) {HidePreview();DraftBlocked(Status);return;}
 	const auto Result=ValidateConstruction(R);
 	FFoundrylinePlacedObject O; O.DefinitionId=R.DefinitionId; O.Anchor=R.Anchor; O.QuarterTurns=R.QuarterTurns; O.Openings=R.Openings;O.bOfficeAnnex=R.bOfficeAnnex;O.OfficeAreas=R.OfficeAreas;
-	O.CompanyId=Context.CompanyId; O.PlantId=Context.PlantId;
+	const auto Local=LocalContext();O.CompanyId=Local.CompanyId; O.PlantId=Local.PlantId;
 	const auto* Def=Placement->FindDefinition(O.DefinitionId);
 	Status=FString::Printf(TEXT("%d x %d m  |  %d m high  |  %s%s"),Def->Footprint.Max.X/100,Def->Footprint.Max.Y/100,(Def->Footprint.Max.Z-SlabHeightCm)/100,*ErrorText(Result.Error),bConnected?TEXT("  |  Connected expansion"):TEXT(""));
  if(FFoundrylineSizing::Surface(Tool)) Status=FString::Printf(TEXT("%.0f m %s x %.0f m %s / %s"),Def->Footprint.Max.X/100.f,IsRoad(Tool)?TEXT("wide"):TEXT("width"),Def->Footprint.Max.Y/100.f,IsRoad(Tool)?TEXT("long"):TEXT("depth"),Result.IsSuccess() && bExactDraftPlacement?TEXT("Click to place"):*ErrorText(Result.Error));
 	ShowPreview(O,Result.IsSuccess(),FString::Printf(TEXT("%s_%s_%d_%lld"),*O.DefinitionId.ToString(),*O.Anchor.ToString(),O.QuarterTurns,Placement->GetRevision()));
  PreviewJoinLines.Reset();
- if(IsBuilding(Tool) && Result.IsSuccess()) {
+ if(!IsRoad(Tool) && Result.IsSuccess()) {
+  // Outline exactly what will connect: open shop walls, an office door, or a paved entrance.
   const auto A=FFoundrylineGrid::RotateBounds(Def->Footprint,O.Anchor,O.QuarterTurns);
   int32 Joined=0;
-  for(const auto& Other:Placement->GetObjects()) {
-   const auto* D=Placement->FindDefinition(Other.DefinitionId);
-   if(Other.ObjectId==SelectedObject || !D || D->FunctionId!=TEXT("BuildingShell") || Other.CompanyId!=Context.CompanyId || Other.PlantId!=Context.PlantId) continue;
-   const auto B=FFoundrylineGrid::RotateBounds(D->Footprint,Other.Anchor,Other.QuarterTurns);
+  for(const auto& B:SnapTargets(IsBuilding(Tool),SelectedObject)) {
    const int32 Length=FFoundrylineBuildingConnections::SharedLength(A,B);if(Length<=0) continue;
    Joined+=Length;
    if(A.Min.X==B.Max.X || A.Max.X==B.Min.X) {
@@ -248,7 +340,7 @@ void AFoundrylineBuildSite::PreviewRectangle(FName Tool,FIntVector Start,FIntVec
     PreviewJoinLines.Append({FVector(FMath::Max(A.Min.X,B.Min.X),Y,25),FVector(FMath::Min(A.Max.X,B.Max.X),Y,25)});
    }
   }
-  if(Joined) Status+=FString::Printf(TEXT(" / %.0f m join: %s"),Joined/100.f,O.bOfficeAnnex?TEXT("office doorway"):TEXT("shared shop wall opens"));
+  if(Joined) Status+=FString::Printf(TEXT(" / %.0f m join: %s"),Joined/100.f,!IsBuilding(Tool)?TEXT("paving connects"):O.bOfficeAnnex?TEXT("connecting door added"):TEXT("shared wall opens"));
  }
 }
 
@@ -285,6 +377,7 @@ bool AFoundrylineBuildSite::PlaceDoor(FName Tool,FIntVector Cursor)
 	const auto* Existing=Placement->GetObjects().FindByPredicate([&](const auto& O){return O.ObjectId==R.ObjectId;});
 	const auto PreviousOpenings=Existing->Openings;
 	const auto Result=ExecuteConstruction(R);
+	if(SentToHost(Result.Error)) return true;
 	if(!Result.IsSuccess()) { Status=ErrorText(Result.Error); return false; }
 	R.Action=EFoundrylinePlacementAction::ReplaceOpenings; R.Openings=PreviousOpenings; RecordUndo(R);
 	Status=TEXT("Door opening installed"); HidePreview(); return true;
@@ -337,6 +430,7 @@ bool AFoundrylineBuildSite::AdjustColumns(FIntVector Cursor,int32 SpacingCm)
 		R.ColumnBayCm=SpacingCm?SpacingCm:(Object.ColumnBayCm==400?600:Object.ColumnBayCm==600?800:400);
 		const int32 Previous=Object.ColumnBayCm;
 		const auto Result=ExecuteConstruction(R);
+		if(SentToHost(Result.Error)) return true;
 		if(!Result.IsSuccess()) {Status=ErrorText(Result.Error); return false;}
 		Status=FString::Printf(TEXT("Shop column bays: %d m. Click again to adjust; Z undoes."),R.ColumnBayCm/100);
 		R.ColumnBayCm=Previous; RecordUndo(R); HidePreview(); return true;
@@ -640,6 +734,35 @@ auto Grass=[&](FVector Position)
 			for(float X=80;X<W-60;X+=100) if(!OccupiedOutside({X,float(Y),0},true)) Box({X,float(Y),20.3},{50,300,.4},TEXT("White"),false);
 		return Actor;
 	}
+	TArray<FVector2D> Exposed[4];
+	for(uint8 Edge=0;Edge<4;++Edge) Exposed[Edge].Add({0,Edge%2==0?W:D});
+	for(const auto& Other:Placement->GetObjects())
+	{
+		if(Other.ObjectId==O.ObjectId || Other.CompanyId!=O.CompanyId || Other.PlantId!=O.PlantId) continue;
+		// Shops open into shops and offices into offices. Against a shop, an
+		// office keeps its own wall with the connecting door; the shop wall opens.
+		if(O.bOfficeAnnex && !Other.bOfficeAnnex) continue;
+		const auto* OD=Placement->FindDefinition(Other.DefinitionId);
+		if(!OD || OD->FunctionId!=TEXT("BuildingShell")) continue;
+		const auto WB=FFoundrylineGrid::RotateBounds(OD->Footprint,Other.Anchor,Other.QuarterTurns);
+		const FRotator Rot(0,O.QuarterTurns*90,0);
+		const FVector A=Rot.UnrotateVector(FVector(WB.Min)-FVector(O.Anchor)), B=Rot.UnrotateVector(FVector(WB.Max)-FVector(O.Anchor));
+		const FVector Min=A.ComponentMin(B),Max=A.ComponentMax(B);
+		for(uint8 Edge=0;Edge<4;++Edge)
+		{
+			const bool Touch=Edge==0?FMath::Abs(Max.Y)<0.1:Edge==1?FMath::Abs(Min.X-W)<0.1:Edge==2?FMath::Abs(Min.Y-D)<0.1:FMath::Abs(Max.X)<0.1;
+			if(!Touch) continue;
+			const float CutA=Edge%2==0?Min.X:Min.Y,CutB=Edge%2==0?Max.X:Max.Y;
+			TArray<FVector2D> Remaining;
+			for(const auto& Span:Exposed[Edge])
+			{
+				if(CutB<=Span.X || CutA>=Span.Y) {Remaining.Add(Span); continue;}
+				if(CutA>Span.X) Remaining.Add({Span.X,FMath::Min(double(CutA),Span.Y)});
+				if(CutB<Span.Y) Remaining.Add({FMath::Max(double(CutB),Span.X),Span.Y});
+			}
+			Exposed[Edge]=MoveTemp(Remaining);
+		}
+	}
 	for(const auto& Zone:O.OfficeAreas)
 	{
 		Box({(Zone.Min.X+Zone.Max.X)/2.,(Zone.Min.Y+Zone.Max.Y)/2.,21},{double(Zone.Max.X-Zone.Min.X),double(Zone.Max.Y-Zone.Min.Y),2},TEXT("OfficeFloor"),false);
@@ -670,8 +793,19 @@ auto Grass=[&](FVector Position)
 		for(uint8 Edge=0;Edge<4;++Edge)
 		{
 			const bool Exterior=Edge==0?Room.Min.Y==0:Edge==1?Room.Max.X==W:Edge==2?Room.Max.Y==D:Room.Min.X==0;
-			if(Exterior && !bPreview) continue; // The host shell owns this wall, glazing and doors.
 			Spans[Edge].Add({0,Edge%2==0?RW:RD});
+			// The host shell owns exterior walls, glazing and doors. Where a joined
+			// office has opened that shell, the room still needs its own partition.
+			if(Exterior && !bPreview)
+			{
+				const double Shift=Edge%2==0?Room.Min.X:Room.Min.Y;
+				for(const auto& Shell:Exposed[Edge])
+				{
+					TArray<FVector2D> Remaining;
+					for(const auto& Span:Spans[Edge]) {if(Shell.Y-Shift<=Span.X || Shell.X-Shift>=Span.Y) Remaining.Add(Span);else {if(Shell.X-Shift>Span.X) Remaining.Add({Span.X,Shell.X-Shift});if(Shell.Y-Shift<Span.Y) Remaining.Add({Shell.Y-Shift,Span.Y});}}
+					Spans[Edge]=MoveTemp(Remaining);
+				}
+			}
 			for(int32 J=0;J<RoomIndex;++J)
 			{
 				const auto& Other=O.OfficeRooms[J];
@@ -716,32 +850,6 @@ auto Grass=[&](FVector Position)
 	}
 	if(bOfficeOnly) return Actor;
 	const float H=Def->Footprint.Max.Z-SlabHeightCm, T=WallThicknessCm;
-	TArray<FVector2D> Exposed[4];
-	for(uint8 Edge=0;Edge<4;++Edge) Exposed[Edge].Add({0,Edge%2==0?W:D});
-	for(const auto& Other:Placement->GetObjects())
-	{
-		if(O.bOfficeAnnex || Other.ObjectId==O.ObjectId || Other.CompanyId!=O.CompanyId || Other.PlantId!=O.PlantId) continue;
-		const auto* OD=Placement->FindDefinition(Other.DefinitionId);
-		if(!OD || OD->FunctionId!=TEXT("BuildingShell")) continue;
-		const auto WB=FFoundrylineGrid::RotateBounds(OD->Footprint,Other.Anchor,Other.QuarterTurns);
-		const FRotator Rot(0,O.QuarterTurns*90,0);
-		const FVector A=Rot.UnrotateVector(FVector(WB.Min)-FVector(O.Anchor)), B=Rot.UnrotateVector(FVector(WB.Max)-FVector(O.Anchor));
-		const FVector Min=A.ComponentMin(B),Max=A.ComponentMax(B);
-		for(uint8 Edge=0;Edge<4;++Edge)
-		{
-			const bool Touch=Edge==0?FMath::Abs(Max.Y)<0.1:Edge==1?FMath::Abs(Min.X-W)<0.1:Edge==2?FMath::Abs(Min.Y-D)<0.1:FMath::Abs(Max.X)<0.1;
-			if(!Touch) continue;
-			const float CutA=Edge%2==0?Min.X:Min.Y,CutB=Edge%2==0?Max.X:Max.Y;
-			TArray<FVector2D> Remaining;
-			for(const auto& Span:Exposed[Edge])
-			{
-				if(CutB<=Span.X || CutA>=Span.Y) {Remaining.Add(Span); continue;}
-				if(CutA>Span.X) Remaining.Add({Span.X,FMath::Min(double(CutA),Span.Y)});
-				if(CutB<Span.Y) Remaining.Add({FMath::Max(double(CutB),Span.X),Span.Y});
-			}
-			Exposed[Edge]=MoveTemp(Remaining);
-		}
-	}
 	auto EdgeBox=[&](uint8 Edge,float A,float B,float Bottom,float Top,FName Mat=TEXT("Wall"),float Depth=30.f,bool Collision=true)
 	{
 		for(const auto& Span:Exposed[Edge])
@@ -824,7 +932,8 @@ auto Grass=[&](FVector Position)
 		if(!(bPreview && bOpeningOnly))
 		{
 			EdgeBox(Edge,Cursor,End,0,H);
-			EdgeBox(Edge,0,Edge%2==0?W:D,H-(O.bOfficeAnnex?10:18),H,TEXT("Metal"),O.bOfficeAnnex?38:46);
+			// The cap stands 2 cm proud of the wall so its top never z-fights the wall's top face.
+			EdgeBox(Edge,0,Edge%2==0?W:D,H-(O.bOfficeAnnex?10:19),H+2,TEXT("Metal"),O.bOfficeAnnex?38:46);
 			float BaseCursor=0;
 			const float BaseHeight=O.bOfficeAnnex?12:60,BaseDepth=O.bOfficeAnnex?34:44;
 			const FName BaseFinish=O.bOfficeAnnex?FName(TEXT("Metal")):FName(TEXT("Concrete"));

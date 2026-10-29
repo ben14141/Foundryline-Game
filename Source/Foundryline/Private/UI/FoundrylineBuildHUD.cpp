@@ -20,13 +20,13 @@ namespace {const TCHAR* PaintHex[]={TEXT("F7F5F1"),TEXT("1F2327"),TEXT("F07A2F")
 void AFoundrylineBuildHUD::DrawHUD()
 {
 	Super::DrawHUD();auto* PC=Cast<AFoundrylinePlayerController>(GetOwningPlayerController());if(!Canvas || !PC) return;
- PC->BuildHUDCanvasSize={Canvas->ClipX,Canvas->ClipY};if(DrawOperations(PC))return;if(DrawFactory(PC))return;
- if(PC->LocalMaterialCell) {DrawMaterialHandling(PC);return;}
- DrawMaterialHandling(PC);
- if(PC->LocalFreightRig) {DrawFreightControls(PC);return;}
- DrawFreightControls(PC);
  PC->BuildHUDCanvasSize={Canvas->ClipX,Canvas->ClipY};
- if(!PC->IsWalking()) DrawPlacementGuide(PC);
+ // The brand mark is shared by every screen, so load it before the first-person card can draw.
+ if(!Logo) Logo=LoadObject<UTexture2D>(nullptr,TEXT("/Game/Foundryline/UI/Brand/T_FoundrylineLogo.T_FoundrylineLogo"));
+ if(DrawOperations(PC))return;if(DrawFactory(PC))return;
+ DrawMaterialHandling(PC);if(PC->LocalMaterialCell) return;
+ DrawFreightControls(PC);if(PC->LocalFreightRig) return;
+ if(!PC->IsWalking()) {DrawSelectionOutlines(PC);DrawPlacementGuide(PC);}
  if(PC->IsLogisticsOverlayVisible() && !PC->IsWalking()) DrawLogisticsMap(PC);
 	const float S=FMath::Min(1.5f,Canvas->ClipY/1320.f),Dt=FMath::Min(GetWorld()->GetDeltaSeconds(),.1f);
 	const auto Ink=Brand(TEXT("1F2327")),Graphite=Brand(TEXT("4B5258")),Steel=Brand(TEXT("9AA0A6")),Paper=Brand(TEXT("F7F5F1")),Orange=Brand(TEXT("F07A2F")),Muted=Brand(TEXT("E8E7E2"));
@@ -93,7 +93,6 @@ void AFoundrylineBuildHUD::DrawHUD()
     const int32 Step=FFoundrylineGrid::SnapStep(PC->GetPlacementSnap());
     Text(bConfirmLoad?TEXT("Click load again to replace current changes"):FString::Printf(TEXT("%s SNAP  /  Right-click cancels  /  1:1 SCALE"),Step==100?TEXT("1 m"):*FString::Printf(TEXT("%d cm"),Step)),24,Bottom-30,1.12f,Steel);
  }
-	if(!Logo) Logo=LoadObject<UTexture2D>(nullptr,TEXT("/Game/Foundryline/UI/Brand/T_FoundrylineLogo.T_FoundrylineLogo"));
 	if(Logo) DrawTexture(Logo,24*S,22*S,352*S,128.3f*S,0,0,1,1,FLinearColor::White);
 	else Text(TEXT("FOUNDRYLINE"),24,72,2.8f,Ink);
 	Line(24,169,91,169,Orange,4);Line(101,169,376,169,Steel,1);
@@ -143,12 +142,12 @@ void AFoundrylineBuildHUD::DrawHUD()
  }
  if(!bEditTab && !bOfficeTab && !bPaintTab && FFoundrylineSizing::Surface(PC->BuildTool)) DrawSurfaceSizing(PC);
  const FLinearColor FeedbackColor=Site && Site->IsConstructionFeedbackError()?FLinearColor(0.85f,0.08f,0.06f):FLinearColor(0.03f,0.4f,0.85f);
- Rect(24,254,352,82,Muted);Rect(24,254,3,82,FeedbackColor);
+ Rect(24,254,352,92,Muted);Rect(24,254,3,92,FeedbackColor);
  Text(Site?Site->GetConstructionFeedbackTitle():TEXT("CONSTRUCTION"),38,263,1.3f,FeedbackColor);
  FString Status=Site?Site->GetConstructionFeedbackText():TEXT("Choose a tool to start building.");
  TArray<FString> Words;Status.ParseIntoArrayWS(Words);FString Row;int32 RowIndex=0;
- for(const auto& Word:Words) {if(Row.Len()+Word.Len()>41 && !Row.IsEmpty()){Text(Row,38,285+RowIndex*16,1.35f,Ink);Row.Empty();if(++RowIndex==3) break;}if(!Row.IsEmpty()) Row+=TEXT(" ");Row+=Word;}
- if(RowIndex<3 && !Row.IsEmpty()) Text(Row,38,285+RowIndex*16,1.35f,Ink);
+ for(const auto& Word:Words) {if(Row.Len()+Word.Len()>41 && !Row.IsEmpty()){Text(Row,38,285+RowIndex*20,1.35f,Ink);Row.Empty();if(++RowIndex==3) break;}if(!Row.IsEmpty()) Row+=TEXT(" ");Row+=Word;}
+ if(RowIndex<3 && !Row.IsEmpty()) Text(Row,38,285+RowIndex*20,1.35f,Ink);
 	const TCHAR* Tabs[]={TEXT("BuildTab"),TEXT("EditTab"),TEXT("OfficeTab"),TEXT("PaintTab")};const TCHAR* TabLabels[]={TEXT("BUILD"),TEXT("EDIT"),TEXT("OFFICE"),TEXT("PAINT")};
 	for(int32 I=0;I<4;++I){const bool Active=I==3?bPaintTab:I==2?bOfficeTab:I==1?bEditTab:!bEditTab&&!bOfficeTab&&!bPaintTab;const float X=24+I*90;const FName Key(Tabs[I]);Rect(X,354,82,46,Active?Muted:Paper);Text(TabLabels[I],X+10,368,1.35f,Ink);if(Active) Line(X,400,X+82,400,Orange,3);AddHitBox({X*S,354*S},{82*S,46*S},Key,true);}
  if(bEditTab)
@@ -203,21 +202,21 @@ void AFoundrylineBuildHUD::DrawHUD()
  }
 	if(!bEditTab && !bOfficeTab)
 	{
-		const TCHAR* Names[]={TEXT("Structures"),TEXT("Roads"),TEXT("Access")};const TCHAR* Titles[]={TEXT("SHOPS"),TEXT("SITE"),TEXT("DOORS")};
+		const TCHAR* Names[]={TEXT("Structures"),TEXT("Roads"),TEXT("Access")};const TCHAR* Titles[]={TEXT("BUILDINGS"),TEXT("SITE"),TEXT("DOORS")};
 		for(int32 I=0;I<3;++I) {const float X=24+I*120;const FName Key(*FString::Printf(TEXT("Category%s"),Names[I]));auto& A=HoverAmounts.FindOrAdd(Key);A=FMath::FInterpTo(A,HoveredBox==Key?1.f:0.f,Dt,14.f);const bool Active=BuildCategory==Names[I];Rect(X,418,112,36,FMath::Lerp(Muted,Paper,A));Text(Titles[I],X+20,429,1.4f,Active?Ink:Graphite);Line(X,455,X+112,455,Active?Orange:Steel,Active?3.f:1.f);AddHitBox({X*S,418*S},{112*S,38*S},Key,true);}
 	}
-	else Text(bOfficeTab?TEXT("EXTERIOR ANNEX  /  ROOMS & ACCESS"):TEXT("SELECT  /  ADJUST  /  RESTORE"),24,430,1.3f,Graphite);
-	TArray<FName> Tools=bOfficeTab?TArray<FName>{TEXT("OfficeArea"),TEXT("OfficeRoom"),TEXT("RoomDoor"),TEXT("RoomWindow")}:bEditTab?TArray<FName>{TEXT("Select"),TEXT("Move"),TEXT("Resize"),TEXT("MoveDoor"),TEXT("Demolish"),TEXT("Landscape"),TEXT("Crosswalk")}:
-		TArray<FName>{TEXT("Building"),TEXT("Shop2"),TEXT("Service"),TEXT("Road2"),TEXT("Road4"),TEXT("Parking"),TEXT("Personnel"),TEXT("Garage"),TEXT("TruckDoor"),TEXT("Columns"),TEXT("Crosswalk"),TEXT("Driveway"),TEXT("TruckAccess"),TEXT("FreightYard"),TEXT("LoadingDock"),TEXT("Walkway")};
-	TArray<FString> Labels=bOfficeTab?TArray<FString>{TEXT("EXTERIOR OFFICE"),TEXT("DRAW ROOM"),TEXT("OFFICE DOOR"),TEXT("OFFICE WINDOW")}:bEditTab?TArray<FString>{TEXT("SELECT SECTION"),TEXT("MOVE SECTION"),TEXT("RESIZE SECTION"),TEXT("RELOCATE DOOR"),TEXT("REMOVE SECTION"),TEXT("PARKING GREENERY"),TEXT("CROSSWALK")}:
-		TArray<FString>{TEXT("TIER 1"),TEXT("TIER 2 SHOP"),TEXT("SERVICE ROAD"),TEXT("TWO-LANE ROAD"),TEXT("FOUR-LANE ROAD"),TEXT("PARKING LOT"),TEXT("PERSONNEL DOOR"),TEXT("GARAGE DOOR"),TEXT("SEMI ENTRANCE"),TEXT("COLUMN BAYS"),TEXT("CROSSWALK"),TEXT("PARKING ENTRANCE"),TEXT("TRUCK DRIVEWAY"),TEXT("LOADING PAVEMENT"),TEXT("LOADING DOOR"),TEXT("WALKWAY")};
-	TArray<FString> Details=bOfficeTab?TArray<FString>{TEXT("8 m minimum  /  Attach to shop wall"),TEXT("4 m minimum  /  3 m high partitions"),TEXT("Factory glazed leaf  /  1 x 2.5 m"),TEXT("Manual  /  Exterior or room wall")}:bEditTab?TArray<FString>{TEXT("Click inside a built section"),TEXT("Drag a section  /  1 m snap"),TEXT("Drag a corner  /  Opposite stays fixed"),TEXT("Drag a door to another exterior wall"),TEXT("Click to remove  /  Z restores"),TEXT("Toggle grass islands and edging"),TEXT("Click a road  /  Zebra + curb ramps")}:
-		TArray<FString>{TEXT("6 m  /  Light workshop"),TEXT("12 m  /  High-bay manufacturing"),TEXT("4 m wide"),TEXT("8 m wide  /  T and X junctions"),TEXT("14 m wide  /  Marked lanes"),TEXT("6 x 12 m minimum / Rotate layout with R"),TEXT("Factory shop leaf  /  1.2 x 2.5 m"),TEXT("4 x 4.2 m opening"),TEXT("5 x 5 m clear opening"),TEXT("Click a shop  /  4, 6 or 8 m"),TEXT("Click a road  /  Zebra + curb ramps"),TEXT("6 m driveway  /  Automatic curb cuts"),TEXT("Drag to connect / Adjustable width"),TEXT("Drag any rectangle / Level asphalt"),TEXT("Click a wall / Snaps to floor level"),TEXT("2 m minimum / Concrete pedestrian path")};
+	else Text(bOfficeTab?TEXT("DRAW OFFICES IN BUILD  /  ROOMS HERE"):TEXT("SELECT  /  ADJUST  /  RESTORE"),24,430,1.3f,Graphite);
+	TArray<FName> Tools=bOfficeTab?TArray<FName>{TEXT("OfficeRoom"),TEXT("RoomDoor"),TEXT("RoomWindow")}:bEditTab?TArray<FName>{TEXT("Select"),TEXT("Move"),TEXT("Resize"),TEXT("MoveDoor"),TEXT("Demolish"),TEXT("Landscape"),TEXT("Crosswalk")}:
+		TArray<FName>{TEXT("Building"),TEXT("Shop2"),TEXT("OfficeArea"),TEXT("Service"),TEXT("Road2"),TEXT("Road4"),TEXT("Parking"),TEXT("Personnel"),TEXT("Garage"),TEXT("TruckDoor"),TEXT("Columns"),TEXT("Crosswalk"),TEXT("Driveway"),TEXT("TruckAccess"),TEXT("FreightYard"),TEXT("LoadingDock"),TEXT("Walkway")};
+	TArray<FString> Labels=bOfficeTab?TArray<FString>{TEXT("DRAW ROOM"),TEXT("OFFICE DOOR"),TEXT("OFFICE WINDOW")}:bEditTab?TArray<FString>{TEXT("SELECT SECTION"),TEXT("MOVE SECTION"),TEXT("RESIZE SECTION"),TEXT("RELOCATE DOOR"),TEXT("REMOVE SECTION"),TEXT("PARKING GREENERY"),TEXT("CROSSWALK")}:
+		TArray<FString>{TEXT("TIER 1 SHOP"),TEXT("TIER 2 SHOP"),TEXT("OFFICE"),TEXT("SERVICE ROAD"),TEXT("TWO-LANE ROAD"),TEXT("FOUR-LANE ROAD"),TEXT("PARKING LOT"),TEXT("PERSONNEL DOOR"),TEXT("GARAGE DOOR"),TEXT("SEMI ENTRANCE"),TEXT("COLUMN BAYS"),TEXT("CROSSWALK"),TEXT("PARKING ENTRANCE"),TEXT("TRUCK DRIVEWAY"),TEXT("LOADING PAVEMENT"),TEXT("LOADING DOOR"),TEXT("WALKWAY")};
+	TArray<FString> Details=bOfficeTab?TArray<FString>{TEXT("4 m minimum  /  Snap to walls to reuse them"),TEXT("Factory glazed leaf  /  1 x 2.5 m"),TEXT("Manual  /  Exterior or room wall")}:bEditTab?TArray<FString>{TEXT("Click inside a built section"),TEXT("Drag a section  /  Snaps to neighbours"),TEXT("Drag a corner, or the middle of a wall"),TEXT("Drag a door to another exterior wall"),TEXT("Click to remove  /  Z restores"),TEXT("Toggle grass islands and edging"),TEXT("Click a road  /  Zebra + curb ramps")}:
+		TArray<FString>{TEXT("6 m walls  /  Drag out of a building to extend it"),TEXT("12 m walls  /  Joins any shop with an open wall"),TEXT("3 m walls  /  Door to a joined shop is automatic"),TEXT("4 m wide"),TEXT("8 m wide  /  T and X junctions"),TEXT("14 m wide  /  Marked lanes"),TEXT("6 x 12 m minimum / Rotate layout with R"),TEXT("Factory shop leaf  /  1.2 x 2.5 m"),TEXT("4 x 4.2 m opening"),TEXT("5 x 5 m clear opening"),TEXT("Click a shop  /  4, 6 or 8 m"),TEXT("Click a road  /  Zebra + curb ramps"),TEXT("6 m driveway  /  Automatic curb cuts"),TEXT("Drag to connect / Adjustable width"),TEXT("Drag any rectangle / Level asphalt"),TEXT("Click a wall / Snaps to floor level"),TEXT("2 m minimum / Concrete pedestrian path")};
 	if(!bEditTab && !bOfficeTab)
 	{
 		for(int32 I=Tools.Num()-1;I>=0;--I)
 		{
-			const bool Structure=Tools[I]==TEXT("Building") || Tools[I]==TEXT("Shop2") || Tools[I]==TEXT("Columns");
+			const bool Structure=Tools[I]==TEXT("Building") || Tools[I]==TEXT("Shop2") || Tools[I]==TEXT("OfficeArea") || Tools[I]==TEXT("Columns");
 			const bool Door=Tools[I]==TEXT("Personnel") || Tools[I]==TEXT("Garage") || Tools[I]==TEXT("TruckDoor");
 			if((BuildCategory==TEXT("Structures") && !Structure) || (BuildCategory==TEXT("Access") && !Door) || (BuildCategory==TEXT("Roads") && (Structure || Door))) {Tools.RemoveAt(I);Labels.RemoveAt(I);Details.RemoveAt(I);}
 		}

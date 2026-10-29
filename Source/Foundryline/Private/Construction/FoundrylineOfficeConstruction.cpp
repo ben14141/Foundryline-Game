@@ -3,9 +3,10 @@
 const FFoundrylinePlacedObject* AFoundrylineBuildSite::PickOffice(FIntVector Cursor) const
 {
 	if(!bReady) return nullptr;
+	const auto Local=LocalContext();
 	return Placement->GetObjects().FindByPredicate([&](const auto& O)
 	{
-		if(!O.bOfficeAnnex || O.CompanyId!=Context.CompanyId || O.PlantId!=Context.PlantId) return false;
+		if(!O.bOfficeAnnex || O.CompanyId!=Local.CompanyId || O.PlantId!=Local.PlantId) return false;
 		const auto* D=Placement->FindDefinition(O.DefinitionId);if(!D) return false;
 		const auto P=FRotator(0,O.QuarterTurns*90,0).UnrotateVector(FVector(Cursor-O.Anchor));
 		return P.X>=-100 && P.Y>=-100 && P.X<=D->Footprint.Max.X+100 && P.Y<=D->Footprint.Max.Y+100;
@@ -17,7 +18,8 @@ bool AFoundrylineBuildSite::OfficeRectangle(FName Tool,FIntVector Start,FIntVect
 	if(Tool==TEXT("OfficeArea"))
 	{
 		if(bPreview) {PreviewRectangle(TEXT("Office"),Start,End);return true;}
-		const bool Built=BuildRectangle(TEXT("Office"),Start,End);Status=Built?TEXT("Office built. Draw rooms inside it."):TEXT("Office must be at least 4 x 4 m, on your property and clear of construction.");return Built;
+		// BuildRectangle already explains success, a pending host reply or the exact refusal.
+		return BuildRectangle(TEXT("Office"),Start,End);
 	}
 	const auto* Host=PickOffice(Start);
 	if(!Host || !Host->bOfficeAnnex) {Status=TEXT("Draw rooms inside an exterior office annex");if(bPreview) HidePreview();DraftBlocked(Status,!bPreview);return false;}
@@ -42,7 +44,8 @@ bool AFoundrylineBuildSite::OfficeRectangle(FName Tool,FIntVector Start,FIntVect
 		Status=Valid.IsSuccess()?(Tool==TEXT("OfficeArea")?TEXT("Release to convert to open office floor. Then draw rooms."):TEXT("Release to create a 3 m high room. Then add doors and windows.")):TEXT("Rooms: at least 4 m, inside the office. Snap to the perimeter to reuse outside walls.");return Valid.IsSuccess();
 	}
 	FFoundrylinePlacementRequest Inverse=R;Inverse.Replacement=*Host;
-	const auto Result=ExecuteConstruction(R);if(!Result.IsSuccess()) {Status=TEXT("Office/room blocked: check bounds, size and overlaps");return false;}
+	const auto Result=ExecuteConstruction(R);if(SentToHost(Result.Error)) return true;
+	if(!Result.IsSuccess()) {Status=TEXT("Office/room blocked: check bounds, size and overlaps");return false;}
 	RecordUndo(Inverse);HidePreview();Status=Tool==TEXT("OfficeArea")?TEXT("Open office created. Draw rooms within it."):TEXT("Room created. Add an office door and interior windows.");return true;
 }
 
@@ -101,5 +104,6 @@ bool AFoundrylineBuildSite::OfficeOpening(FName Tool,FIntVector Cursor,bool bPre
 		Status=Valid.IsSuccess()?TEXT("Click to install office opening"):TEXT("Opening blocked: leave 1 m from corners and space between openings");return Valid.IsSuccess();
 	}
 	FFoundrylinePlacementRequest Inverse=R;Inverse.Replacement=*Host;const auto Result=ExecuteConstruction(R);
+	if(SentToHost(Result.Error)) return true;
 	if(!Result.IsSuccess()) {Status=TEXT("Office opening blocked or unavailable");return false;}RecordUndo(Inverse);HidePreview();Status=TEXT("Office opening installed. Z undoes.");return true;
 }

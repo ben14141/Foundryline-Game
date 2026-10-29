@@ -1,6 +1,7 @@
 #include "Construction/FoundrylineBuildSite.h"
 #include "Construction/FoundrylineFacadeLayout.h"
 #include "Construction/FoundrylineSizing.h"
+#include "Construction/FoundrylineBuildingConnections.h"
 
 namespace {
  // Resizing changes the local origin, not the world position of authored routing.
@@ -17,14 +18,25 @@ namespace {
   New.Crosswalks.Reset();for(int32 Y:Old.Crosswalks) {const int32 Shifted=Local({0,Y}).Y;if(Shifted>=200 && Shifted<=Depth-200) New.Crosswalks.Add(Shifted);}
   return true;
  }
+ // Growing from the south or west moves the local origin. Doors, windows and
+ // office rooms keep their world positions, and a whole-office open floor grows with it.
+ void RebaseInterior(FFoundrylinePlacedObject& O,FIntPoint Delta,FIntPoint OldSize,FIntPoint NewSize) {
+  for(auto& V:O.Openings) V.OffsetCm-=V.Edge%2==0?Delta.X:Delta.Y;
+  for(auto& Room:O.OfficeRooms) {Room.Min-=Delta;Room.Max-=Delta;}
+  for(auto& Area:O.OfficeAreas) {
+   if(Area.Min==FIntPoint::ZeroValue && Area.Max==OldSize) Area.Max=NewSize;
+   else {Area.Min-=Delta;Area.Max-=Delta;}
+  }
+ }
 }
 
 const FFoundrylinePlacedObject* AFoundrylineBuildSite::Pick(FIntVector Cursor) const
 {
 	if(!bReady) return nullptr;
+	const auto Local=LocalContext();
 	for(const auto& O:Placement->GetObjects())
 	{
-		if(O.CompanyId!=Context.CompanyId || O.PlantId!=Context.PlantId) continue;
+		if(O.CompanyId!=Local.CompanyId || O.PlantId!=Local.PlantId) continue;
 		const auto* D=Placement->FindDefinition(O.DefinitionId);if(!D) continue;
 		const auto B=FFoundrylineGrid::RotateBounds(D->Footprint,O.Anchor,O.QuarterTurns);
 		if(Cursor.X>=B.Min.X && Cursor.Y>=B.Min.Y && Cursor.X<=B.Max.X && Cursor.Y<=B.Max.Y) return &O;
@@ -49,7 +61,8 @@ bool AFoundrylineBuildSite::PaintSelected(int32 Channel,FLinearColor Color)
  FFoundrylinePlacementRequest R;R.Action=EFoundrylinePlacementAction::SetBuildingColors;R.ObjectId=O->ObjectId;R.ExpectedRevision=Placement->GetRevision();R.Colors=O->Colors;
  FFoundrylinePlacementRequest Inverse=R;
  if(Channel==0) R.Colors.Exterior=Color;else if(Channel==1) R.Colors.Interior=Color;else R.Colors.Trim=Color;
- if(!ExecuteConstruction(R).IsSuccess()) return false;
+ const auto Result=ExecuteConstruction(R);if(SentToHost(Result.Error)) return true;
+ if(!Result.IsSuccess()) {Status=PlacementErrorText(Result.Error);return false;}
  RecordUndo(Inverse);HidePreview();Status=TEXT("Building colors updated. Z undoes.");return true;
 }
 
@@ -93,22 +106,36 @@ bool AFoundrylineBuildSite::EditRequest(FName Tool,FIntVector Start,FIntVector E
         const auto N=FFoundrylineGrid::RotateBounds(D->Footprint,FIntVector::ZeroValue,R.Replacement.QuarterTurns);
         R.Replacement.Anchor=B.Min-N.Min;return true;
     }
-    if(Tool==TEXT("Duplicate")) {R.Action=EFoundrylinePlacementAction::Duplicate;R.Anchor=O->Anchor+End-Start;return true;}
-    if(Tool==TEXT("Move")) {R.Action=EFoundrylinePlacementAction::Move;R.Anchor=O->Anchor+End-Start;return true;}
+    if(Tool==TEXT("Duplicate") || Tool==TEXT("Move"))
+    {
+        // Moved sections magnetize like new drafts; a duplicate may sit against its source.
+        const auto* D=Placement->FindDefinition(O->DefinitionId);
+        const FIntVector Anchor=O->Anchor+End-Start;
+        const auto Offset=FFoundrylineBuildingConnections::SnapOffset(FFoundrylineGrid::RotateBounds(D->Footprint,Anchor,O->QuarterTurns),
+            SnapTargets(D->FunctionId==TEXT("BuildingShell"),Tool==TEXT("Move")?O->ObjectId:FGuid()),FFoundrylineBuildingConnections::MagnetCm,FFoundrylineGrid::SnapStep(D->Snap));
+        R.Action=Tool==TEXT("Move")?EFoundrylinePlacementAction::Move:EFoundrylinePlacementAction::Duplicate;R.Anchor=Anchor+Offset;return true;
+    }
 	if(Tool==TEXT("Resize"))
 	{
 		const auto* D=Placement->FindDefinition(O->DefinitionId);
 		const bool Road=D->FunctionId==TEXT("Road2") || D->FunctionId==TEXT("Road4") || D->FunctionId==TEXT("Service") || D->FunctionId==TEXT("Driveway") || D->FunctionId==TEXT("TruckAccess");
+		const int32 W=D->Footprint.Max.X,H=D->Footprint.Max.Y;
+		// Grab the middle half of a wall to move only that wall; anywhere else drags the nearest corner.
+		const FVector Grab=FRotator(0,O->QuarterTurns*90,0).UnrotateVector(FVector(Start-O->Anchor));
+		auto Middle=[](double U,double Length){return U>Length/4 && U<Length*3/4;};
+		const bool OnlyX=Middle(Grab.Y,H) && !Middle(Grab.X,W),OnlyY=Middle(Grab.X,W) && !Middle(Grab.Y,H);
         if(O->QuarterTurns || Road || D->FunctionId==TEXT("Walkway") || D->FunctionId==TEXT("FreightYard"))
         {
             const FRotator Rotation(0,O->QuarterTurns*90,0);
-            const FVector A=Rotation.UnrotateVector(FVector(Start-O->Anchor)),B=Rotation.UnrotateVector(FVector(End-O->Anchor));
-            const FIntVector Fixed(A.X<D->Footprint.Max.X/2?D->Footprint.Max.X:0,A.Y<D->Footprint.Max.Y/2?D->Footprint.Max.Y:0,0);
+            const FVector A=Grab;FVector B=Rotation.UnrotateVector(FVector(End-O->Anchor));
+            const FIntVector Fixed(A.X<W/2?W:0,A.Y<H/2?H:0,0);
+            if(OnlyX) B.Y=Fixed.Y?0:H;
+            if(OnlyY) B.X=Fixed.X?0:W;
             FIntVector Low(FMath::RoundToInt(FMath::Min(double(Fixed.X),B.X)/100)*100,FMath::RoundToInt(FMath::Min(double(Fixed.Y),B.Y)/100)*100,0);
             int32 Width=FMath::RoundToInt(FMath::Abs(B.X-Fixed.X)/100)*100,Depth=FMath::RoundToInt(FMath::Abs(B.Y-Fixed.Y)/100)*100;
             // Marked streets retain their lane width. Property truck access
             // can grow across either axis while keeping the opposite corner.
-            if(Road && D->FunctionId!=TEXT("TruckAccess")) {Low.X=0;Width=D->Footprint.Max.X;}
+            if(Road && D->FunctionId!=TEXT("TruckAccess")) {Low.X=0;Width=W;}
             const FString T=D->FunctionId==TEXT("BuildingShell")?(O->bOfficeAnnex?TEXT("Office"):D->Footprint.Max.Z>620?TEXT("Shop2"):TEXT("Building")):D->FunctionId.ToString();
             const FName Id(*FString::Printf(TEXT("%s_%d_%d"),*T,Width,Depth));
             if(!Placement->EnsureGeneratedDefinition(Id)) {Status=FFoundrylineSizing::Limits(FName(*T));DraftBlocked(Status);return false;}
@@ -116,22 +143,31 @@ bool AFoundrylineBuildSite::EditRequest(FName Tool,FIntVector Start,FIntVector E
             const auto Delta=Rotation.RotateVector(FVector(Low));R.Replacement.Anchor=O->Anchor+FIntVector(FMath::RoundToInt(Delta.X),FMath::RoundToInt(Delta.Y),0);
             if(D->FunctionId!=TEXT("BuildingShell") && !ResizePavementRouting(*O,R.Replacement,Width,Depth)) {Status=TEXT("Move or remove route points outside the new pavement before shrinking it");DraftBlocked(Status);return false;}
             R.Replacement.Openings.RemoveAll([](const auto& V){return V.bAutomatic;});
-            if(D->FunctionId==TEXT("BuildingShell")) FFoundrylineFacadeLayout::Reflow(R.Replacement,Width,Depth,D->Footprint.Max.Z);return true;
+            if(D->FunctionId==TEXT("BuildingShell")) {RebaseInterior(R.Replacement,{Low.X,Low.Y},{W,H},{Width,Depth});FFoundrylineFacadeLayout::Reflow(R.Replacement,Width,Depth,D->Footprint.Max.Z);}
+            return true;
         }
-		// Drag the nearest corner; its opposite corner remains fixed.
-		const int32 W=D->Footprint.Max.X,H=D->Footprint.Max.Y;
+		// Drag the nearest corner (or one wall); the opposite side remains fixed.
 		const FIntVector Fixed(O->Anchor.X+(Start.X<O->Anchor.X+W/2?W:0),O->Anchor.Y+(Start.Y<O->Anchor.Y+H/2?H:0),0);
+		FIntVector Target=End;
+		if(OnlyX) Target.Y=Fixed.Y==O->Anchor.Y?O->Anchor.Y+H:O->Anchor.Y;
+		if(OnlyY) Target.X=Fixed.X==O->Anchor.X?O->Anchor.X+W:O->Anchor.X;
+		// Only the edges being dragged magnetize, so the fixed side never shifts.
+		const uint8 Moving=uint8((OnlyY?0:(Target.X>=Fixed.X?FFoundrylineBuildingConnections::MaxX:FFoundrylineBuildingConnections::MinX))|(OnlyX?0:(Target.Y>=Fixed.Y?FFoundrylineBuildingConnections::MaxY:FFoundrylineBuildingConnections::MinY)));
 		const FName T=D->FunctionId==TEXT("Parking")?FName(TEXT("Parking")):O->bOfficeAnnex?FName(TEXT("Office")):D->Footprint.Max.Z>=1220?FName(TEXT("Shop2")):FName(TEXT("Building"));
 		FFoundrylinePlacementRequest Draft;
 		TGuardValue<uint8> DrawingRotation(DraftAreaRotation,0);
-        if(!RectangleRequest(T,Fixed,End,Draft,false)) return false;
+        if(!RectangleRequest(T,Fixed,Target,Draft,Moving,false)) return false;
 		R.Action=EFoundrylinePlacementAction::ReplaceObject;R.Replacement=*O;
 		R.Replacement.DefinitionId=Draft.DefinitionId;R.Replacement.Anchor=Draft.Anchor;R.Replacement.QuarterTurns=Draft.QuarterTurns;
-		// Existing manual openings retain their identities and positions; invalid reductions are blocked.
+		// Existing manual openings retain their identities and world positions; invalid reductions are blocked.
 		R.Replacement.Openings=O->Openings.FilterByPredicate([](const auto& V){return !V.bAutomatic;});
         const auto* Resized=Placement->FindDefinition(Draft.DefinitionId);
         if(D->FunctionId!=TEXT("BuildingShell") && !ResizePavementRouting(*O,R.Replacement,Resized->Footprint.Max.X,Resized->Footprint.Max.Y)) {Status=TEXT("Move or remove route points outside the new pavement before shrinking it");DraftBlocked(Status);return false;}
-        if(D->FunctionId==TEXT("BuildingShell")) FFoundrylineFacadeLayout::Reflow(R.Replacement,Resized->Footprint.Max.X,Resized->Footprint.Max.Y,Resized->Footprint.Max.Z);
+        if(D->FunctionId==TEXT("BuildingShell"))
+        {
+            RebaseInterior(R.Replacement,{Draft.Anchor.X-O->Anchor.X,Draft.Anchor.Y-O->Anchor.Y},{W,H},{Resized->Footprint.Max.X,Resized->Footprint.Max.Y});
+            FFoundrylineFacadeLayout::Reflow(R.Replacement,Resized->Footprint.Max.X,Resized->Footprint.Max.Y,Resized->Footprint.Max.Z);
+        }
 		return true;
 	}
 	return false;
@@ -148,7 +184,7 @@ void AFoundrylineBuildSite::PreviewEdit(FName Tool,FIntVector Start,FIntVector E
 		FFoundrylinePlacementRequest Remove=Add;Remove.Action=EFoundrylinePlacementAction::RemoveOpening;Remove.Opening=SelectedOpening;
 		Add.Opening.OpeningId=SelectedOpening.OpeningId;
 		const auto* O=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==SelectedObject;});if(!O) return;
-		const auto Result=Placement->PreviewBatch({Remove,Add},Context,true);RecordConstructionResult(Result.Error,false);
+		const auto Result=Placement->PreviewBatch({Remove,Add},LocalContext(),true);RecordConstructionResult(Result.Error,false);
 		auto Draft=*O;Draft.Openings={Add.Opening};
 		ShowPreview(Draft,Result.IsSuccess(),FString::Printf(TEXT("Door_Move_%s_%d_%d_%lld"),*SelectedObject.ToString(),Add.Opening.Edge,Add.Opening.OffsetCm,Placement->GetRevision()));
 		Status=Result.IsSuccess()?TEXT("Release to relocate door. Its old opening closes."):TEXT("Edit blocked: overlap, bounds or opening clearance");return;
@@ -175,12 +211,14 @@ bool AFoundrylineBuildSite::CommitEdit(FName Tool,FIntVector Start,FIntVector En
 		if(!DoorRequest(T,End,Add) || Add.ObjectId!=SelectedObject) return false;
 		FFoundrylinePlacementRequest Remove=Add;Remove.Action=EFoundrylinePlacementAction::RemoveOpening;Remove.Opening=SelectedOpening;Add.Opening.OpeningId=SelectedOpening.OpeningId;
 		const auto Result=ExecuteConstructionBatch({Remove,Add});RecordConstructionResult(Result.Error,true);
-		if(!Result.IsSuccess()) {Status=TEXT("Edit blocked: overlap, bounds or opening clearance");return false;}
+		if(SentToHost(Result.Error)) return true;
+		if(!Result.IsSuccess()) {Status=PlacementErrorText(Result.Error);return false;}
 	}
 	else
 	{
 		FFoundrylinePlacementRequest R;if(!EditRequest(Tool,Start,End,R)) return false;
-		const auto Result=ExecuteConstruction(R);if(!Result.IsSuccess()) {Status=TEXT("Edit blocked: overlap, bounds or opening clearance");return false;}
+		const auto Result=ExecuteConstruction(R);if(SentToHost(Result.Error)) {if(R.Action==EFoundrylinePlacementAction::Remove) SelectedObject.Invalidate();return true;}
+		if(!Result.IsSuccess()) {Status=PlacementErrorText(Result.Error);return false;}
 		if(R.Action==EFoundrylinePlacementAction::Remove) {Inverse.Action=EFoundrylinePlacementAction::RestoreRemoved;SelectedObject.Invalidate();}
         if(R.Action==EFoundrylinePlacementAction::Duplicate) {Inverse.Action=EFoundrylinePlacementAction::Remove;Inverse.ObjectId=Result.ObjectId;SelectedObject=Result.ObjectId;}
 	}
@@ -213,6 +251,7 @@ bool AFoundrylineBuildSite::ApplyGroundTool(FName Tool,FIntVector Cursor,bool bP
 		Status=Valid.IsSuccess()?TEXT("Click to apply the hologram. Z undoes."):TEXT("Grounds edit blocked");return Valid.IsSuccess();
 	}
 	FFoundrylinePlacementRequest Inverse;Inverse.Action=EFoundrylinePlacementAction::ReplaceObject;Inverse.ObjectId=O->ObjectId;Inverse.Replacement=*O;
-	const auto Result=ExecuteConstruction(R);if(!Result.IsSuccess()) {Status=TEXT("Edit blocked: overlap, bounds or opening clearance");return false;}
+	const auto Result=ExecuteConstruction(R);if(SentToHost(Result.Error)) return true;
+	if(!Result.IsSuccess()) {Status=PlacementErrorText(Result.Error);return false;}
 	RecordUndo(Inverse);HidePreview();Status=TEXT("Grounds updated. Z undoes.");return true;
 }
