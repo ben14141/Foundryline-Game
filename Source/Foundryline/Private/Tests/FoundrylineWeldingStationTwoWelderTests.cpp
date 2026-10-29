@@ -10,7 +10,7 @@ using Layout=FFoundrylineWeldingStationLayout;using Part=EFoundrylinePart;using 
 bool TwoWelderStation(FFoundrylineFactorySimulation& M,FString& E){
  M.SeedCutPartsShop(true);M.State.Commerce.CashCents=1000000;
  if(!(M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,2170,20},304.8f,0,E)&&M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E)
-  &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1394,1450,20},{-1394,1450,20},200,0,E)&&M.AddWeldingStation({-1806.12,1823.12,20},0,false,E)))return false;
+  &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1370,1450,20},{-1370,1450,20},200,0,E)&&M.AddWeldingStation({-1768.02,1823.12,20},0,false,E)))return false;
  const auto& S=M.State.WeldingStations[0];
  for(auto [P,Q,Lb]:{TTuple<Part,int,float>{Part::MountingPlate,4,2},{Part::Bracket,8,5},{Part::FrameSection,12,16},{Part::LightKit,4,4.5f}}){
   FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Q;A.Place=Place::Buffer;A.Owner=S.Id;A.Position=Layout::BinPoint(S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}
@@ -58,7 +58,7 @@ bool FWeldingStationTwoWelders::RunTest(const FString&){using namespace WeldingT
  TestEqual(TEXT("Rate now 100%"),M.StationRate(M.State.WeldingStations[0]),1.f);TestEqual(TEXT("Rate with both still offered"),M.StationRate(M.State.WeldingStations[0],2),R.TwoWelderRate);
  TestTrue(TEXT("Released welder validates: ")+E,M.Valid(E));
 
- // The unit finishes once; the second unit starts only when OUT is clear (Phase 5), so it waits.
+ // The unit finishes once and lands on the first OUT pallet; the batch was stopped, so no second unit starts.
  TestTrue(TEXT("Stop after this unit: ")+E,M.ConfigureWeldingStation(Id,0,0,E));
  int MaxOut=0;StepUntil(M,[&]{MaxOut=FMath::Max(MaxOut,OutCount(M,Id));return OutCount(M,Id)>0&&M.State.WeldingStations[0].Stage==0;});for(int I=0;I<300;++I){M.Step(.1f);MaxOut=FMath::Max(MaxOut,OutCount(M,Id));}
  TestTrue(TEXT("Exactly one rack on OUT, once"),OutCount(M,Id)==1&&MaxOut==1&&M.State.WeldingStations[0].UnitsCompleted==1);
@@ -69,11 +69,12 @@ bool FWeldingStationTwoWelders::RunTest(const FString&){using namespace WeldingT
   FFoundrylineFactorySimulation Restored;Restored.State=Loaded->Factory;Restored.Solids=M.Solids;TestTrue(TEXT("Two-welder save validates: ")+E,Restored.Valid(E));
   const auto& S=Restored.State.WeldingStations[0];TestTrue(TEXT("Both slots and the weld progress restore"),Restored.StationWelder(S,0)&&Restored.StationWelder(S,0)->Id==A&&Restored.StationWelder(S,1)&&Restored.StationWelder(S,1)->Id==B&&S.Stage==2&&S.Work>0);
   TestEqual(TEXT("Restored station welds at 170%"),Restored.StationRate(S),R.TwoWelderRate);
+  FString StopError;TestTrue(TEXT("Stop the restored batch after this unit: ")+StopError,Restored.ConfigureWeldingStation(Id,0,0,StopError));
   StepUntil(Restored,[&]{return OutCount(Restored,Id)>0;});for(int I=0;I<300;++I)Restored.Step(.1f);TestEqual(TEXT("Restored plant finishes the rack exactly once"),OutCount(Restored,Id),1);
  }else AddError(TEXT("Two-welder save did not load"));
 
  // Schema 12 plants load with every station welder as Welder A.
- {auto T=M;T.State.Version=12;T.MigrateWeldingStations();TestEqual(TEXT("Schema 12 migrates to 13"),T.State.Version,13);TestTrue(TEXT("Migrated schema 12 plant validates: ")+E,T.Valid(E));}
+ {auto T=M;T.State.Version=12;for(auto& S:T.State.WeldingStations)S.Center-=FFoundrylineWeldingStationLayout::Schema14Shift(S);T.MigrateWeldingStations();TestEqual(TEXT("Schema 12 migrates to 14"),T.State.Version,14);TestTrue(TEXT("Migrated schema 12 plant validates: ")+E,T.Valid(E));}
  return true;
 }
 #endif

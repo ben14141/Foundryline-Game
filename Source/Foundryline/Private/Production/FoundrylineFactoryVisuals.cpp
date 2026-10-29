@@ -57,7 +57,7 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
  if(!Pallets)return;Pallets->ClearInstances();for(auto C:PartMeshes)C->ClearInstances();RebuildFloor();
  using StationLayout=FFoundrylineWeldingStationLayout;auto StationOf=[&](const FFoundrylineFactoryPallet& P){return P.Place==EFoundrylinePalletPlace::Buffer||P.Place==EFoundrylinePalletPlace::StationIn||P.Place==EFoundrylinePalletPlace::StationOut?Snapshot.WeldingStations.FindByPredicate([&](const auto& S){return S.Id==P.Owner;}):nullptr;};
  for(const auto& P:Snapshot.Pallets){if(P.Place==EFoundrylinePalletPlace::Forks||P.Place==EFoundrylinePalletPlace::InTransit||P.Place==EFoundrylinePalletPlace::Inbound||P.Place==EFoundrylinePalletPlace::Outbound)continue;
-  // Station bins and the OUT cradle are drawn below without floor pallets; a delivery on IN is a normal pallet.
+  // Station bins and OUT stacks are drawn below (the OUT pallets belong to the station); a delivery on IN is a normal pallet.
   const auto* Station=StationOf(P);if(Station&&P.Place!=EFoundrylinePalletPlace::StationIn)continue;
   FVector Pos=P.Position;const int Part=int(P.Part),Cap=FFoundrylineFactoryCatalog::Part(P.Part).Capacity;FRotator Rot=Station?StationLayout::Rotation(*Station):FRotator::ZeroRotator;
   // Long stock is authored along Y, matching the machine rack shelves.
@@ -71,7 +71,7 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
  // Representative station stock: each item scaled down (never up) to fit its bin cell, long stock along the station length.
  for(const auto& P:Snapshot.Pallets){const auto* S=StationOf(P);if(!S||P.Place==EFoundrylinePalletPlace::StationIn||!PartMeshes.IsValidIndex(int(P.Part)))continue;auto* Ism=PartMeshes[int(P.Part)].Get();if(!Ism||!Ism->GetStaticMesh())continue;
   const FBox B=Ism->GetStaticMesh()->GetBoundingBox();const FRotator Yaw=StationLayout::Rotation(*S);
-  if(P.Place==EFoundrylinePalletPlace::StationOut){const FTransform On(FRotator(0,0,90),FVector(0,-30.48,StationLayout::CradleSizeCm().Z+13.97));Ism->AddInstance(On*StationLayout::CradleTransform(*S));continue;}
+  if(P.Place==EFoundrylinePalletPlace::StationOut){const int Slot=StationLayout::OutSlot(*S,P.Position);if(Slot>=0)for(int Level=0;Level<P.Quantity;++Level)Ism->AddInstance(StationLayout::RackOnOut(*S,Slot,Level));continue;}
   const bool Frames=P.Part==EFoundrylinePart::FrameSection,Plates=P.Part==EFoundrylinePart::MountingPlate;const FVector BinCell=Frames?FVector(120,10,10):Plates?FVector(36,56,4):FVector(16,26,13);
   const bool Turn=B.GetSize().Y>B.GetSize().X;const FVector Size=Turn?FVector(B.GetSize().Y,B.GetSize().X,B.GetSize().Z):B.GetSize();
   const float Scale=FMath::Min(1.f,float(FMath::Min3(BinCell.X/FMath::Max(1.,Size.X),BinCell.Y/FMath::Max(1.,Size.Y),BinCell.Z/FMath::Max(1.,Size.Z))));const FRotator ItemYaw(0,Yaw.Yaw+(Turn?90:0),0);

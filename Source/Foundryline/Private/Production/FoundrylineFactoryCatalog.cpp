@@ -1,6 +1,6 @@
 #include "Production/FoundrylineFactoryTypes.h"
 FFoundrylinePartSpec FFoundrylineFactoryCatalog::Part(EFoundrylinePart Id){
- static const FFoundrylinePartSpec Specs[]={{TEXT("Steel sheets"),10},{TEXT("Bracket blanks"),50},{TEXT("Rail blanks"),12},{TEXT("Frame rails"),12},{TEXT("Shell blanks"),3},{TEXT("Rolled shells"),3},{TEXT("Dished tank heads"),2},{TEXT("Running gear kits"),2},{TEXT("Fittings kits"),10},{TEXT("Bent brackets"),50},{TEXT("Mounting plates"),100},{TEXT("Gusset plates"),75},{TEXT("Reinforcement plates"),30},{TEXT("Support channels"),20},{TEXT("Frame sections"),12},{TEXT("Light kits"),8},{TEXT("Headache racks"),1}};
+ static const FFoundrylinePartSpec Specs[]={{TEXT("Steel sheets"),10},{TEXT("Bracket blanks"),50},{TEXT("Rail blanks"),12},{TEXT("Frame rails"),12},{TEXT("Shell blanks"),3},{TEXT("Rolled shells"),3},{TEXT("Dished tank heads"),2},{TEXT("Running gear kits"),2},{TEXT("Fittings kits"),10},{TEXT("Bent brackets"),50},{TEXT("Mounting plates"),100},{TEXT("Gusset plates"),75},{TEXT("Reinforcement plates"),30},{TEXT("Support channels"),20},{TEXT("Frame sections"),12},{TEXT("Light kits"),8},{TEXT("Headache racks"),5}};
  return Specs[FMath::Clamp(int32(Id),0,PartCount-1)];
 }
 // Bought parts reuse the closest existing component art: channel lengths for frame sections, a kit crate for lights.

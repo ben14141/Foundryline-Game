@@ -8,7 +8,7 @@ unreal.EditorPythonScripting.set_keep_python_script_alive(True)
 T=unreal.FoundrylineNetworkTestTools
 base=Path(unreal.Paths.project_saved_dir());shots=base/'Screenshots/Reviews';out=base/'Logs/WeldingTwoWelderVisualQA.json'
 start=time.monotonic();q={'checks':{},'notes':{},'shots':[],'errors':[],'samples':[]};cam=None;handle=None
-CENTER=unreal.Vector(-1806.12,1823.12,20)
+CENTER=unreal.Vector(-1768.02,1823.12,20)
 def worlds():return unreal.EditorLevelLibrary.get_pie_worlds(False)
 # FOUNDRYLINE_VIEW=client: two rendered players; setup runs on the host, the camera and screenshots on the client.
 CLIENT=os.environ.get('FOUNDRYLINE_VIEW')=='client'
@@ -47,7 +47,7 @@ def tick(dt):
    T.queue_property_view(player());p=host();T.queue_property_view(p)
    T.queue_factory_lane(p,0,unreal.Vector(-2217.6,1275,20),unreal.Vector(-2217.6,2170,20),304.8)
    T.queue_factory_lane(p,1,unreal.Vector(-1455,1214.04,20),unreal.Vector(-810,1214.04,20),121.92)
-   T.queue_factory_lane(p,2,unreal.Vector(-1394,1450,20),unreal.Vector(-1394,1450,20),200);stage='place';last=t
+   T.queue_factory_lane(p,2,unreal.Vector(-1370,1450,20),unreal.Vector(-1370,1450,20),200);stage='place';last=t
   elif stage=='place' and t-last>4:
    p=host();best=None
    for dx in [0,1,-1,2,-2]:
