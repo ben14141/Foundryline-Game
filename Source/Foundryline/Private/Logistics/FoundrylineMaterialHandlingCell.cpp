@@ -1,4 +1,5 @@
 #include "Logistics/FoundrylineMaterialHandlingCell.h"
+#include "Logistics/FoundrylineForkliftBeacon.h"
 #include "Production/FoundrylineWorkshopLayout.h"
 #include "Production/FoundrylineMachineMotion.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
@@ -36,7 +37,7 @@ AFoundrylineMaterialHandlingCell::AFoundrylineMaterialHandlingCell(){
 void AFoundrylineMaterialHandlingCell::BeginPlay(){
  Super::BeginPlay();
  auto Mesh=[&](const TCHAR* Name,const TCHAR* Path,USceneComponent* Parent,FVector Location){auto* M=NewObject<UStaticMeshComponent>(this,FName(Name));M->SetMobility(EComponentMobility::Movable);M->SetupAttachment(Parent);M->SetRelativeLocation(Location);M->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,Path));M->SetCollisionEnabled(ECollisionEnabled::NoCollision);M->RegisterComponent();AddInstanceComponent(M);return M;};
- Mesh(TEXT("Forklift_Body"),TEXT("/Game/Foundryline/Vehicles/Forklift/FL01/SM_Forklift_Body.SM_Forklift_Body"),ForkRoot,{0.0f,0.0f,0.0f});
+ Mesh(TEXT("Forklift_Body"),TEXT("/Game/Foundryline/Vehicles/Forklift/FL01/SM_Forklift_Body.SM_Forklift_Body"),ForkRoot,{0.0f,0.0f,0.0f});FFoundrylineForkliftBeacon::Attach(this,ForkRoot);
  Mesh(TEXT("Forklift_MastOuter"),TEXT("/Game/Foundryline/Vehicles/Forklift/FL01/SM_Forklift_MastOuter.SM_Forklift_MastOuter"),MastRoot,{0.0f,0.0f,0.0f});
  Mesh(TEXT("Forklift_MastInner"),TEXT("/Game/Foundryline/Vehicles/Forklift/FL01/SM_Forklift_MastInner.SM_Forklift_MastInner"),InnerMastRoot,{0.0f,0.0f,0.0f});
  Mesh(TEXT("Forklift_Carriage"),TEXT("/Game/Foundryline/Vehicles/Forklift/FL01/SM_Forklift_Carriage.SM_Forklift_Carriage"),CarriageRoot,{0.0f,0.0f,0.0f});
