@@ -1,6 +1,7 @@
 #include "FoundrylineNetworkTestTools.h"
 #include "Production/FoundrylineFactoryPlant.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
+#include "Employees/FoundrylineWeldingHoodComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -141,6 +142,16 @@ APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bCommit){
  PC->bFactoryMenu=true;PC->FactoryTool=TEXT("Station");PC->FactoryStationQuarter=Quarter;PC->bFactoryStationSwap=bSwap;PC->FactoryStationCheckKey.Reset();PC->bFactoryEdgeSnap=false;
  const bool Valid=PC->PreviewFactoryFloor(Center);const bool Sent=bCommit&&PC->CommitFactoryFloorBrush();
  return FString::Printf(TEXT("{\"sent\":%s,\"valid\":%s,\"hint\":\"%s\",\"x\":%.2f,\"y\":%.2f}"),Sent?TEXT("true"):TEXT("false"),Valid?TEXT("true"):TEXT("false"),*PC->FactoryPlacementHint.Replace(TEXT("\""),TEXT("'")),PC->FactoryPreviewA.X,PC->FactoryPreviewA.Y);
+#else
+ return TEXT("{}");
+#endif
+}
+FString UFoundrylineNetworkTestTools::WeldingHoodReport(APlayerController* Player){
+#if WITH_EDITOR
+ if(!Player)return TEXT("{}");int32 Equipped=0,Closed=0;FString Angles;
+ for(TActorIterator<AActor> It(Player->GetWorld());It;++It){TArray<UFoundrylineWeldingHoodComponent*> Hoods;It->GetComponents(Hoods);
+  for(auto* H:Hoods){if(!H->IsEquipped())continue;++Equipped;Closed+=H->IsVisorClosed();Angles+=FString::Printf(TEXT("%s%.0f"),Angles.IsEmpty()?TEXT(""):TEXT(","),H->GetVisorAngleDegrees());}}
+ return FString::Printf(TEXT("{\"equipped\":%d,\"closed\":%d,\"angles\":[%s]}"),Equipped,Closed,*Angles);
 #else
  return TEXT("{}");
 #endif

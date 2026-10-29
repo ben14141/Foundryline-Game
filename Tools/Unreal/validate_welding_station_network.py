@@ -14,6 +14,7 @@ def make_guid(text):
  g=unreal.Guid()
  for n,i in zip('abcd',range(0,32,8)):g.set_editor_property(n,int(text.replace('-','')[i:i+8],16))
  return g
+def hoods():return [json.loads(T.welding_hood_report(p)) for p in players()]
 def host():return next(p for p in players() if p.has_authority())
 def guests():return [p for p in players() if not p.has_authority()]
 def finish():
@@ -95,19 +96,23 @@ def tick(dt):
    if t-last>3 and all(x['stage']==2 and x['at_work']==2 for x in s):
     q['notes']['both_welding']=s[0];q['checks']['every_peer_sees_both_welders_at_170']=len(s)==len(players()) and all(x['rate']==1.7 and x['advancing'] for x in s)
     q['checks']['every_peer_shows_two_guns_in_hand']=all(x['guns_in_hand']==2 for x in s);q['notes']['guns']=[(x['guns_in_hand'],x['sparks']) for x in s]
+    h=hoods();q['notes']['hoods_welding']=h;q['checks']['every_peer_shows_two_hoods']=all(x['equipped']==2 for x in h)  # visors are still swinging down here; settled below
     q['checks']['late_join_2_requested']=T.request_late_join();stage=14;last=t
    elif t-last>120:raise RuntimeError('Both welders never welded on every peer: '+json.dumps(s[:2]))
   elif stage==14 and t-last>12:
    ps=players();s=[x['stations'][0] for x in reports() if x['stations']];q['checks']['six_peers']=len(ps)==6
+   h=hoods();q['notes']['hoods_late']=h;q['checks']['every_peer_and_late_joiner_see_both_visors_down']=all(x['equipped']==2 and x['closed']==2 for x in h)
    q['checks']['late_joiner_sees_both_welders_and_weld_points']=len(s)==len(ps) and all(x['welders']==s[0]['welders'] and x['at_work']==2 and x['guns_in_hand']==2 for x in s);q['notes']['late']=[(x['at_work'],x['guns_in_hand'],x['sparks']) for x in s]
    q['notes']['work_before_leave']=s[0]['work'];c=guests();T.queue_employee_assignment(c[1],q['notes']['race']['winner'],3,0,make_guid(staff(c[1])['plant']));stage=15;last=t
   elif stage==15 and t-last>3:
    s=[x['stations'][0] for x in reports() if x['stations']];q['notes']['after_leave']=s[0]
    q['checks']['welder_b_leaves_progress_kept_rate_100_everywhere']=all(x['welders'][1]==0 and x['stage']==2 and x['work']>=q['notes']['work_before_leave']-.01 and x['rate']==1.0 and x['guns_in_hand']==1 for x in s)
+   h=hoods();q['notes']['hoods_after_leave']=h;q['checks']['released_welder_hood_hidden_everywhere']=all(x['equipped']==1 and x['closed']==1 for x in h)
    c=guests();T.queue_factory_action(c[0],'Run');stage=16;last=t
   elif stage==16 and t-last>2:
    q['notes']['paused_a']=[x['stations'][0]['work'] for x in reports()];stage=17;last=t
   elif stage==17 and t-last>3:
+   h=hoods();q['notes']['hoods_paused']=h;q['checks']['paused_visor_raised_everywhere']=all(x['equipped']==1 and x['closed']==0 for x in h)
    b=[x['stations'][0]['work'] for x in reports()];q['checks']['client_pause_keeps_progress_everywhere']=b==q['notes']['paused_a'] and all(x['stations'][0]['stage']==2 for x in reports())
    T.queue_factory_action(guests()[0],'Run');stage=18;last=t
   elif stage==18:
