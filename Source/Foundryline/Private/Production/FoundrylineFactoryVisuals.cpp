@@ -63,6 +63,10 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
   // Long stock is authored along Y, matching the machine rack shelves.
   if(P.Place==EFoundrylinePalletPlace::Rack&&(P.Owner==105||P.Owner==106))Rot.Yaw=90;
   if(P.Place==EFoundrylinePalletPlace::Buffer)if(const auto* Z=Snapshot.Zones.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))Rot=FFoundrylineWorkZoneLayout::Rotation(*Z);
+  // Finished headache racks: one pallet with a flat stack, its far end running past the pallet away from the side the
+  // forklift serves it from (rack slots face their dock; pickup pallets face the dock 136 cm in -X).
+  if(P.Part==EFoundrylinePart::HeadacheRack){if(P.Place==EFoundrylinePalletPlace::Rack)if(const auto* Slot=Snapshot.Slots.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))Rot=FRotator(0,(Pos-Slot->Dock).Rotation().Yaw,0);
+   Pallets->AddInstance(FTransform(Rot,Pos));for(int Level=0;Level<P.Quantity;++Level)PartMeshes[Part]->AddInstance(StationLayout::RackOnPallet(Level)*FTransform(Rot,Pos));continue;}
   if(Part==0||Part==2||Part==3||Part==4||Part==5||Part==6){for(int Side:{-1,1})Pallets->AddInstance(FTransform(Rot,Pos+Rot.RotateVector(FVector(0,Side*65,0))));}else Pallets->AddInstance(FTransform(Rot,Pos));
   int Count=FMath::Min(P.Quantity,Part==0?3:Part==1||Part==9||Part==10||Part==11?10:Part==6?2:3);if(Cap>10)Count=FMath::Max(1,FMath::CeilToInt(10.f*P.Quantity/Cap));
   for(int I=0;I<Count;++I){FVector Offset(0,0,18);if(Part==1||Part==9||Part==10||Part==11)Offset+=FVector((I%5-2)*27,(I/5-.5)*40,(I/10)*14);else if(Part==int(EFoundrylinePart::FrameSection))Offset+=FVector(0,(I%5-2)*14,(I/5)*10);else Offset.Z+=I*(Part==0?.65:Part==5?7:Part==6?48:Part==3?12:Part==7?48:Part==8||Part==int(EFoundrylinePart::LightKit)?35:1.2);
@@ -119,6 +123,7 @@ void AFoundrylineFactoryPlant::Animate(float Dt){
  }
  CargoPallets->ClearInstances();for(auto C:CargoMeshes)C->ClearInstances();
  for(const auto& C:Snapshot.Pallets)if(C.Place==EFoundrylinePalletPlace::Forks){const auto* D=Snapshot.Drivers.FindByPredicate([&](const auto& X){return X.Id==C.Owner;});if(!D)continue;const FVector P=DisplayPositions.FindRef(D->Id);const float Y=DisplayYaw.FindRef(D->Id),H=DisplayLift.FindRef(D->Id);const FTransform T(FRotator(0,Y,0),P+FRotator(0,Y,0).RotateVector(FVector(136,0,H)));CargoPallets->AddInstance(T);
+  if(C.Part==EFoundrylinePart::HeadacheRack){for(int Level=0;Level<C.Quantity;++Level)CargoMeshes[int(C.Part)]->AddInstance(FFoundrylineWeldingStationLayout::RackOnPallet(Level)*T);continue;}
   for(int I=0;I<FMath::Min(3,C.Quantity);++I){FTransform Item(FVector(0,0,18+I*(C.Part==EFoundrylinePart::EndCap?48:C.Part==EFoundrylinePart::Sheet?.65:12)));CargoMeshes[int(C.Part)]->AddInstance(Item*T);}}
  auto* GS=GetWorld()->GetGameState();const double Age=(GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds())-PresentationEpoch;
  for(int I=0;I<WeldEffects.Num();++I){const auto& Z=Snapshot.Zones[I];int AtWork=0;for(const auto& W:Snapshot.Walkers)if(W.Zone==Z.Id&&Z.Ordered&&FVector::Dist2D(W.Position,FFoundrylineWorkZoneLayout::WorkPoint(Z))<=1)++AtWork;const bool Working=AtWork&&Snapshot.Running&&Z.ActiveStep>=0&&Z.ActiveStep!=5;

@@ -74,6 +74,8 @@ USTRUCT() struct FFoundrylineCommerceState {
  UPROPERTY(SaveGame) int32 PickupOrder=0;
  UPROPERTY(SaveGame) int32 ActiveBooking=0;
  UPROPERTY(SaveGame) int32 OfferSerial=0;
+ // Headache-rack offers keep their own serial so the cut-part offer rotation is unchanged.
+ UPROPERTY(SaveGame) int32 RackOfferSerial=0;
  UPROPERTY(SaveGame) TArray<FFoundrylineCustomerOrder> Orders;
  UPROPERTY(SaveGame) TArray<FFoundrylineFreightBooking> Bookings;
  UPROPERTY(SaveGame) TArray<FFoundrylineMoneyEntry> Money;
@@ -89,7 +91,8 @@ USTRUCT() struct FFoundrylineCommerceCommand {
  UPROPERTY() TArray<int32> Pallets;
  UPROPERTY() TArray<int32> Quantities;
 };
-struct FFoundrylineCarrierSpec {const TCHAR* Name;const TCHAR* Vehicle;int32 Spaces;double PayloadLb;int64 FeeCents;double LeadMinutes;double TransitMinutes;};
+// DeckCm: the longest item the deck carries lying flat across it (a pallet van's box is too narrow for a 6 ft 6 in rack).
+struct FFoundrylineCarrierSpec {const TCHAR* Name;const TCHAR* Vehicle;int32 Spaces;double PayloadLb;int64 FeeCents;double LeadMinutes;double TransitMinutes;double DeckCm=240;};
 struct FOUNDRYLINE_API FFoundrylineCommerceCatalog {
  static FFoundrylineCarrierSpec Carrier(int32 Id);
  static int64 SalePrice(uint8 Part);
@@ -100,6 +103,9 @@ struct FOUNDRYLINE_API FFoundrylineCommerceCatalog {
  static int32 PalletSpaces(uint8 Part);
  static double PalletWeight(uint8 Part,int32 Quantity,double UnitLb);
  static bool Saleable(uint8 Part);
+ // Longest dimension of one shipped item (0 for parts that sit within a pallet), and whether a carrier's deck takes it.
+ static double ItemLengthCm(uint8 Part);
+ static bool CarrierFits(int32 Vehicle,uint8 Part){return ItemLengthCm(Part)<=Carrier(Vehicle).DeckCm;}
  // "4 sheets of steel" / "6 frame sections" for an inbound delivery.
  static FString InboundLabel(const FFoundrylineFreightBooking& Booking);
  static constexpr int64 SupplierFreightCents=2500;

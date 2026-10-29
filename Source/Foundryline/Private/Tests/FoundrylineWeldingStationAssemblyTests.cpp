@@ -19,13 +19,15 @@ void FillBins(FFoundrylineFactorySimulation& M,const FFoundrylineWeldingStationR
 }
 int KitBin(const FFoundrylineFactorySimulation& M,int Station,Part P){int V=0;for(const auto& A:M.State.Pallets)if(A.Owner==Station&&A.Place==Place::Buffer&&A.Part==P)V+=A.Quantity;return V;}
 int OnOut(const FFoundrylineFactorySimulation& M,int Station){int V=0;for(const auto& A:M.State.Pallets)if(A.Owner==Station&&A.Place==Place::StationOut)V+=A.Quantity;return V;}
+// Assembly-only checks: no forklift route collects from OUT (Phase 5 covers collection), so finished racks stay there.
+void LeaveOut(FFoundrylineFactorySimulation& M){for(const auto& S:M.State.WeldingStations)for(auto& R:M.State.Routes)R.Sources.Remove(S.Id);}
 const FFoundrylineWeldingStationRecord& Station(const FFoundrylineFactorySimulation& M){return M.State.WeldingStations[0];}
 // Steps until the condition holds; false if it never does.
 template<class F> bool RunUntil(FFoundrylineFactorySimulation& M,F Done,int Steps=20000){for(int I=0;I<Steps;++I){if(Done())return true;M.Step(.1f);}return Done();}
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeldingStationAssembly,"Foundryline.Factory.WeldingStation.Assembly",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FWeldingStationAssembly::RunTest(const FString&){using namespace WeldingAssemblyTest;
- FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station places: ")+E,AssemblyStarterStation(M,E)))return false;
+ FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station places: ")+E,AssemblyStarterStation(M,E)))return false;LeaveOut(M);
  const int Id=Station(M).Id;TestTrue(TEXT("Headache racks x2: ")+E,M.ConfigureWeldingStation(Id,1,2,E));FillBins(M,Station(M));
  FFoundrylineAssemblyRecipe R;FFoundrylineFactoryCatalog::Recipe(1,R);const float KitLb=2*2+4*5+6*16+2*4.5f;
  M.State.Running=true;M.State.Speed=8;const float Mass=M.SteelMass();
@@ -113,7 +115,7 @@ bool FWeldingStationAssembly::RunTest(const FString&){using namespace WeldingAss
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeldingStationOutPallets,"Foundryline.Factory.WeldingStation.OutPallets",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FWeldingStationOutPallets::RunTest(const FString&){using namespace WeldingAssemblyTest;
- FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station places: ")+E,AssemblyStarterStation(M,E)))return false;
+ FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station places: ")+E,AssemblyStarterStation(M,E)))return false;LeaveOut(M);
  const int Id=Station(M).Id;const float KitLb=2*2+4*5+6*16+2*4.5f;M.State.Running=true;M.State.Speed=8;
  auto Stack=[&](int Slot){return M.State.Pallets.FindByPredicate([&](const auto& A){return A.Owner==Id&&A.Place==Place::StationOut&&Layout::OutSlot(Station(M),A.Position)==Slot;});};
  auto Count=[&](int Slot){return Layout::OutCount(Station(M),M.State.Pallets,Slot);};

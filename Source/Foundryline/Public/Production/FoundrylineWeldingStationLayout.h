@@ -111,16 +111,24 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static FVector PalletSizeCm(){return {115.706,117.974,PalletTopCm};}
  static FVector OutPalletPoint(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,true),Slot?8.5:4.5);}
  static FBox2D OutPalletRect(const FFoundrylineWeldingStationRecord& S,int32 Slot){const FVector2D H(PalletSizeCm().X/2/Foot,PalletSizeCm().Y/2/Foot);const double X=PortForkX(S,true),Y=Slot?8.5:4.5;return Rect(S,X-H.X,Y-H.Y,X+H.X,Y+H.Y);}
- static FTransform OutPalletTransform(const FFoundrylineWeldingStationRecord& S,int32 Slot){return FTransform(Rotation(S),OutPalletPoint(S,Slot));}
+ // Pallet frame: +X points into the station, away from the forklift that serves it.
+ static FTransform OutPalletTransform(const FFoundrylineWeldingStationRecord& S,int32 Slot){return FTransform(FRotator(0,Rotation(S).Yaw+(PortOnLeft(S,true)?0:180),0),OutPalletPoint(S,Slot));}
+ // Forklift stop for one OUT pallet: on the fork line's normal through that pallet, as for IN.
+ static FVector OutPalletDock(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,true)+(PortOnLeft(S,true)?-1:1)*DockReachCm/Foot,Slot?8.5:4.5);}
  // Which OUT pallet a stored position belongs to (-1 if neither).
  static int32 OutSlot(const FFoundrylineWeldingStationRecord& S,const FVector& At){for(int32 I=0;I<OutPallets;++I)if(FVector::Dist2D(At,OutPalletPoint(S,I))<1)return I;return -1;}
  // Rack Level (0 = on the pallet deck) of a stack, relative to its pallet: bed-rail datum turned onto its back as on the jig.
- static FTransform RackOnPallet(int32 Level){return FTransform(FRotator(0,0,90),FVector(0,-30.48,PalletTopCm+13.97+Level*RackSizeCm().Z));}
- static FTransform RackOnOut(const FFoundrylineWeldingStationRecord& S,int32 Slot,int32 Level){return RackOnPallet(Level)*OutStackTransform(S,Slot);}
- // A stack's frame: on the pallet deck datum, centred on the OUT bay's width.
- static FTransform OutStackTransform(const FFoundrylineWeldingStationRecord& S,int32 Slot){return FTransform(Rotation(S),Point(S,PortCenterX(S,true),Slot?8.5:4.5));}
+ // Any pallet of finished racks (OUT, forks, storage, pickup): the stack starts 1 1/4 in inside the pallet edge nearest the
+ // forklift (pallet -X) and runs on past the far edge, so it never overhangs the forks' side. On OUT that centres it on the bay.
+ static FTransform RackOnPallet(int32 Level){return FTransform(FRotator(0,0,90),FVector(RackStackX(),-30.48,PalletTopCm+13.97+Level*RackSizeCm().Z));}
+ static double RackStackX(){return (OutBayFt/2-2)*Foot;}
+ static FTransform RackOnOut(const FFoundrylineWeldingStationRecord& S,int32 Slot,int32 Level){return RackOnPallet(Level)*OutPalletTransform(S,Slot);}
+ // A stack's frame: on the pallet deck datum, centred on the rack stack (offset into the bay from the pallet centre).
+ static FTransform OutStackTransform(const FFoundrylineWeldingStationRecord& S,int32 Slot){return FTransform(FVector(RackStackX(),0,0))*OutPalletTransform(S,Slot);}
  // Racks already on one OUT pallet, and where the next finished rack goes (false when both pallets are full).
  static int32 OutCount(const FFoundrylineWeldingStationRecord& S,const TArray<FFoundrylineFactoryPallet>& Pallets,int32 Slot){int32 N=0;for(const auto& P:Pallets)if(P.Owner==S.Id&&P.Place==EFoundrylinePalletPlace::StationOut&&OutSlot(S,P.Position)==Slot)N+=P.Quantity;return N;}
- static bool NextOutSpot(const FFoundrylineWeldingStationRecord& S,const TArray<FFoundrylineFactoryPallet>& Pallets,int32& Slot,int32& Level){for(Slot=0;Slot<OutPallets;++Slot){Level=OutCount(S,Pallets,Slot);if(Level<RacksPerOutPallet)return true;}Slot=-1;Level=0;return false;}
+ // A pallet a forklift has been sent for takes no more racks.
+ static bool OutSlotClaimed(const FFoundrylineWeldingStationRecord& S,const TArray<FFoundrylineFactoryPallet>& Pallets,int32 Slot){return Pallets.ContainsByPredicate([&](const auto& P){return P.Owner==S.Id&&P.Place==EFoundrylinePalletPlace::StationOut&&P.Reserved&&OutSlot(S,P.Position)==Slot;});}
+ static bool NextOutSpot(const FFoundrylineWeldingStationRecord& S,const TArray<FFoundrylineFactoryPallet>& Pallets,int32& Slot,int32& Level){for(Slot=0;Slot<OutPallets;++Slot){Level=OutCount(S,Pallets,Slot);if(Level<RacksPerOutPallet&&!OutSlotClaimed(S,Pallets,Slot))return true;}Slot=-1;Level=0;return false;}
 
 };

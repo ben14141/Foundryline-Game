@@ -69,6 +69,11 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  // Finished products on a station's OUT pallets.
  int32 OutTotal(const FFoundrylineWeldingStationRecord& S)const;
  FString WeldingStationStatus(const FFoundrylineWeldingStationRecord& Station)const;
+ // Why finished products are still on OUT, after Lead (empty when OUT is clear).
+ FString StationOutStatus(const FFoundrylineWeldingStationRecord& Station,const FString& Lead)const;
+ // Whether a forklift should now take this OUT pallet whole: full, the station finished, or an accepted order needs it.
+ bool OutPalletReady(const FFoundrylineWeldingStationRecord& Station,const FFoundrylineFactoryPallet& Pallet)const;
+ bool OutCollected(const FFoundrylineWeldingStationRecord& Station)const;
  // Welders assigned to the station (AtWork: standing at their own slot's work point), and the shared work rate from those
  // at work: 0, 1 (100%) or the recipe's TwoWelderRate.
  int32 StationWelders(const FFoundrylineWeldingStationRecord& Station,bool AtWork)const;
@@ -102,6 +107,8 @@ private:
  mutable TArray<FFoundrylineFloorCrossing> CachedCrossings;
  void Plan();
  void PlanWeldingStations();
+ // Rack slot with room for a whole pallet of Count finished products collected from OUT (0 if none is free).
+ int32 FinishedGoodsSlot(EFoundrylinePart Part,int32 Count)const;
  void UnloadWeldingStations(float Dt);
  void AssembleWeldingStations(float Dt);
  bool StationPortBusy(const FFoundrylineWeldingStationRecord& Station)const;
