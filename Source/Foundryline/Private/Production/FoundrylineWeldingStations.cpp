@@ -125,12 +125,16 @@ bool FFoundrylineFactorySimulation::StationPortBusy(const FFoundrylineWeldingSta
  return State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==Place::StationIn&&A.Owner==S.Id;})||State.Jobs.ContainsByPredicate([&](const auto& J){return J.Destination==S.Id&&J.DestinationPlace==Place::StationIn;});
 }
 // An OUT pallet is collected whole when it is full, when its station will add nothing more (no batch and no unit on the
-// bench), or when an accepted order for its product needs more than finished-goods storage holds free.
+// bench), or when it completes what an accepted order for its product still needs beyond finished-goods storage.
 bool FFoundrylineFactorySimulation::OutPalletReady(const FFoundrylineWeldingStationRecord& S,const FFoundrylineFactoryPallet& A)const{
  if(A.Place!=Place::StationOut||A.Owner!=S.Id||A.Reserved||A.BookingId||A.Quantity<1||!OutCollected(S))return false;
  if(A.Quantity>=Layout::RacksPerOutPallet||!S.Stage&&(!S.Recipe||S.BatchRemaining<=0))return true;
  int Stored=0;for(const auto& P:State.Pallets)if(P.Part==A.Part&&P.Place==Place::Rack&&!P.BookingId)Stored+=P.Quantity-P.Reserved;
- for(const auto& O:State.Commerce.Orders)if(O.Status==EFoundrylineOrderState::Accepted&&O.Part==uint8(A.Part)&&O.Quantity-O.Delivered>Stored)return true;
+ // For an order, wait until this pallet (with what is stored) covers everything it still needs, so one trip carries it.
+ for(const auto& O:State.Commerce.Orders)if(O.Status==EFoundrylineOrderState::Accepted&&O.Part==uint8(A.Part)){
+  int Need=O.Quantity-O.Delivered;for(const auto& B:State.Commerce.Bookings)if(!B.Inbound&&B.OrderId==O.Id&&B.Status!=EFoundrylineBookingState::Delivered)for(const auto& I:B.Manifest)Need-=I.Quantity;
+  for(const auto& P:State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==O.Id&&!P.BookingId)Need-=P.Quantity;for(const auto& J:State.Jobs)if(J.DestinationPlace==Place::Pickup&&J.OrderId==O.Id)Need-=J.Quantity;
+  if(Need>Stored&&A.Quantity+Stored>=Need)return true;}
  return false;
 }
 // A forklift route that picks up from this station's OUT (new stations join every route; a player can take them off).
