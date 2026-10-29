@@ -21,6 +21,8 @@ struct FOUNDRYLINE_API FFoundrylineEconomyTuning {
  static int64 SalePriceCents(EFoundrylinePart Part);
  static constexpr int32 RackOrderMin=2;
  static constexpr int32 RackOrderMax=5;
+ // Headache-rack offers kept open on Sales while the business has a welding station; refilled before cut-part offers.
+ static constexpr int32 RackOffersOnSale=2;
  // Carriers that collect customer pallets: fee, lead and transit minutes, deck length.
  static FFoundrylineCarrierSpec Carrier(int32 Id);
  // Wages per game hour while a person holds a job (hiring is free; a hire without a job is not paid).

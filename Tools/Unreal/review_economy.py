@@ -1,5 +1,6 @@
 """Economy v1 rendered review: place a welding station, hire and assign a welder, let game time pass with the plant running,
-then shoot the office Team screen (each person's wage and the plant payroll) and the Money page (running Wages line).
+then shoot the office Team screen (each person's wage and the plant payroll), the Money page (payroll per hour and the running
+Wages line) and Home (the idle-payroll nudge to take another order).
 Screenshots go to Saved/Screenshots/Reviews (Economy_*); the report to Saved/Logs/EconomyVisualQA.json. No save slots."""
 import unreal,time,json,traceback
 from pathlib import Path
@@ -52,7 +53,9 @@ def tick(dt):
     T.queue_factory_action(p,'Run');action=T.queue_commerce_action;action(p,'Office');action(p,'Page7');go('team',t)
   elif stage=='team' and t-last>2.5:go('team2',t);shot('Economy_Team_PayrollAndRates')
   elif stage=='team2' and t-last>1:p=player();T.queue_commerce_action(p,'Page5');go('money',t)
-  elif stage=='money' and t-last>2.5:go('done',t);shot('Economy_Money_WagesLine')
+  elif stage=='money' and t-last>2.5:go('home',t);shot('Economy_Money_WagesLine')
+  elif stage=='home' and t-last>1:p=player();T.queue_commerce_action(p,'Page9');go('home_shot',t)
+  elif stage=='home_shot' and t-last>2.5:go('done',t);shot('Economy_Home_PayrollNudge')
   elif stage=='done' and t-last>1.5:
    q['completed']=True;out.write_text(json.dumps(q,indent=1));unreal.unregister_slate_post_tick_callback(handle);unreal.SystemLibrary.execute_console_command(worlds()[0],'QUIT_EDITOR');return
   q['stage']=stage;out.write_text(json.dumps(q,indent=1))
