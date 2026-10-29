@@ -477,8 +477,10 @@ FFoundrylinePlanResult UFoundrylinePlacementSubsystem::StageBatch(
  }
  // A newly built shop may attach to an existing office. Derive office
  // doorway changes on the authority, in the same transaction as the shop.
+ // A new office opens into an existing office, so that office may also need
+ // its outside door moved to a wall that still faces outside.
  TSet<FGuid> NewShops;
- for(const auto& C:Changes) if(!C.bHadPrevious && C.bHasCurrent && !C.Current.bOfficeAnnex) {
+ for(const auto& C:Changes) if(!C.bHadPrevious && C.bHasCurrent) {
   const auto* D=FindDefinition(C.Current.DefinitionId);
   if(D && D->FunctionId==TEXT("BuildingShell")) NewShops.Add(C.ObjectId);
  }
@@ -495,7 +497,7 @@ FFoundrylinePlanResult UFoundrylinePlacementSubsystem::StageBatch(
   };
   bool NewConnection=false;
   for(const auto& Shop:Staged) {
-   if(Shop.bOfficeAnnex || Shop.CompanyId!=Office.CompanyId || Shop.PlantId!=Office.PlantId) continue;
+   if(Shop.ObjectId==Office.ObjectId || Shop.CompanyId!=Office.CompanyId || Shop.PlantId!=Office.PlantId) continue;
    const auto* SD=FindDefinition(Shop.DefinitionId);if(!SD || SD->FunctionId!=TEXT("BuildingShell")) continue;
    const auto B=FFoundrylineGrid::RotateBounds(SD->Footprint,Shop.Anchor,Shop.QuarterTurns);
    const FRotator Rot(0,Office.QuarterTurns*90,0);
@@ -506,7 +508,7 @@ FFoundrylinePlanResult UFoundrylinePlacementSubsystem::StageBatch(
     const int32 Low=FMath::Max(0,FMath::RoundToInt(Edge%2==0?Min.X:Min.Y)),High=FMath::Min(Edge%2==0?W:H,FMath::RoundToInt(Edge%2==0?Max.X:Max.Y));
     if(!Touch || High-Low<400) continue;
     Shared.Add(Edge);
-    if(NewShops.Contains(Shop.ObjectId)) {EnsureDoor(Edge,Low,High);NewConnection=true;}
+    if(NewShops.Contains(Shop.ObjectId)) {if(!Shop.bOfficeAnnex) EnsureDoor(Edge,Low,High);NewConnection=true;}
    }
   }
   if(!NewConnection) continue;

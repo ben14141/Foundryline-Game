@@ -27,7 +27,7 @@ FString AFoundrylineBuildSite::PlacementErrorText(EFoundrylinePlacementError E)
 }
 FFoundrylinePlacementResult AFoundrylineBuildSite::ValidateConstruction(const FFoundrylinePlacementRequest& R)
 {
- const auto Batch=Placement->PreviewBatch({R},Context,true);
+ const auto Batch=Placement->PreviewBatch({R},LocalContext(),true);
  FFoundrylinePlacementResult Result;Result.Error=Batch.Error;Result.Revision=Batch.Revision;RecordConstructionResult(Result.Error,false);return Result;
 }
 FFoundrylinePlanResult AFoundrylineBuildSite::ExecuteConstructionBatch(const TArray<FFoundrylinePlacementRequest>& Requests)
@@ -45,6 +45,12 @@ FFoundrylinePlacementResult AFoundrylineBuildSite::ExecuteConstruction(const FFo
 {
  const auto Batch=ExecuteConstructionBatch({R});FFoundrylinePlacementResult Result;Result.Error=Batch.Error;Result.Revision=Batch.Revision;
  if(Batch.IsSuccess() && !Batch.Actions.IsEmpty()) Result=Batch.Actions[0];return Result;
+}
+bool AFoundrylineBuildSite::SentToHost(EFoundrylinePlacementError Error)
+{
+ // Clients submit construction to the host. The reply arrives as feedback, so waiting is not a failure.
+ if(Error!=EFoundrylinePlacementError::Pending) return false;
+ HidePreview();Status=TEXT("Sent to the host. Waiting for confirmation...");return true;
 }
 void AFoundrylineBuildSite::ReceiveConstructionResult(EFoundrylinePlacementError Error) {RecordConstructionResult(Error,true);if(Error==EFoundrylinePlacementError::None) Status=TEXT("Continue building or choose a tool");}
 

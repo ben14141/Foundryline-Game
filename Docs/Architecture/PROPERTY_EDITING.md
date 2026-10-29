@@ -6,8 +6,12 @@ shows type, real footprint and orientation. Blue hover outlines and orange
 selection outlines/corner markers identify the affected object without covering it.
 
 - Select: click an owned section, including with no active construction tool.
-- Move: drag a section with metre snapping.
-- Resize: drag its nearest corner; the opposite corner stays fixed. Rotated
+- Move: drag a section with metre snapping. Within 2 m of a neighbour's edge it
+  slides flush or into line; it never resizes and never snaps into an overlap.
+- Resize: drag its nearest corner; the opposite corner stays fixed. Grab the middle
+  half of a wall instead to move only that wall. Only the dragged edges magnetize.
+  Doors, windows and office rooms keep their world positions when the south or
+  west side moves, and a whole-floor open office grows with the building. Rotated
   sections work; road runs retain their authored width while changing length.
 - Rotate: click a section for a 90 degree turn, keeping its lower world bounds.
 - Duplicate: drag from a section to a clear new position. Finish, rooms, openings,
