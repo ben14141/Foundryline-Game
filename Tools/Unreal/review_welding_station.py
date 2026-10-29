@@ -6,7 +6,7 @@ unreal.EditorPythonScripting.set_keep_python_script_alive(True)
 T=unreal.FoundrylineNetworkTestTools
 base=Path(unreal.Paths.project_saved_dir());shots=base/'Screenshots/Reviews';out=base/'Logs/WeldingStationVisualQA.json'
 start=time.monotonic();stage=0;last=0;q={'checks':{},'notes':{},'shots':[],'errors':[]};cam=None
-CENTER=unreal.Vector(-1806.12,1823.12,20)
+CENTER=unreal.Vector(-1768.02,1823.12,20)
 def worlds():return unreal.EditorLevelLibrary.get_pie_worlds(False)
 def player():return next(a for w in worlds() for a in unreal.GameplayStatics.get_all_actors_of_class(w,unreal.PlayerController) if a.is_local_controller())
 def look(p,loc,target,fov=60):
@@ -25,7 +25,7 @@ def commit(p):
 def view_placed(p):
  commit(p) if 'commit' not in q['notes'] else None;look(p,unreal.Vector(spot.x+620,spot.y-650,430),unreal.Vector(spot.x,spot.y,40),70)
 STEPS=[
- (lambda p:look(p,unreal.Vector(-650,150,430),unreal.Vector(-1300,800,20),72),'WeldingStation_Preview_Invalid',(lambda:unreal.Vector(-1300,800,20),0,False)),
+ (lambda p:look(p,unreal.Vector(-1050,420,820),unreal.Vector(-1300,800,60),66),'WeldingStation_Preview_Invalid',(lambda:unreal.Vector(-1300,800,20),0,False)),
  (lambda p:look(p,unreal.Vector(spot.x+620,spot.y-650,430),unreal.Vector(spot.x,spot.y,40),70),'WeldingStation_Preview_Valid',(lambda:spot,0,False)),
  (lambda p:look(p,unreal.Vector(spot.x+620,spot.y-650,430),unreal.Vector(spot.x,spot.y,40),70),'WeldingStation_Preview_Rotated_Swapped',(lambda:spot,1,True)),
  (view_placed,'WeldingStation_Placed_Overview',None),
@@ -43,7 +43,7 @@ def tick(dt):
    p=player();T.queue_property_view(p)
    T.queue_factory_lane(p,0,unreal.Vector(-2217.6,1275,20),unreal.Vector(-2217.6,2170,20),304.8)
    T.queue_factory_lane(p,1,unreal.Vector(-1455,1214.04,20),unreal.Vector(-810,1214.04,20),121.92)
-   T.queue_factory_lane(p,2,unreal.Vector(-1394,1450,20),unreal.Vector(-1394,1450,20),200);stage=2;last=t
+   T.queue_factory_lane(p,2,unreal.Vector(-1370,1450,20),unreal.Vector(-1370,1450,20),200);stage=2;last=t
   elif stage==2 and t-last>4:
    p=player();q['notes']['invalid']=json.loads(T.preview_welding_station(p,unreal.Vector(-1300,800,20),0,False));q['checks']['burn_table_preview_red']=not q['notes']['invalid']['valid']
    best=None

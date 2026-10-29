@@ -63,8 +63,8 @@ bool FFoundrylineFactorySimulation::MakeJob(int Source,int Destination,Place Whe
  FFoundrylineFactoryJob J;J.Id=State.NextId++;J.SourcePallet=Source;J.Part=A->Part;J.Quantity=Count;J.Destination=Destination;J.DestinationPlace=Where;J.Drop=Dock;J.StoredAt=Store;J.Priority=Priority;J.Task=Where==Place::MachineInput?EFoundrylineForkTask::Machine:EFoundrylineForkTask::Storage;
  if(A->Place==Place::Rack){const auto* S=State.Slots.FindByPredicate([&](const auto& X){return X.Id==A->Owner;});if(!S)return false;J.Pickup=S->Dock;}
  else if(A->Place==Place::MachineOutput){const auto* M=State.Machines.FindByPredicate([&](const auto& X){return X.Id==A->Owner;});if(!M)return false;J.Pickup=M->OutputDock;}
- // A finished product is lifted off a welding station's OUT cradle from the forklift stop at that port.
- else if(A->Place==Place::StationOut){const auto* S=State.WeldingStations.FindByPredicate([&](const auto& X){return X.Id==A->Owner;});if(!S)return false;J.Pickup=FFoundrylineWeldingStationLayout::Dock(*S,true);}
+ // A whole pallet of finished products is lifted off a welding station's OUT from the forklift stop in line with that pallet.
+ else if(A->Place==Place::StationOut){const auto* S=State.WeldingStations.FindByPredicate([&](const auto& X){return X.Id==A->Owner;});const int Slot=S?FFoundrylineWeldingStationLayout::OutSlot(*S,A->Position):-1;if(Slot<0||Count!=A->Quantity)return false;J.Pickup=FFoundrylineWeldingStationLayout::OutPalletDock(*S,Slot);}
  else J.Pickup=A->Place==Place::Inbound?CarrierDock(0):A->Position+FVector(-136,0,0);
  A->Reserved+=Count;State.Jobs.Add(J);return true;
 }

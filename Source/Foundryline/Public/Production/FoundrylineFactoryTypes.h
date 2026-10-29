@@ -162,7 +162,7 @@ struct FFoundrylineFactoryWalker {
  UPROPERTY(SaveGame) float Distance=0;
  UPROPERTY(SaveGame) bool Waiting=false;
 };
-// Placed 17 x 13 ft welding station (bench, two welder sides, two machines, IN/OUT). Geometry derives from FFoundrylineWeldingStationLayout;
+// Placed 19 ft 6 in x 13 ft welding station (bench, two welder sides, two machines, IN/OUT). Geometry derives from FFoundrylineWeldingStationLayout;
 // only the transform and options are stored, never generated mesh/component handles.
 USTRUCT()
 struct FFoundrylineWeldingStationRecord {
@@ -197,7 +197,7 @@ struct FFoundrylineWeldingStationRecord {
 USTRUCT()
 struct FFoundrylineFactoryState {
  GENERATED_BODY()
- UPROPERTY(SaveGame) int32 Version=13;
+ UPROPERTY(SaveGame) int32 Version=14;
  UPROPERTY(SaveGame,NotReplicated) FFoundrylineCommerceState Commerce;
  UPROPERTY(SaveGame) bool bCutPartsStarter=false;
  UPROPERTY(SaveGame) FGuid CompanyId=FGuid(0xF001,1,1,1);

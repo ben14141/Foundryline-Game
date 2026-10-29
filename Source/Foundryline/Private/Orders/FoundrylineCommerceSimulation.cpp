@@ -39,7 +39,9 @@ void FFoundrylineFactorySimulation::PlanCommerce(){
  auto* O=C.Orders.FindByPredicate([&](const auto& V){return V.Id==C.PickupOrder&&V.Status==EFoundrylineOrderState::Accepted;});if(!O)return;
  int Need=O->Quantity-O->Delivered;for(const auto& Book:C.Bookings)if(!Book.Inbound&&Book.OrderId==O->Id&&Book.Status!=BS::Delivered)for(const auto& I:Book.Manifest)Need-=I.Quantity;for(const auto& P:State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==O->Id&&!P.BookingId)Need-=P.Quantity;for(const auto& J:State.Jobs)if(J.DestinationPlace==Place::Pickup&&J.OrderId==O->Id)Need-=J.Quantity;
  for(int Slot=0;Slot<2&&Need>0;++Slot){const int Destination=1000+Slot;if(State.Pallets.ContainsByPredicate([&](const auto& P){return P.Place==Place::Pickup&&P.Owner==Destination;})||State.Jobs.ContainsByPredicate([&](const auto& J){return J.DestinationPlace==Place::Pickup&&J.Destination==Destination;}))continue;
-  for(const auto& P:State.Pallets)if(P.Part==Part(O->Part)&&(P.Place==Place::Rack||P.Place==Place::StationOut)&&!P.BookingId&&P.Quantity>P.Reserved){const int Q=FMath::Min(Need,P.Quantity-P.Reserved);const auto Position=PickupPosition(Slot);if(MakeJob(P.Id,Destination,Place::Pickup,Q,Position-FVector(136,0,0),Position,50)){State.Jobs.Last().OrderId=O->Id;Need-=Q;break;}}
+  for(const auto& P:State.Pallets)if(P.Part==Part(O->Part)&&(P.Place==Place::Rack||P.Place==Place::StationOut&&!P.Reserved&&P.Quantity<=Need)&&!P.BookingId&&P.Quantity>P.Reserved){
+   // A pallet on a welding station's OUT goes whole, and only when the order still needs all of it; otherwise it goes to storage first.
+   const int Q=P.Place==Place::StationOut?P.Quantity:FMath::Min(Need,P.Quantity-P.Reserved);const auto Position=PickupPosition(Slot);if(MakeJob(P.Id,Destination,Place::Pickup,Q,Position-FVector(136,0,0),Position,50)){State.Jobs.Last().OrderId=O->Id;Need-=Q;break;}}
  }
 }
 bool FFoundrylineFactorySimulation::CommerceValid(FString& E)const{

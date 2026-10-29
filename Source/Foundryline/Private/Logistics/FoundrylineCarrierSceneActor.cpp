@@ -5,6 +5,7 @@
 #include "Components/BoxComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Net/UnrealNetwork.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 namespace {
 // Presentation follows bounded, rounded routes; the server owns bay allocation and cargo.
 TArray<FVector> Rounded(const TArray<FVector>& Corners,const TArray<float>& RadiusHints={}){
@@ -32,9 +33,10 @@ void AFoundrylineCarrierSceneActor::Rebuild(){
  if(Kind==1&&Library){for(int I=0;I<Library->StarterWheels.Num();++I){auto* W=NewObject<UStaticMeshComponent>(this);W->SetupAttachment(Visual);W->SetStaticMesh(Library->StarterWheels[I]);W->SetCollisionEnabled(ECollisionEnabled::NoCollision);W->SetRelativeLocation(Library->StarterWheelPositions.IsValidIndex(I)?Library->StarterWheelPositions[I]:FVector::ZeroVector);W->RegisterComponent();AddInstanceComponent(W);Wheels.Add(W);}}
  Pallets->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Inventory/Storage/Pallets/SM_Pallet_Wood.SM_Pallet_Wood")));Pallets->ClearInstances();Steel->ClearInstances();
  int I=0;for(const auto& P:Cargo){if(I>=2)break;
- // A headache rack fills both deck positions: it lies across two pallets in the middle of the deck.
- if(P.Part==uint8(EFoundrylinePart::HeadacheRack)){I=2;const FVector Mid(-60,0,113);Pallets->AddInstance(FTransform(Mid+FVector(0,-65,0)));Pallets->AddInstance(FTransform(Mid+FVector(0,65,0)));auto* C=NewObject<UInstancedStaticMeshComponent>(this);C->SetupAttachment(Visual);C->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart::HeadacheRack)));C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->RegisterComponent();AddInstanceComponent(C);CargoParts.Add(C);
-  C->AddInstance(FTransform(FRotator(0,0,90),FVector(0,-30.48,17.56+13.97))*FTransform(FRotator(0,90,0))*FTransform(Mid));continue;}
+ // A pallet of headache racks fills both deck positions: one pallet in the middle of the deck, the flat stack centred on it
+ // and lying across the deck (6 ft 6 in of the 8 ft deck width).
+ if(P.Part==uint8(EFoundrylinePart::HeadacheRack)){I=2;const FVector Mid(-60,0,113);Pallets->AddInstance(FTransform(FRotator(0,90,0),Mid));auto* C=NewObject<UInstancedStaticMeshComponent>(this);C->SetupAttachment(Visual);C->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart::HeadacheRack)));C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->RegisterComponent();AddInstanceComponent(C);CargoParts.Add(C);
+  for(int Level=0;Level<P.Quantity;++Level)C->AddInstance(FFoundrylineWeldingStationLayout::RackOnPallet(Level)*FTransform(FVector(-FFoundrylineWeldingStationLayout::RackStackX(),0,0))*FTransform(FRotator(0,90,0),Mid));continue;}
  const bool Sheet=P.Part==0;const FVector At(-60,I?65:-65,113);++I;if(Sheet){Pallets->AddInstance(FTransform(At+FVector(0,-76.2,0)));Pallets->AddInstance(FTransform(At+FVector(0,76.2,0)));}else Pallets->AddInstance(FTransform(At));if(P.Part>=FFoundrylineFactoryCatalog::PartCount)continue;auto* C=NewObject<UInstancedStaticMeshComponent>(this);C->SetupAttachment(Visual);C->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart(P.Part))));
 C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->RegisterComponent();AddInstanceComponent(C);CargoParts.Add(C);const FBox Bounds=C->GetStaticMesh()?C->GetStaticMesh()->GetBoundingBox():FBox(FVector(-10,-10,0),FVector(10,10,1));const FVector Size=Bounds.GetSize();const int Columns=Sheet?1:FMath::Clamp(FMath::FloorToInt(100.f/FMath::Max(1.,Size.X+4)),1,3),Rows=Sheet?1:FMath::Clamp(FMath::FloorToInt(100.f/FMath::Max(1.,Size.Y+4)),1,3);const int PerLayer=Columns*Rows;for(int J=0;J<FMath::Min(Sheet?3:10,P.Quantity);++J){const int Cell=J%PerLayer;FVector Offset=Sheet?FVector::ZeroVector:FVector((Cell%Columns-(Columns-1)*.5)*(Size.X+4),(Cell/Columns-(Rows-1)*.5)*(Size.Y+4),0);Offset.Z=17.7-Bounds.Min.Z+(J/PerLayer)*(Size.Z+.2);C->AddInstance(FTransform(FRotator::ZeroRotator,At+Offset));}}
 

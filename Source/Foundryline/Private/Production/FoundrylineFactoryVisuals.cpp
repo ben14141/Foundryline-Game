@@ -57,14 +57,16 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
  if(!Pallets)return;Pallets->ClearInstances();for(auto C:PartMeshes)C->ClearInstances();RebuildFloor();
  using StationLayout=FFoundrylineWeldingStationLayout;auto StationOf=[&](const FFoundrylineFactoryPallet& P){return P.Place==EFoundrylinePalletPlace::Buffer||P.Place==EFoundrylinePalletPlace::StationIn||P.Place==EFoundrylinePalletPlace::StationOut?Snapshot.WeldingStations.FindByPredicate([&](const auto& S){return S.Id==P.Owner;}):nullptr;};
  for(const auto& P:Snapshot.Pallets){if(P.Place==EFoundrylinePalletPlace::Forks||P.Place==EFoundrylinePalletPlace::InTransit||P.Place==EFoundrylinePalletPlace::Inbound||P.Place==EFoundrylinePalletPlace::Outbound)continue;
-  // Station bins and the OUT cradle are drawn below without floor pallets; a delivery on IN is a normal pallet.
+  // Station bins and OUT stacks are drawn below (the OUT pallets belong to the station); a delivery on IN is a normal pallet.
   const auto* Station=StationOf(P);if(Station&&P.Place!=EFoundrylinePalletPlace::StationIn)continue;
   FVector Pos=P.Position;const int Part=int(P.Part),Cap=FFoundrylineFactoryCatalog::Part(P.Part).Capacity;FRotator Rot=Station?StationLayout::Rotation(*Station):FRotator::ZeroRotator;
   // Long stock is authored along Y, matching the machine rack shelves.
   if(P.Place==EFoundrylinePalletPlace::Rack&&(P.Owner==105||P.Owner==106))Rot.Yaw=90;
   if(P.Place==EFoundrylinePalletPlace::Buffer)if(const auto* Z=Snapshot.Zones.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))Rot=FFoundrylineWorkZoneLayout::Rotation(*Z);
-  // A finished headache rack lies on its back across two pallets, its 6 ft 6 in length along the pair.
-  if(P.Part==EFoundrylinePart::HeadacheRack){for(int Side:{-1,1})Pallets->AddInstance(FTransform(Rot,Pos+Rot.RotateVector(FVector(0,Side*65,0))));PartMeshes[Part]->AddInstance(FinishedRackOnPallets()*FTransform(Rot,Pos));continue;}
+  // Finished headache racks: one pallet with a flat stack, its far end running past the pallet away from the side the
+  // forklift serves it from (rack slots face their dock; pickup pallets face the dock 136 cm in -X).
+  if(P.Part==EFoundrylinePart::HeadacheRack){if(P.Place==EFoundrylinePalletPlace::Rack)if(const auto* Slot=Snapshot.Slots.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))Rot=FRotator(0,(Pos-Slot->Dock).Rotation().Yaw,0);
+   Pallets->AddInstance(FTransform(Rot,Pos));for(int Level=0;Level<P.Quantity;++Level)PartMeshes[Part]->AddInstance(StationLayout::RackOnPallet(Level)*FTransform(Rot,Pos));continue;}
   if(Part==0||Part==2||Part==3||Part==4||Part==5||Part==6){for(int Side:{-1,1})Pallets->AddInstance(FTransform(Rot,Pos+Rot.RotateVector(FVector(0,Side*65,0))));}else Pallets->AddInstance(FTransform(Rot,Pos));
   int Count=FMath::Min(P.Quantity,Part==0?3:Part==1||Part==9||Part==10||Part==11?10:Part==6?2:3);if(Cap>10)Count=FMath::Max(1,FMath::CeilToInt(10.f*P.Quantity/Cap));
   for(int I=0;I<Count;++I){FVector Offset(0,0,18);if(Part==1||Part==9||Part==10||Part==11)Offset+=FVector((I%5-2)*27,(I/5-.5)*40,(I/10)*14);else if(Part==int(EFoundrylinePart::FrameSection))Offset+=FVector(0,(I%5-2)*14,(I/5)*10);else Offset.Z+=I*(Part==0?.65:Part==5?7:Part==6?48:Part==3?12:Part==7?48:Part==8||Part==int(EFoundrylinePart::LightKit)?35:1.2);
@@ -73,7 +75,7 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
  // Representative station stock: each item scaled down (never up) to fit its bin cell, long stock along the station length.
  for(const auto& P:Snapshot.Pallets){const auto* S=StationOf(P);if(!S||P.Place==EFoundrylinePalletPlace::StationIn||!PartMeshes.IsValidIndex(int(P.Part)))continue;auto* Ism=PartMeshes[int(P.Part)].Get();if(!Ism||!Ism->GetStaticMesh())continue;
   const FBox B=Ism->GetStaticMesh()->GetBoundingBox();const FRotator Yaw=StationLayout::Rotation(*S);
-  if(P.Place==EFoundrylinePalletPlace::StationOut){const FTransform On(FRotator(0,0,90),FVector(0,-30.48,StationLayout::CradleSizeCm().Z+13.97));Ism->AddInstance(On*StationLayout::CradleTransform(*S));continue;}
+  if(P.Place==EFoundrylinePalletPlace::StationOut){const int Slot=StationLayout::OutSlot(*S,P.Position);if(Slot>=0)for(int Level=0;Level<P.Quantity;++Level)Ism->AddInstance(StationLayout::RackOnOut(*S,Slot,Level));continue;}
   const bool Frames=P.Part==EFoundrylinePart::FrameSection,Plates=P.Part==EFoundrylinePart::MountingPlate;const FVector BinCell=Frames?FVector(120,10,10):Plates?FVector(36,56,4):FVector(16,26,13);
   const bool Turn=B.GetSize().Y>B.GetSize().X;const FVector Size=Turn?FVector(B.GetSize().Y,B.GetSize().X,B.GetSize().Z):B.GetSize();
   const float Scale=FMath::Min(1.f,float(FMath::Min3(BinCell.X/FMath::Max(1.,Size.X),BinCell.Y/FMath::Max(1.,Size.Y),BinCell.Z/FMath::Max(1.,Size.Z))));const FRotator ItemYaw(0,Yaw.Yaw+(Turn?90:0),0);
@@ -121,7 +123,7 @@ void AFoundrylineFactoryPlant::Animate(float Dt){
  }
  CargoPallets->ClearInstances();for(auto C:CargoMeshes)C->ClearInstances();
  for(const auto& C:Snapshot.Pallets)if(C.Place==EFoundrylinePalletPlace::Forks){const auto* D=Snapshot.Drivers.FindByPredicate([&](const auto& X){return X.Id==C.Owner;});if(!D)continue;const FVector P=DisplayPositions.FindRef(D->Id);const float Y=DisplayYaw.FindRef(D->Id),H=DisplayLift.FindRef(D->Id);const FTransform T(FRotator(0,Y,0),P+FRotator(0,Y,0).RotateVector(FVector(136,0,H)));CargoPallets->AddInstance(T);
-  if(C.Part==EFoundrylinePart::HeadacheRack){CargoMeshes[int(C.Part)]->AddInstance(FinishedRackOnPallets()*T);continue;}
+  if(C.Part==EFoundrylinePart::HeadacheRack){for(int Level=0;Level<C.Quantity;++Level)CargoMeshes[int(C.Part)]->AddInstance(FFoundrylineWeldingStationLayout::RackOnPallet(Level)*T);continue;}
   for(int I=0;I<FMath::Min(3,C.Quantity);++I){FTransform Item(FVector(0,0,18+I*(C.Part==EFoundrylinePart::EndCap?48:C.Part==EFoundrylinePart::Sheet?.65:12)));CargoMeshes[int(C.Part)]->AddInstance(Item*T);}}
  auto* GS=GetWorld()->GetGameState();const double Age=(GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds())-PresentationEpoch;
  for(int I=0;I<WeldEffects.Num();++I){const auto& Z=Snapshot.Zones[I];int AtWork=0;for(const auto& W:Snapshot.Walkers)if(W.Zone==Z.Id&&Z.Ordered&&FVector::Dist2D(W.Position,FFoundrylineWorkZoneLayout::WorkPoint(Z))<=1)++AtWork;const bool Working=AtWork&&Snapshot.Running&&Z.ActiveStep>=0&&Z.ActiveStep!=5;
@@ -129,7 +131,7 @@ void AFoundrylineFactoryPlant::Animate(float Dt){
   const auto R=FFoundrylineWorkZoneLayout::Rotation(Z);const double Time=Z.Work+(Working?FMath::Clamp(Age,0.,.5)*Snapshot.Speed*AtWork:0);const FVector Offset=Z.ActiveStep>=0&&Z.ActiveStep!=5?R.RotateVector(FVector(12*FMath::Sin(Time*.65),0,1.5*FMath::Sin(Time*2.6))):FVector::ZeroVector;
   const auto GunR=WeldingGuns[I]->GetRelativeRotation();const FVector Socket=WeldingGuns[I]->GetSocketTransform(TEXT("WeldTip"),RTS_Component).GetLocation();const FVector Target=FFoundrylineWorkZoneLayout::WeldPoint(Z)+Offset-GunR.RotateVector(Socket);
   const FVector Position=FMath::VInterpTo(WeldingGuns[I]->GetRelativeLocation(),Target,Dt,18);if(!Position.Equals(WeldingGuns[I]->GetRelativeLocation(),.001)){WeldingGuns[I]->SetRelativeLocation(Position);if(WeldingLeads.IsValidIndex(I*5+4))WeldingLeads[I*5+4]->SetEndPosition(Position);}
-  for(const auto& Employee:CachedEmployees)if(Employee.Role==EFoundrylineEmployeeRole::Welder&&Employee.Assignment==Z.Id)if(auto* Visual=EmployeeVisuals.FindRef(Employee.Key).Get())Visual->PresentWeldingGrip(WeldingGuns[I]->GetComponentLocation(),WeldingGuns[I]->GetComponentTransform().TransformPosition(FVector(3,-3,8)));
+  for(const auto& Employee:CachedEmployees)if(Employee.Role==EFoundrylineEmployeeRole::Welder&&Employee.Assignment==Z.Id)if(auto* Visual=EmployeeVisuals.FindRef(Employee.Key).Get())Visual->PresentWeldingGrip(WeldingGuns[I]->GetComponentLocation(),WeldingGuns[I]->GetComponentTransform().TransformPosition(FFoundrylineWeldingStationLayout::GunSupportCm()));
  }
  AnimateWeldingStations(Dt,Age);
  for(const auto& M:Snapshot.Machines){const bool Work=M.Remaining>0,Active=FFoundrylineMachineMotion::Active(Snapshot,M);const float Phase=FFoundrylineMachineMotion::Phase(M.Remaining,M.Duration,Active,Snapshot.Speed,Age);

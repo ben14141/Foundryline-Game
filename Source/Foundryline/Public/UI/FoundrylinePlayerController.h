@@ -54,6 +54,8 @@ public:
  // Placement checks route forklifts and people, so the preview reuses a result until the snapped pose or layout changes.
  FString FactoryStationCheckKey,FactoryStationCheckError;bool bFactoryStationCheckValid=false;double FactoryStationCheckAt=-10;
  UPROPERTY(Transient) TArray<TObjectPtr<class AStaticMeshActor>> FactoryStationPreview;
+ // Flat IN / OUT labels on the station hologram's port bays.
+ UPROPERTY(Transient) TArray<TObjectPtr<class UTextRenderComponent>> FactoryStationLabels;
  bool bFactoryPresetValid=false;
  FString FactoryPlacementHint;
  float FactoryWidth=365.76f;

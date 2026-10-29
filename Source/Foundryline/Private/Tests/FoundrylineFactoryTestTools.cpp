@@ -1,6 +1,7 @@
 #include "FoundrylineNetworkTestTools.h"
 #include "Production/FoundrylineFactoryPlant.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
+#include "Employees/FoundrylineWeldingHoodComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -97,11 +98,22 @@ FString UFoundrylineNetworkTestTools::WeldingStationReport(APlayerController* Pl
   const auto* In=View.State.Pallets.FindByPredicate(
 [&](const auto& A){return A.Place==EFoundrylinePalletPlace::StationIn&&A.Owner==S.Id;});
   Items+=FString::Printf(TEXT("%s{\"id\":%d,\"number\":%d,\"x\":%.2f,\"y\":%.2f,\"quarter\":%d,\"swap\":%s,\"recipe\":%d,\"batch\":%d,\"in_part\":%d,\"bins\":{%s},\"supply\":\"%s\",\"stage\":%d,\"work\":%.2f,\"advancing\":%s,\"welder_ready\":%s,\"units\":%d,\"out\":%d,\"welders\":[%s],\"at_work\":%d,\"rate\":%.2f,\"guns_in_hand\":%d,\"sparks\":%d}"),Items.IsEmpty()?TEXT(""):TEXT(","),S.Id,S.Number,S.Center.X,S.Center.Y,S.QuarterTurns,S.bSwapSides?TEXT("true"):TEXT("false"),S.Recipe,S.BatchRemaining,In?int(In->Part):-1,*Bins,*View.WeldingStationStatus(S),
-   S.Stage,S.Work,S.bAdvancing?TEXT("true"):TEXT("false"),View.StationWelderReady(S)?TEXT("true"):TEXT("false"),S.UnitsCompleted,View.State.Pallets.FilterByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==EFoundrylinePalletPlace::StationOut;}).Num(),
+   S.Stage,S.Work,S.bAdvancing?TEXT("true"):TEXT("false"),View.StationWelderReady(S)?TEXT("true"):TEXT("false"),S.UnitsCompleted,View.OutTotal(S),
    *FString::Printf(TEXT("%d,%d"),View.StationWelder(S,0)?View.StationWelder(S,0)->Id:0,View.StationWelder(S,1)?View.StationWelder(S,1)->Id:0),View.StationWelders(S,true),View.StationRate(S),Plant->StationGunsInHand(View.State.WeldingStations.IndexOfByPredicate([&](const auto& V){return V.Id==S.Id;})),Plant->StationSparksActive(View.State.WeldingStations.IndexOfByPredicate([&](const auto& V){return V.Id==S.Id;})));}
  return FString::Printf(TEXT("{\"authority\":%s,\"lanes\":%d,\"revision\":%d,\"status\":\"%s\",\"stations\":[%s]}"),Plant->HasAuthority()?TEXT("true"):TEXT("false"),Plant->Snapshot.Lanes.Num(),Plant->Snapshot.Revision,*PC->FactoryStatus.Replace(TEXT("\""),TEXT("'")),*Items);
 #else
  return TEXT("{}");
+#endif
+}
+bool UFoundrylineNetworkTestTools::SetWeldingOutStacks(APlayerController* Host,int32 StationId,int32 First,int32 Second){
+#if WITH_EDITOR
+ using Layout=FFoundrylineWeldingStationLayout;auto* PC=Cast<AFoundrylinePlayerController>(Host);if(!PC||!PC->HasAuthority()||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;auto* Plant=PC->FactoryPlant();if(!Plant)return false;
+ auto& M=Plant->Model;const auto* S=M.State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==StationId;});if(!S||First<0||Second<0||First>Layout::RacksPerOutPallet||Second>Layout::RacksPerOutPallet)return false;
+ M.State.Pallets.RemoveAll([&](const auto& A){return A.Owner==StationId&&A.Place==EFoundrylinePalletPlace::StationOut;});
+ for(int Slot=0;Slot<2;++Slot)if(const int Q=Slot?Second:First){FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=EFoundrylinePart::HeadacheRack;A.Quantity=Q;A.Place=EFoundrylinePalletPlace::StationOut;A.Owner=StationId;A.Position=Layout::OutPalletPoint(*S,Slot);A.UnitLb=2*2+4*5+6*16+2*4.5f;M.State.Pallets.Add(A);}
+ ++M.State.Revision;PC->FactoryStation=StationId;FString E;return M.Valid(E);
+#else
+ return false;
 #endif
 }
 bool UFoundrylineNetworkTestTools::SetupWeldingAssemblyReview(APlayerController* Host,int32 StationId){
@@ -141,6 +153,16 @@ APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bCommit){
  PC->bFactoryMenu=true;PC->FactoryTool=TEXT("Station");PC->FactoryStationQuarter=Quarter;PC->bFactoryStationSwap=bSwap;PC->FactoryStationCheckKey.Reset();PC->bFactoryEdgeSnap=false;
  const bool Valid=PC->PreviewFactoryFloor(Center);const bool Sent=bCommit&&PC->CommitFactoryFloorBrush();
  return FString::Printf(TEXT("{\"sent\":%s,\"valid\":%s,\"hint\":\"%s\",\"x\":%.2f,\"y\":%.2f}"),Sent?TEXT("true"):TEXT("false"),Valid?TEXT("true"):TEXT("false"),*PC->FactoryPlacementHint.Replace(TEXT("\""),TEXT("'")),PC->FactoryPreviewA.X,PC->FactoryPreviewA.Y);
+#else
+ return TEXT("{}");
+#endif
+}
+FString UFoundrylineNetworkTestTools::WeldingHoodReport(APlayerController* Player){
+#if WITH_EDITOR
+ if(!Player)return TEXT("{}");int32 Equipped=0,Closed=0;FString Angles;
+ for(TActorIterator<AActor> It(Player->GetWorld());It;++It){TArray<UFoundrylineWeldingHoodComponent*> Hoods;It->GetComponents(Hoods);
+  for(auto* H:Hoods){if(!H->IsEquipped())continue;++Equipped;Closed+=H->IsVisorClosed();Angles+=FString::Printf(TEXT("%s%.0f"),Angles.IsEmpty()?TEXT(""):TEXT(","),H->GetVisorAngleDegrees());}}
+ return FString::Printf(TEXT("{\"equipped\":%d,\"closed\":%d,\"angles\":[%s]}"),Equipped,Closed,*Angles);
 #else
  return TEXT("{}");
 #endif

@@ -7,7 +7,7 @@ unreal.EditorPythonScripting.set_keep_python_script_alive(True)
 T=unreal.FoundrylineNetworkTestTools
 base=Path(unreal.Paths.project_saved_dir());shots=base/'Screenshots/Reviews';out=base/'Logs/WeldingSupplyVisualQA.json'
 start=time.monotonic();q={'checks':{},'notes':{},'shots':[],'errors':[],'samples':[]};cam=None;handle=None
-CENTER=unreal.Vector(-1806.12,1823.12,20)
+CENTER=unreal.Vector(-1768.02,1823.12,20)
 def worlds():return unreal.EditorLevelLibrary.get_pie_worlds(False)
 def player():return next(a for w in worlds() for a in unreal.GameplayStatics.get_all_actors_of_class(w,unreal.PlayerController) if a.is_local_controller())
 def look(p,loc,target,fov=60):
@@ -36,7 +36,7 @@ def tick(dt):
    p=player();T.queue_property_view(p)
    T.queue_factory_lane(p,0,unreal.Vector(-2217.6,1275,20),unreal.Vector(-2217.6,2170,20),304.8)
    T.queue_factory_lane(p,1,unreal.Vector(-1455,1214.04,20),unreal.Vector(-810,1214.04,20),121.92)
-   T.queue_factory_lane(p,2,unreal.Vector(-1394,1450,20),unreal.Vector(-1394,1450,20),200);stage='place';last=t
+   T.queue_factory_lane(p,2,unreal.Vector(-1370,1450,20),unreal.Vector(-1370,1450,20),200);stage='place';last=t
   elif stage=='place' and t-last>4:
    p=player();best=None
    for dx in [0,1,-1,2,-2]:

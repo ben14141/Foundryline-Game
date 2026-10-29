@@ -69,10 +69,14 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueWeldingStation(APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bForeignPlant=false,bool bRemove=false,int32 StationId=0);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueFactoryLane(APlayerController* Player,int32 Kind,FVector A,FVector B,float Width);
  UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString WeldingStationReport(APlayerController* Player);
+ // Welding hoods shown on this peer: how many are equipped, how many visors are closed, and each visor angle.
+ UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Employees",meta=(DevelopmentOnly)) static FString WeldingHoodReport(APlayerController* Player);
  // Review fixture: cut plates and brackets in the finished racks (as the plasma table leaves them), plant running, station selected in the HUD.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetupWeldingSupplyReview(APlayerController* Host,int32 StationId);
  // Review fixture for Phase 3: two complete kits already unloaded into the station bins (as Phase 2 leaves them), plant running.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetupWeldingAssemblyReview(APlayerController* Host,int32 StationId);
+ // Review fixture for the OUT pallets: sets each OUT pallet's stack of finished racks (0 to RacksPerOutPallet), each a whole kit's mass.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetWeldingOutStacks(APlayerController* Host,int32 StationId,int32 FirstPallet,int32 SecondPallet);
  // Selects a station in this player's HUD, as clicking it on the floor does.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SelectWeldingStation(APlayerController* Player,int32 StationId);
 
