@@ -35,7 +35,7 @@ MOMENTS=[
  ('Phase3_Panel_Welding',lambda s:s['stage']==2 and s['work']>=62,(620,-650,430),(0,0,40),70),
  ('Phase3_FinalAssembly_Lights',lambda s:s['stage']==3 and s['work']>=10,(-20,-230,215),(0,0,125),55),
  ('Phase3_RackMovingToOut',lambda s:s['stage']==4 and s['work']>=.2,(80,-390,300),(110,0,110),60),
- ('Phase3_FinishedRackOnOUT',lambda s:s['stage']==0 and s['out']==1,(60,-260,240),(198,0,20),62),
+ ('Phase3_FinishedRackOnOUT',lambda s:s['out']==1 and s['units']==1,(60,-260,240),(198,0,20),62),
 ]
 spot=CENTER;stage='start';last=0;moment=0;welder=None;plant=None
 def tick(dt):
