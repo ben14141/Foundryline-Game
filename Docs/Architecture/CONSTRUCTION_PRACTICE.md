@@ -223,7 +223,7 @@ every time. Source: `FFoundrylineBuildingConnections` (pure, unit tested) and
 - Extend: start a building drag inside an existing same-plant building and drag out
   past a wall. The new section starts on that wall. If the sideways drift is under
   4 m it spans the whole wall; otherwise it spans the drag. A drag that never
-  leaves the building is refused with a hint instead of a red overlap.
+  leaves the building shows the usual red overlap ghost.
 - Offices are a Build tool beside Tier 1 and Tier 2. They can stand alone or be
   drawn off any building. Against a shop, the shop wall opens and the office keeps
   its own wall with an automatic connecting door. Office to office joins open like

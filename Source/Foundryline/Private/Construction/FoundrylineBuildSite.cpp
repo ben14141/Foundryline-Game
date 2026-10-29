@@ -129,14 +129,13 @@ bool AFoundrylineBuildSite::RectangleRequest(FName Tool,FIntVector Start,FIntVec
         const auto Minimum=FFoundrylineSizing::Minimum(Tool);
 		FIntVector Min(FMath::Min(Start.X,End.X),FMath::Min(Start.Y,End.Y),0),Max(FMath::Max(Start.X,End.X),FMath::Max(Start.Y,End.Y),0);
 		const auto Targets=SnapTargets(IsBuilding(Tool),SelectedObject);
-		bool bInside=false,bExtended=false;
+		// A drag that never leaves the building stays a plain rectangle, so the
+		// player sees the usual red overlap ghost and its reason.
 		if(IsBuilding(Tool) && bExtend) for(const auto& Host:Targets)
 		{
 			if(Start.X<Host.Min.X || Start.Y<Host.Min.Y || Start.X>Host.Max.X || Start.Y>Host.Max.Y) continue;
-			bInside=true;
-			if((bExtended=FFoundrylineBuildingConnections::ExtendFrom(Host,Start,End,Min,Max))) break;
+			if(FFoundrylineBuildingConnections::ExtendFrom(Host,Start,End,Min,Max)) break;
 		}
-		if(bInside && !bExtended) {Status=TEXT("Drag out past a wall to extend this building");return false;}
 		const FIntVector RawMin=Min,RawMax=Max;
 		auto Fits=[&](bool& Rotate,int64& LocalW,int64& LocalD)
 		{
