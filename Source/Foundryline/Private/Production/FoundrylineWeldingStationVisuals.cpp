@@ -4,7 +4,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
-// Bench and fixture art are local-only game content; a source-only checkout falls back to a plain bench block.
+// Bench and fixture kit are the original models from main (Docs/Architecture/ORIGINAL_MODEL_ASSETS.md), both on floor
+// datums; a checkout without Content falls back to a plain bench block.
 void AFoundrylineFactoryPlant::RebuildWeldingStations(){
  using Layout=FFoundrylineWeldingStationLayout;
  FString Key;for(const auto& S:Snapshot.WeldingStations)Key+=FString::Printf(TEXT("%d:%s:%d:%d;"),S.Id,*S.Center.ToString(),S.QuarterTurns,S.bSwapSides?1:0);
@@ -23,6 +24,7 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   if(!Render)continue;
   auto Mesh=[&](UStaticMesh* M,const FTransform& At){auto* C=NewObject<UStaticMeshComponent>(this);C->SetupAttachment(RootComponent);C->SetStaticMesh(M);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);C->SetRelativeTransform(At);StationMeshes.Add(C);return C;};
   if(Bench)Mesh(Bench,T);else if(Cube){auto* C=Mesh(Cube,FTransform(T.Rotator(),T.GetLocation()+FVector(0,0,Layout::BenchHeightCm/2),FVector(8*Layout::Foot,4*Layout::Foot,Layout::BenchHeightCm)/100));if(Paint)C->SetMaterial(0,Paint);}
+  // The fixture kit is authored in its stored pose on the bench's lower shelf, so it shares the bench transform.
   if(Fixture)Mesh(Fixture,T);
  }
  // One welding machine per welder side, each with its own holstered gun and coiled leads (same offsets as zone welders).
