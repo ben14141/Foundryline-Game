@@ -8,6 +8,12 @@ struct FFoundrylineWorkshopRack {
  FString Name;
 };
 struct FOUNDRYLINE_API FFoundrylineWorkshopLayout {
+ // SM_Rack_Shelf400 is 20 cm tall overall, but only thin edge lips reach that: the beams a pallet rests on top out at
+ // 12.77 cm (deck plate 11.22 cm). Each shelf is set so its beam tops meet the pallet underside at the slot height
+ // (rack centre + 40 cm + 130 cm per level), instead of the lips, which left pallets floating about 3 in up.
+ static constexpr double ShelfBearingCm=12.77;
+ static double SlotHeight(int32 Level){return 40+Level*130;}
+ static double ShelfOrigin(int32 Level){return SlotHeight(Level)-ShelfBearingCm;}
  static FVector2D FloorMin(){return {-2370,30};}
  static FVector2D FloorMax(){return {2770,4970};}
  static FVector ZoneCenter(){return {1855.6,1863.36,20};}

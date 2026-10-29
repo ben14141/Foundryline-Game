@@ -70,6 +70,18 @@ bool UFoundrylineNetworkTestTools::AimFactoryBrush(APlayerController* Player,FVe
  return false;
 #endif
 }
+FString UFoundrylineNetworkTestTools::StockRackReview(APlayerController* Host){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Host);if(!PC||!PC->HasAuthority()||PC->GetWorld()->WorldType!=EWorldType::PIE)return TEXT("{}");auto* Plant=PC->FactoryPlant();if(!Plant)return TEXT("{}");
+ auto& M=Plant->Model;FString Items;
+ for(const auto& S:M.State.Slots){if(M.State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==EFoundrylinePalletPlace::Rack&&A.Owner==S.Id;}))continue;
+  FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=S.Part;A.Quantity=FMath::Max(1,FFoundrylineFactoryCatalog::Part(S.Part).Capacity/2);A.Place=EFoundrylinePalletPlace::Rack;A.Owner=S.Id;A.Position=S.Position;A.UnitLb=1;M.State.Pallets.Add(A);
+  Items+=FString::Printf(TEXT("%s{\"slot\":%d,\"part\":%d,\"x\":%.1f,\"y\":%.1f,\"z\":%.1f}"),Items.IsEmpty()?TEXT(""):TEXT(","),S.Id,int(S.Part),S.Position.X,S.Position.Y,S.Position.Z);}
+ ++M.State.Revision;return TEXT("{\"slots\":[")+Items+TEXT("]}");
+#else
+ return TEXT("{}");
+#endif
+}
 bool UFoundrylineNetworkTestTools::QueueFactoryLane(APlayerController* Player,int32 Kind,FVector A,FVector B,float Width){
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
