@@ -1,5 +1,5 @@
-#include "Construction/FoundrylineEquipmentCollision.h"
 #include "Construction/FoundrylineBuildSite.h"
+#include "Construction/FoundrylineEquipmentCollision.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "Construction/FoundrylineFacadeLayout.h"
 #include "Construction/FoundrylineSizing.h"
