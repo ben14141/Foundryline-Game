@@ -50,17 +50,20 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   const auto P=Layout::IdleLead();if(Cable)for(int I=0;I+1<P.Num();++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetMobility(EComponentMobility::Movable);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(Cable);Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.024f));Lead->SetEndScale(FVector2D(.024f));
    const FVector A=T.TransformPosition(P[I]),B=T.TransformPosition(P[I+1]);Lead->SetStartAndEnd(A,B-A,B,B-A);Lead->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lead->SetCanEverAffectNavigation(false);if(Rubber)Lead->SetMaterial(0,Rubber);Lead->RegisterComponent();AddInstanceComponent(Lead);StationMeshes.Add(Lead);StationIdleLeads.Add(Lead);}
  }
- // Parts bay rack beside IN (frame cradle below, three bins on the shelf) and the steel OUT cradle, built from painted blocks.
+ // Parts bay rack beside IN (frame cradle below, three bins on the shelf), built from painted blocks, and the two OUT pallets.
+ // The OUT pallets are always there: a forklift that takes a loaded one leaves an empty in its place.
  // SM_PalletRack_1Level is a 10 ft x 4 ft 10 in floor pallet bay with no shelf, so it cannot stand in the 4.5 x 2.5 ft parts bay.
  auto* Block=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube")):nullptr;
  auto* Orange=Render?LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Shared/Materials/MaterialHandling/M_MH_FoundryOrange.M_MH_FoundryOrange")):nullptr;
  auto* Steel=Render?LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Construction/Materials/M_Metal.M_Metal")):nullptr;
+ auto* Wood=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Inventory/Storage/Pallets/SM_Pallet_Wood.SM_Pallet_Wood")):nullptr;
  for(const auto& S:Snapshot.WeldingStations){const FRotator Yaw=Layout::Rotation(S);
   auto Collide=[&](FVector Center,FVector Extent,FRotator Rot){auto* Box=NewObject<UBoxComponent>(this);Box->SetupAttachment(RootComponent);Box->SetBoxExtent(Extent);Box->ComponentTags.Add(TEXT("FoundrylinePhysicalCollision"));Box->SetCollisionProfileName(TEXT("BlockAllDynamic"));Box->SetCanEverAffectNavigation(false);Box->RegisterComponent();AddInstanceComponent(Box);Box->SetRelativeLocationAndRotation(Center,Rot);StationCollision.Add(Box);};
   const FBox2D Bay=Layout::PartsBay(S);const FVector BayCenter(Bay.GetCenter(),20);
 
   Collide(BayCenter+FVector(0,0,50),FVector(Bay.GetSize()/2,50),FRotator::ZeroRotator);
-  const FTransform Cradle=Layout::CradleTransform(S);const FVector C=Layout::CradleSizeCm();Collide(Cradle.GetLocation()+FVector(0,0,C.Z/2),C/2,Cradle.Rotator());
+  for(int Slot=0;Slot<Layout::OutPallets;++Slot){const FTransform T=Layout::OutPalletTransform(S,Slot);Collide(T.GetLocation()+FVector(0,0,Layout::PalletTopCm/2),Layout::PalletSizeCm()/2,T.Rotator());
+   if(!Wood)continue;auto* Mc=NewObject<UStaticMeshComponent>(this);Mc->SetupAttachment(RootComponent);Mc->SetStaticMesh(Wood);Mc->SetCollisionEnabled(ECollisionEnabled::NoCollision);Mc->SetCanEverAffectNavigation(false);Mc->RegisterComponent();AddInstanceComponent(Mc);Mc->SetRelativeTransform(T);StationMeshes.Add(Mc);}
   if(!Block)continue;
   // Box in a local frame: centre and size in cm, turned with that frame.
   auto Part=[&](const FTransform& Frame,FVector Center,FVector Size,UMaterialInterface* M){auto* Mc=NewObject<UStaticMeshComponent>(this);Mc->SetupAttachment(RootComponent);Mc->SetStaticMesh(Block);Mc->SetCollisionEnabled(ECollisionEnabled::NoCollision);Mc->SetCanEverAffectNavigation(false);Mc->RegisterComponent();AddInstanceComponent(Mc);Mc->SetRelativeTransform(FTransform(Frame.Rotator(),Frame.TransformPosition(Center),Size/100));if(M)Mc->SetMaterial(0,M);StationMeshes.Add(Mc);};
@@ -69,8 +72,6 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   Part(BayFrame,FVector(0,0,Shelf-1.5),FVector(2*HX+5,2*HY+5,3),Steel);
   for(double X:{-21.,21.})Part(BayFrame,FVector(X,0,Shelf+6),FVector(1,2*HY,12),Steel);
   for(double X:{-45.,45.})Part(BayFrame,FVector(X,0,6),FVector(8,2*HY,12),Orange);
-  for(double Y:{-40.,40.})Part(Cradle,FVector(0,Y,C.Z/2),FVector(C.X,10,C.Z),Orange);
-  for(double X:{-100.,0.,100.})Part(Cradle,FVector(X,0,5),FVector(10,C.Y,10),Steel);
  }
  if(!Render)return;
  // The unit on the bench, Welder A's gun in hand with its lead back to their own machine, and the sparks at the tip.
@@ -121,15 +122,15 @@ void AFoundrylineFactoryPlant::AnimateWeldingStations(float Dt,double Age){
   // Fit-up: the real kit parts are laid out first (RebuildVisuals), then the rack takes shape on the fixture.
   Show(StationRackGhosts[I],Stage==1&&F>=.6f||Stage==2);Show(StationRackBuilds[I],Stage==2);Show(StationRacks[I],Stage>=3);
   if(Stage==1)Fraction(StationRackGhosts[I],-1);if(Stage==2){Fraction(StationRackGhosts[I],Shown);Fraction(StationRackBuilds[I],Shown);}
-  if(auto* R=StationRacks[I].Get()){const FTransform A=Layout::ProductTransform(S),B=Layout::ProductOnCradle()*Layout::CradleTransform(S);
+  if(auto* R=StationRacks[I].Get()){const FTransform A=Layout::ProductTransform(S),B=[&]{int32 Slot,Level;return Layout::NextOutSpot(S,Snapshot.Pallets,Slot,Level)?Layout::RackOnOut(S,Slot,Level):Layout::RackOnOut(S,0,0);}();
    // Welded steel in its own materials; the lights appear as they are installed.
    if(StationShownStage[I]!=Stage){R->EmptyOverrideMaterials();if(Stage==3)for(int Slot=0;Slot<R->GetNumMaterials();++Slot)if(IsRackLight(R->GetMaterial(Slot)))
      if(auto* Base=LoadObject<UMaterialInterface>(nullptr,*(FString(TEXT("/Game/Foundryline/Production/Materials/M_FactoryBuild"))+RackBuildSuffix(R->GetMaterial(Slot)))))R->SetMaterial(Slot,RackProgressMaterial(Base,A));}
    if(Stage==3)Fraction(R,Shown);
-   // A controlled lift to the OUT cradle: straight up clear of welding machine B, across while turning, then down onto the
-   // runners. The OUT product replaces it when it lands.
+   // A controlled lift to the first OUT pallet with room: straight up clear of welding machine B and the stack, across while
+   // turning, then down onto the stack. The OUT stack gains it when it lands.
    if(Stage==4){const float Up=FMath::SmoothStep(0.f,.25f,F),Across=FMath::SmoothStep(.25f,.75f,F),Down=FMath::SmoothStep(.75f,1.f,F);
-    const double Top=A.GetLocation().Z+60;const FVector XY=FMath::Lerp(A.GetLocation(),B.GetLocation(),Across);
+    const double Top=FMath::Max(A.GetLocation().Z+60,B.GetLocation().Z+40);const FVector XY=FMath::Lerp(A.GetLocation(),B.GetLocation(),Across);
     R->SetRelativeLocationAndRotation(FVector(XY.X,XY.Y,Down>0?FMath::Lerp(Top,B.GetLocation().Z,Down):FMath::Lerp(A.GetLocation().Z,Top,Up)),FQuat::Slerp(A.GetRotation(),B.GetRotation(),Across));}
    else if(StationShownStage[I]!=Stage)R->SetRelativeTransform(A);}
   StationShownStage[I]=Stage;

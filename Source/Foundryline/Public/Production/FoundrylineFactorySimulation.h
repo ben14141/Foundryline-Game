@@ -66,6 +66,8 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  int32 StationShortfall(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part)const{return FMath::Max(0,StationTarget(Station,Part)-StationStock(Station,Part));}
  // Free stock a forklift could bring from this business's racks.
  int32 StationRackSupply(EFoundrylinePart Part)const;
+ // Finished products on a station's OUT pallets.
+ int32 OutTotal(const FFoundrylineWeldingStationRecord& S)const;
  FString WeldingStationStatus(const FFoundrylineWeldingStationRecord& Station)const;
  // Welders assigned to the station (AtWork: standing at their own slot's work point), and the shared work rate from those
  // at work: 0, 1 (100%) or the recipe's TwoWelderRate.

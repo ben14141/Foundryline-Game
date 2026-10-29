@@ -20,8 +20,12 @@ void AFoundrylineFactoryPlant::UpdatePhysicalObjects(float Dt){
  if(Bounds.IsEmpty()){auto Load=[](const FString& Path){auto* M=LoadObject<UStaticMesh>(nullptr,*Path);return M?M->GetBoundingBox():FBox(FVector(-1),FVector(1));};Wood=Load(TEXT("/Game/Foundryline/Inventory/Storage/Pallets/SM_Pallet_Wood"));for(int I=0;I<FFoundrylineFactoryCatalog::PartCount;++I)Bounds.Add(Load(FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart(I))));}
  TSet<int32> Live;
  for(const auto& P:Snapshot.Pallets){if(P.Quantity<=0||P.Place==EFoundrylinePalletPlace::Inbound||P.Place==EFoundrylinePalletPlace::Outbound||P.Place==EFoundrylinePalletPlace::InTransit)continue;int Part=int(P.Part);if(!Bounds.IsValidIndex(Part))continue;FVector Pos=P.Position;FRotator Rot=FRotator::ZeroRotator;bool Carried=P.Place==EFoundrylinePalletPlace::Forks;
-  // Station bins and the OUT cradle have their own fixed collision; only a pallet waiting on IN needs a body here.
+  // Station bins and the OUT pallets have their own fixed collision; a pallet waiting on IN and each OUT stack need a body here.
   const auto* Station=P.Place==EFoundrylinePalletPlace::Buffer||P.Place==EFoundrylinePalletPlace::StationIn||P.Place==EFoundrylinePalletPlace::StationOut?Snapshot.WeldingStations.FindByPredicate([&](const auto& S){return S.Id==P.Owner;}):nullptr;
+  if(Station&&P.Place==EFoundrylinePalletPlace::StationOut){using Layout=FFoundrylineWeldingStationLayout;const int Slot=Layout::OutSlot(*Station,P.Position);if(Slot<0)continue;
+   const FVector R=Layout::RackSizeCm();const FBox Stack(FVector(-R.X/2,-R.Y/2,Layout::PalletTopCm),FVector(R.X/2,R.Y/2,Layout::PalletTopCm+P.Quantity*R.Z));const FTransform T=Layout::OutStackTransform(*Station,Slot);
+   Live.Add(P.Id);auto& C=PalletPhysicalBodies.FindOrAdd(P.Id);if(!C)C=FFoundrylineEquipmentCollision::AddBox(this,RootComponent,FName(*FString::Printf(TEXT("Pallet%d_Physical"),P.Id)),FVector::ZeroVector,Stack.GetExtent());
+   C->SetRelativeLocationAndRotation(T.TransformPosition(Stack.GetCenter()),T.Rotator());C->SetBoxExtent(Stack.GetExtent());C->SetCollisionEnabled(ECollisionEnabled::QueryOnly);continue;}
   if(Station&&P.Place!=EFoundrylinePalletPlace::StationIn)continue;if(Station)Rot=FFoundrylineWeldingStationLayout::Rotation(*Station);
 
   if(Carried){int DI=Snapshot.Drivers.IndexOfByPredicate([&](const auto& D){return D.Id==P.Owner;});if(!Forks.IsValidIndex(DI))continue;auto* R=Forks[DI].Get();Rot=R->GetRelativeRotation();Pos=R->GetRelativeLocation()+Rot.RotateVector({136,0,Carriages[DI]->GetRelativeLocation().Z-16});}

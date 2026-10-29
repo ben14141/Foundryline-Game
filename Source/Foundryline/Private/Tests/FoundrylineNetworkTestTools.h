@@ -73,6 +73,8 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetupWeldingSupplyReview(APlayerController* Host,int32 StationId);
  // Review fixture for Phase 3: two complete kits already unloaded into the station bins (as Phase 2 leaves them), plant running.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetupWeldingAssemblyReview(APlayerController* Host,int32 StationId);
+ // Review fixture for the OUT pallets: sets each OUT pallet's stack of finished racks (0 to RacksPerOutPallet), each a whole kit's mass.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetWeldingOutStacks(APlayerController* Host,int32 StationId,int32 FirstPallet,int32 SecondPallet);
  // Selects a station in this player's HUD, as clicking it on the floor does.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SelectWeldingStation(APlayerController* Player,int32 StationId);
 

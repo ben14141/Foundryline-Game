@@ -44,12 +44,14 @@ These later systems must not block a simple headache-rack order from reaching de
 
 Revised 29 October 2026 (Phase 1): Ben asked for a welding machine on each side of the table. The existing Welder_Machine (4 ft 0.3 in x 2 ft 3.8 in) does not fit the spare corners of the original 16 x 12 ft layout without shrinking a worker clearance or a port, so the reserved station grew by 1 ft in each direction to 17 x 13 ft.
 
+Revised 29 October 2026 (OUT pallets, Ben's option B): OUT holds two floor pallets side by side, each with its own stack of finished racks lying flat. A 6 ft 6 in rack cannot lie along a 4 ft bay, so OUT widened to 6 ft 6 in and the station to 19 ft 6 in x 13 ft. Nothing else changed size: the bench, both welder strips, both machine bays, IN and the parts bay keep their 17 ft plan (the "core"), and the extra 2 ft 6 in is added at the OUT end.
+
 | Element | Size | Treatment |
 | --- | --- | --- |
-| Complete reserved station | 17 ft x 13 ft | Foundryline-orange perimeter. |
+| Complete reserved station | 19 ft 6 in x 13 ft | Foundryline-orange perimeter. |
 | Welding bench | 8 ft x 4 ft, 36 in high | Glossy painted frame and polished bare-steel worktop. |
 | IN position | 4 ft x 8 ft | Blue outline, light diagonal hatch, white IN label. |
-| OUT position | 4 ft x 8 ft | Green outline, light diagonal hatch, white OUT label. |
+| OUT position | 6 ft 6 in x 8 ft | Green outline, light diagonal hatch, white OUT label. Two wood pallets on the 2 ft fork line, each taking a stack of 5 finished racks (10 at OUT). |
 | Worker A clearance | 8 ft x 4.5 ft along one long table side | Unpainted clear floor. |
 | Worker B clearance | 8 ft x 4.5 ft along opposite long side | Unpainted clear floor. |
 | Welder A / Welder B machine bays | 4.5 ft x 2.5 ft each, diagonal corners | One existing MIG welding machine per welder, with its own gun, lead and holster. |
@@ -58,9 +60,11 @@ Revised 29 October 2026 (Phase 1): Ben asked for a welding machine on each side 
 
 Both worker areas are reserved when placing the station, even when only one employee is assigned. Adding a second employee must not require enlarging the layout.
 
-### Exact placement within the 17 ft x 13 ft footprint
+### Exact placement within the 19 ft 6 in x 13 ft footprint
 
 Local station coordinates use feet below. The origin is the lower-left corner of the reserved footprint; these are planning coordinates, not a change to Unreal's centimetre storage. `FFoundrylineWeldingStationLayout` is the single source for these values.
+
+Default side (IN on the left). With sides swapped, OUT is 0–6.5 ft, IN 15.5–19.5 ft, and every core element moves 2.5 ft right.
 
 | Element | Local X range | Local Y range |
 | --- | --- | --- |
@@ -68,27 +72,28 @@ Local station coordinates use feet below. The origin is the lower-left corner of
 | Worker A area | 4.5–12.5 ft | 0–4.5 ft |
 | Worker B area | 4.5–12.5 ft | 8.5–13 ft |
 | IN area (default side) | 0–4 ft | 2.5–10.5 ft |
-| OUT area (default side) | 13–17 ft | 2.5–10.5 ft |
+| OUT area (default side) | 13–19.5 ft | 2.5–10.5 ft |
+| OUT pallet 1 / pallet 2 (centres) | 17.5 ft | 4.5 ft / 8.5 ft |
 | Welder A machine | 0–4.5 ft | 0–2.5 ft |
 | Welder B machine | 12.5–17 ft | 10.5–13 ft |
 
 ```text
-                              17 ft overall
-             +--------------------------------------------+
-             |  (IN)    |     WORKER B CLEARANCE    |MACH B|
-             |  BLUE IN    +------------------+   GREEN    |
-             |  4 x 8 ft   |  WELDING BENCH   |    OUT     |
-             |             |     8 x 4 ft     |   4 x 8    |
-             |             +------------------+            |
-             |MACH A|      WORKER A CLEARANCE    |  (OUT)  |
-             +--------------------------------------------+
-                              13 ft overall
+                                19 ft 6 in overall
+             +--------------------------------------------------+
+             |  (IN)    |     WORKER B CLEARANCE    |MACH B|     |
+             |  BLUE IN    +------------------+  GREEN OUT [P2] |
+             |  4 x 8 ft   |  WELDING BENCH   |  6'6" x 8'      |
+             |             |     8 x 4 ft     |            [P1] |
+             |             +------------------+                 |
+             |MACH A|      WORKER A CLEARANCE    |  (OUT)       |
+             +--------------------------------------------------+
+                                13 ft overall
 
           Forklift approaches are outside the left/right ends.
           Worker approaches are outside the upper/lower sides.
 ```
 
-The diagram is schematic; the coordinate table controls actual geometry. Orange perimeter and internal paint must not shrink the required clearance. Swapping sides exchanges IN and OUT only; the bench, clearances and machines stay put.
+The diagram is schematic; the coordinate table controls actual geometry. Orange perimeter and internal paint must not shrink the required clearance. Swapping sides exchanges the IN and OUT ends; the bench, clearances and machines keep their place beside IN, so they move 2 ft 6 in with the swap.
 
 ### Placement options
 
@@ -123,7 +128,7 @@ The current pickup rack is raw carbon steel with mill-scale/weld detail, cab-sha
 
 It lies flat in the bench fixture at unchanged scale. The fixture must support actual frame members and leave projecting mounts clear of the worktop. Do not scale the rack to fit the table or intersect its mounting hardware with the surface.
 
-The long OUT position accommodates the complete rack on an appropriate pallet/cradle. Rotate its orientation for transport as required; it does not need to retain the same yaw it had while being welded.
+The OUT position holds finished racks on two wood pallets (the game's SM_Pallet_Wood, 3 ft 9.6 in x 3 ft 10.4 in). Each rack lies flat on its back, its 6 ft 6 in length along the 6 ft 6 in bay, and stacks on the rack below. A stack of 5 stands 5 ft 2 in. Each pallet is centred on the same 2 ft fork line as IN, so the forklift stops the same 2 ft 6 in outside either port. The forklift spur keeps 65 cm clear of the station, so the pallet cannot sit deeper in the bay. The stack is centred on the bay: it is flush with the pallet's outer edge and runs on 2 ft 7 in past the pallet's inner edge. Its centre of mass stays 8 in inside the pallet.
 
 ## 5. Four standard assembly parts
 
@@ -270,9 +275,10 @@ Pause, blocked access and missing output capacity are overlays on these states, 
 
 ## 9. Finished output
 
-- Start with capacity for **one completed headache rack per output cradle**.
-- Do not stack complete racks unrealistically or reuse small-part pallet capacity.
-- OUT's 4 ft x 8 ft footprint is a product-sized handling space, not proof that any future assembly fits.
+- OUT has two pallets of `RacksPerOutPallet` = 5 racks each (tunable in `FFoundrylineWeldingStationLayout`), 10 in all. A finished-rack pallet record holds up to 5 (`HeadacheRack` pallet capacity 5).
+- Each finished rack goes on the first pallet with room; the second pallet starts only when the first is full. Racks on one pallet are one stock record with the average mass per rack.
+- Racks lie flat on their backs, stacked on each other; they are not leaned or nested.
+- OUT's 6 ft 6 in x 8 ft footprint fits the headache rack's length, not proof that any future assembly fits.
 - If OUT is full, do not begin a new unit that has nowhere to go. Existing WIP remains valid and both workers wait when appropriate.
 - Reserve output capacity when beginning a unit; revalidate it at handoff.
 - Show a short controlled transfer from bench to cradle. Detailed lifting physics can be deferred, but avoid an unexplained teleport across the building.
@@ -417,7 +423,7 @@ Implemented 29 October 2026 (schema 11):
 - **Where parts come from:**
   - Plates and brackets come from the business's own racks. Accepted customer orders keep first claim on that rack stock.
   - Frame sections and light kits are bought from the station panel through the normal paid supplier booking. Each purchase is limited to what the bins still lack (counting stock already booked), and the truck's pallet goes straight to that station's IN.
-- **OUT cradle:** a steel cradle in the OUT port takes at most one finished product.
+- **OUT cradle:** a steel cradle in the OUT port takes at most one finished product. (Replaced by the two OUT pallets; see Finished output.)
 
 Test: `Foundryline.Factory.WeldingStation.Supplies` covers:
 
@@ -426,6 +432,29 @@ Test: `Foundryline.Factory.WeldingStation.Supplies` covers:
 - A mid-delivery save restores and completes the same supplies.
 - Order priority on rack stock, stopping the batch, invalid records, and migration from schema 10.
 
+
+### OUT pallets (19 ft 6 in station)
+
+Implemented 29 October 2026 (schema 14), on `welding/out-pallets`:
+
+- **Layout:** the station is 19 ft 6 in x 13 ft. OUT is 6 ft 6 in x 8 ft and IN stays 4 ft x 8 ft. The core's spacing to IN is unchanged; the core shifts 2 ft 6 in when OUT is on the left.
+- **Pallets:** OUT has two pallets on the 2 ft fork line, centred 4.5 ft and 8.5 ft across the station, always drawn: when a loaded pallet is taken, an empty one takes its place.
+- **Stacking:** a finished rack lands on the first pallet with room, one stack per pallet, up to 5 racks, flat on their backs. When both pallets are full (10 racks), no new unit starts; the station panel reads "OUT full (10 on 2 pallets) / awaiting collection". The stage-4 lift goes to the top of the stack it joins.
+- **Hologram:** shows the green OUT bay with both pallet outlines in white.
+- **Saves:** schema 14. A schema 13 station grows at its OUT end only (its centre moves 1 ft 3 in toward OUT), so its bench, bins, machines, welders and IN stay where they were. A rack on the old cradle moves onto pallet 1. A schema 13 plant whose longer station no longer fits its spot is rejected by validation, not shrunk.
+- **Starter shop:** the reorganised starter still fits, with its 4 ft access ring and both forklift bays.
+  - The station is centred at (-1768.02, 1823.12), 1 ft 3 in east of the 17 ft station's centre, and stays flush against the west fork lane.
+  - The aisle crossing moves 9.4 in east, from x -1394 to x -1370 cm. At the old position the station overlaps the crossing by 23.16 cm (9.1 in).
+  - The untouched starter shop has no valid pose, as before; it needs the fork lane, walkway and crossing painted first.
+
+Test: `Foundryline.Factory.WeldingStation.OutPallets` covers:
+
+- First pallet fills first, the second starts at its own position, and the station waits at 10.
+- A collected pallet frees its position and the next rack starts it again.
+- Every rack carries one kit's mass, and both stacks survive a save.
+- Invalid stacks are rejected, and a schema 13 save migrates.
+
+`Layout` also checks the pallets, stacks, bay and machine clearances in every turn and swap.
 
 ### Phase 3 — One-welder assembly
 
