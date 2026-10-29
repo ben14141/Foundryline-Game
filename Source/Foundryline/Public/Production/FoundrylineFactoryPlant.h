@@ -137,6 +137,8 @@ private:
  UPROPERTY() TArray<TObjectPtr<class UFoundrylineWeldingEffectComponent>> StationWeldEffects;
  TArray<int32> StationShownStage;
  void AnimateWeldingStations(float Dt,double Age);
+ // SM_HeadacheRack lying on its back on pallet tops (17.56 cm), its length along the pallets' local Y (bed-rail datum).
+ static FTransform FinishedRackOnPallets(){return FTransform(FRotator(0,0,90),FVector(0,-30.48,17.56+13.97))*FTransform(FRotator(0,90,0));}
  void AddStationFitUpParts();
  static FString RackBuildSuffix(const class UMaterialInterface* Material);
  static bool IsRackLight(const class UMaterialInterface* Material);

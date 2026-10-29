@@ -67,6 +67,8 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  // Free stock a forklift could bring from this business's racks.
  int32 StationRackSupply(EFoundrylinePart Part)const;
  FString WeldingStationStatus(const FFoundrylineWeldingStationRecord& Station)const;
+ // Why a finished product is still on OUT (empty when OUT is clear).
+ FString StationOutStatus(const FFoundrylineWeldingStationRecord& Station)const;
  // Welders assigned to the station (AtWork: standing at their own slot's work point), and the shared work rate from those
  // at work: 0, 1 (100%) or the recipe's TwoWelderRate.
  int32 StationWelders(const FFoundrylineWeldingStationRecord& Station,bool AtWork)const;
@@ -100,6 +102,8 @@ private:
  mutable TArray<FFoundrylineFloorCrossing> CachedCrossings;
  void Plan();
  void PlanWeldingStations();
+ // Rack slot for a finished product collected from OUT (0 if none is free).
+ int32 FinishedGoodsSlot(EFoundrylinePart Part)const;
  void UnloadWeldingStations(float Dt);
  void AssembleWeldingStations(float Dt);
  bool StationPortBusy(const FFoundrylineWeldingStationRecord& Station)const;
