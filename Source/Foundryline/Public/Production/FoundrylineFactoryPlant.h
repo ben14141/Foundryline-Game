@@ -6,7 +6,7 @@
 #include "FoundrylineFactoryPlant.generated.h"
 
 UENUM()
-enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee};
+enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,AddWeldingStation,RemoveWeldingStation};
 USTRUCT()
 struct FFoundrylineFactoryCommand {
  GENERATED_BODY()
@@ -111,4 +111,11 @@ private:
  UPROPERTY() TMap<int32,TObjectPtr<class UBoxComponent>> PalletPhysicalBodies;
  void SetupFloorVisuals();
  void RebuildFloor();
+ // Bench, fixture and collision per placed welding station; rebuilt only when a station record changes.
+ void RebuildWeldingStations();
+ FString StationLayoutKey;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationMeshes;
+ UPROPERTY() TArray<TObjectPtr<class UBoxComponent>> StationCollision;
+ // Lead from each machine to its holstered gun, three segments per machine (station index * 2 + side).
+ UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> StationIdleLeads;
 };

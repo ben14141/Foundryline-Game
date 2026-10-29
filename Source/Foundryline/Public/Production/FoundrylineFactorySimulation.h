@@ -13,6 +13,7 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void MigrateEmployees();
  void MigrateEmployeeNames();
  void MigrateGenericEmployees();
+ void MigrateWeldingStations(){if(State.Version==9)State.Version=10;}
  static constexpr int32 HireLimitTotal=12;
  static constexpr int32 HireLimitPerRole=4;
  int32 EmployeeHireCapacity(EFoundrylineEmployeeRole Role)const;
@@ -47,6 +48,13 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  bool AddZone(FVector A,FVector B,FString& Error);
  bool AddPresetZone(FVector Center,int32 Preset,int32 QuarterTurns,int32 Side,int32 Route,FString& Error);
  bool CanPlaceZone(const FFoundrylineFactoryZone& Zone,FString& Error)const;
+ // Validates a candidate and chooses its reachable forklift dock offsets.
+ bool CanPlaceWeldingStation(FFoundrylineWeldingStationRecord& Station,FString& Error)const;
+ bool WeldingStationAccess(FFoundrylineWeldingStationRecord& Station,FString& Error)const;
+ bool AddWeldingStation(FVector Center,int32 QuarterTurns,bool SwapSides,FString& Error);
+ bool RemoveWeldingStation(int32 Id,FString& Error);
+ bool WeldingStationsValid(FString& Error)const;
+ bool OverlapsWeldingStation(const FBox2D& Box,bool IncludeApproaches)const;
  bool AssignSlot(int32 Slot,EFoundrylinePart Part,FString& Error);
  bool Order(int32 Zone,FString& Error);
  bool Collect(int32 Zone,FString& Error);

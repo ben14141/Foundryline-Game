@@ -65,4 +65,10 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool AimFactoryBrush(APlayerController* Player,FVector Point);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool StartEquipmentExercise(APlayerController* Host);
  UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString EquipmentMotionReport(APlayerController* Player);
+ // Welding stations through the real controller-to-server command path; Foreign targets another plant ID.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueWeldingStation(APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bForeignPlant=false,bool bRemove=false,int32 StationId=0);
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueFactoryLane(APlayerController* Player,int32 Kind,FVector A,FVector B,float Width);
+ UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString WeldingStationReport(APlayerController* Player);
+ // Places the player's placement hologram at a model-space point with a chosen rotation/swap and returns the check result.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString PreviewWeldingStation(APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bCommit=false);
 };

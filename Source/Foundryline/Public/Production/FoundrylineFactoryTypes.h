@@ -159,10 +159,26 @@ struct FFoundrylineFactoryWalker {
  UPROPERTY(SaveGame) float Distance=0;
  UPROPERTY(SaveGame) bool Waiting=false;
 };
+// Placed 17 x 13 ft welding station (bench, two welder sides, two machines, IN/OUT). Geometry derives from FFoundrylineWeldingStationLayout;
+// only the transform and options are stored, never generated mesh/component handles.
+USTRUCT()
+struct FFoundrylineWeldingStationRecord {
+ GENERATED_BODY()
+ UPROPERTY(SaveGame) int32 Id=0;
+ UPROPERTY(SaveGame) int32 Number=1;
+ UPROPERTY(SaveGame) FVector Center=FVector::ZeroVector;
+ UPROPERTY(SaveGame) int32 QuarterTurns=0;
+ // False: IN at local left (0-4 ft), OUT at right. True swaps both ports.
+ UPROPERTY(SaveGame) bool bSwapSides=false;
+ // Forklift stop along each port's 8 ft length, in whole feet from centre (-2..2), chosen at placement
+ // so a station beside an aisle is reachable without leaving the reserved approach.
+ UPROPERTY(SaveGame) int32 InDockOffsetFt=0;
+ UPROPERTY(SaveGame) int32 OutDockOffsetFt=0;
+};
 USTRUCT()
 struct FFoundrylineFactoryState {
  GENERATED_BODY()
- UPROPERTY(SaveGame) int32 Version=9;
+ UPROPERTY(SaveGame) int32 Version=10;
  UPROPERTY(SaveGame,NotReplicated) FFoundrylineCommerceState Commerce;
  UPROPERTY(SaveGame) bool bCutPartsStarter=false;
  UPROPERTY(SaveGame) FGuid CompanyId=FGuid(0xF001,1,1,1);
@@ -193,6 +209,8 @@ struct FFoundrylineFactoryState {
  UPROPERTY(SaveGame) TArray<FFoundrylineStandbyDriver> UnassignedEmployees;
  UPROPERTY(SaveGame) TArray<FGuid> HireRequests;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryProgram> Programs;
+ // Schema 10: welding stations. Schema 9 saves load with none.
+ UPROPERTY(SaveGame) TArray<FFoundrylineWeldingStationRecord> WeldingStations;
  UPROPERTY(SaveGame) FString Status;
 };
 

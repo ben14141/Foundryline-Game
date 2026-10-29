@@ -48,6 +48,12 @@ public:
  bool bFactoryMenu=false,bFactoryOverlay=false,bFactoryDragging=false,bFactoryAuto=true;
  int32 FactoryPage=0,FactoryMachine=0,FactoryProgramIndex=0,FactoryBatch=10,FactoryZone=0,FactorySlot=0,FactoryRoute=1,FactoryEndpoint=0,FactoryDirection=0;
  int32 FactoryZonePreset=2,FactoryZoneQuarter=0,FactoryZoneSide=1;
+ // Welding station tool: rotation, IN/OUT swap and the selected placed station.
+ int32 FactoryStation=0,FactoryStationQuarter=0;
+ bool bFactoryStationSwap=false;
+ // Placement checks route forklifts and people, so the preview reuses a result until the snapped pose or layout changes.
+ FString FactoryStationCheckKey,FactoryStationCheckError;bool bFactoryStationCheckValid=false;double FactoryStationCheckAt=-10;
+ UPROPERTY(Transient) TArray<TObjectPtr<class AStaticMeshActor>> FactoryStationPreview;
  bool bFactoryPresetValid=false;
  FString FactoryPlacementHint;
  float FactoryWidth=365.76f;

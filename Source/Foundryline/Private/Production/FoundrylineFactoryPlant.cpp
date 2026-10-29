@@ -26,7 +26,7 @@ void AFoundrylineFactoryPlant::Tick(float Dt){Super::Tick(Dt);if(HasAuthority())
  SimClock+=FMath::Min(Dt,.25f);while(SimClock>=.1f){Model.Step(.1f);SimClock-=.1f;}
  if(Model.State.Commerce.Enabled&&BusinessRegistry)BusinessRegistry->CommitPlantCash(BusinessCompanyId,BusinessPlantId,BeforeCash,Model.State.Commerce.CashCents);EnsureCommerceEquipment();
  PublishClock+=Dt;if(PublishClock>=.25f){PublishClock=0;RefreshSnapshot();bRebuild=true;}
- }if(!HasAuthority()&&bRebuild)EnsureCommerceEquipment();if(bRebuild)UpdateCollision();UpdateEmployees(Dt);if(GetNetMode()!=NM_DedicatedServer){if(bRebuild){RebuildVisuals();bRebuild=false;}Animate(Dt);}else bRebuild=false;
+ }if(!HasAuthority()&&bRebuild)EnsureCommerceEquipment();if(bRebuild){UpdateCollision();RebuildWeldingStations();}UpdateEmployees(Dt);if(GetNetMode()!=NM_DedicatedServer){if(bRebuild){RebuildVisuals();bRebuild=false;}Animate(Dt);}else bRebuild=false;
  UpdatePhysicalObjects(Dt);}
 void AFoundrylineFactoryPlant::UpdateCollision(){
  if(ProductCollision.Num()!=Snapshot.Zones.Num()||WelderCollision.Num()!=Snapshot.Zones.Num()){
@@ -57,6 +57,8 @@ bool AFoundrylineFactoryPlant::Execute(APlayerController* P,const FFoundrylineFa
  case FactoryAct::HireEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee hiring belongs to another business");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.HireEmployee(EFoundrylineEmployeeRole(C.Count),C.RequestId,E);break;
  case FactoryAct::AssignEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee assignment belongs to another plant");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.AssignEmployee(C.Id,EFoundrylineEmployeeRole(C.Count),C.Other,E);break;
  case FactoryAct::AddPresetZone:if(!Model.State.Running)Ok=Model.AddPresetZone(C.A,C.Id,C.QuarterTurns,C.SupplySide,C.Other,E);else E=TEXT("Pause before placing a work zone");break;
+ case FactoryAct::AddWeldingStation:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("That welding station belongs to another plant");else Ok=Model.AddWeldingStation(C.A,C.QuarterTurns,C.SupplySide<0,E);break;
+ case FactoryAct::RemoveWeldingStation:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("That welding station belongs to another plant");else Ok=Model.RemoveWeldingStation(C.Id,E);break;
  case FactoryAct::AddZone:if(!Model.State.Running)Ok=Model.AddZone(C.A,C.B,E);else E=TEXT("Pause before changing the floor layout");break;
  case FactoryAct::PaintLane:if(!Model.State.Running&&C.Id>=0&&C.Id<=2)Ok=Model.PaintLane(EFoundrylineFloorLane(C.Id),C.A,C.B,C.WidthCm,C.Other,E);else E=TEXT("Pause before painting floor routes");break;
  case FactoryAct::EraseLane:if(!Model.State.Running){const int Removed=Model.State.Lanes.RemoveAll([&](const auto& L){return L.Id==C.Id;});Ok=Removed>0;if(Ok){for(auto& D:Model.State.Drivers){D.Path.Reset();D.Distance=0;}for(auto& W:Model.State.Walkers){W.Path.Reset();W.Distance=0;W.Retry=0;}for(auto& O:Model.State.Operators){O.Path.Reset();O.Distance=0;O.Retry=0;}}}else E=TEXT("Pause before removing floor routes");break;
@@ -76,6 +78,8 @@ bool AFoundrylineFactoryPlant::LoadFactory(FString& E,const FString& TestSlot){i
  FFoundrylineFactorySimulation Candidate;Candidate.State=S->Factory;Candidate.Solids=bCutPartsStarter?FFoundrylineWorkshopLayout::CutShopSolids():FFoundrylineWorkshopLayout::Solids();
  if(Candidate.State.Version==5){Candidate.State.Version=6;for(auto& Z:Candidate.State.Zones){Z.ReservedParts.SetNumZeroed(FFoundrylineFactoryCatalog::PartCount);Z.Installed.SetNumZeroed(FFoundrylineFactoryCatalog::PartCount);}for(auto& M:Candidate.State.Machines)M.Origin=FFoundrylineWorkshopLayout::Machine(M.Id);Candidate.State.Programs=FFoundrylineFactoryCatalog::DefaultPrograms();if(Candidate.State.bCutPartsStarter){Candidate.State.Programs.RemoveAll([](const auto& P){return P.Machine!=1||P.Part!=EFoundrylinePart::Bracket&&P.Part!=EFoundrylinePart::MountingPlate&&P.Part!=EFoundrylinePart::GussetPlate&&P.Part!=EFoundrylinePart::ReinforcementPlate;});const auto LegacyDrivers=Candidate.State.Drivers;Candidate.SeedCommerce();for(const auto& Driver:LegacyDrivers)if(Driver.Job)if(auto* Current=Candidate.State.Drivers.FindByPredicate([&](const auto& D){return D.Id==Driver.Id;}))*Current=Driver;}}
  Candidate.MigrateEmployees();Candidate.MigrateEmployeeNames();Candidate.MigrateGenericEmployees();
+ // Schema 10 only adds welding stations; a schema 9 plant loads with none.
+ Candidate.MigrateWeldingStations();
  if(Candidate.State.Commerce.BrakeOwned){Candidate.Solids.Emplace(FVector2D(-2025,1675),FVector2D(-1675,2025));Candidate.Solids.Emplace(FVector2D(-1560,1642),FVector2D(-1440,2058));}
  // Migrate only the old authored parking positions; preserve jobs and player-authored state.
  for(int I=0;I<Candidate.State.Drivers.Num();++I){auto& D=Candidate.State.Drivers[I];const FVector OldHome(100,I<2?400.+I*500.:3600.+(I-2)*500.,20);if(D.Parking.Equals(OldHome,1)){

@@ -1,6 +1,7 @@
 #include "UI/FoundrylineBuildHUD.h"
 #include "Production/FoundrylineWorkZoneLayout.h"
 #include "Production/FoundrylineWorkshopLayout.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 #include "Core/FoundrylineUnits.h"
 #include "UI/FoundrylinePlayerController.h"
 #include "Engine/Canvas.h"
@@ -13,6 +14,16 @@ bool AFoundrylineBuildHUD::DrawFactory(AFoundrylinePlayerController* PC){auto* P
  const FLinearColor Ink(FColor::FromHex(TEXT("1F2327"))),Paper(FColor::FromHex(TEXT("F7F5F1"))),Orange(FColor::FromHex(TEXT("F07A2F"))),Steel(FColor::FromHex(TEXT("5B6268"))),Muted(FColor::FromHex(TEXT("7A848A"))),Blue(.12,.65,1);
  auto Rect=[&](float X,float Y,float A,float B,FLinearColor C){DrawRect(C,X*S,Y*S,A*S,B*S);};
  auto Text=[&](const FString& T,float X,float Y,float Size=1.f,FLinearColor C=FLinearColor::White){DrawText(T,C,X*S,Y*S,GEngine->GetMediumFont(),Size*S);};
+ // Station placement outline drawn over the scene, so a blocked (red) preview stays readable even under equipment.
+ if(PC->FactoryTool==TEXT("Station")){using Layout=FFoundrylineWeldingStationLayout;int32 VW=0,VH=0;PC->GetViewportSize(VW,VH);
+  FFoundrylineWeldingStationRecord St;St.Center=PC->FactoryPreviewA;St.QuarterTurns=PC->FactoryStationQuarter;St.bSwapSides=PC->bFactoryStationSwap;
+  const FLinearColor Edge=PC->bFactoryPresetValid?FLinearColor(.05,.55,1):FLinearColor(1,.06,.02);
+  auto Project=[&](FVector P,FVector2D& Out){if(VW<=0||VH<=0||!PC->ProjectWorldLocationToScreen(P,Out,true))return false;Out.X*=Canvas->ClipX/VW;Out.Y*=Canvas->ClipY/VH;return true;};
+  auto Box=[&](const FBox2D& B,double Z,float Thick){const FVector C[]={{B.Min.X,B.Min.Y,Z},{B.Max.X,B.Min.Y,Z},{B.Max.X,B.Max.Y,Z},{B.Min.X,B.Max.Y,Z}};for(int I=0;I<4;++I){FVector2D A,B2;if(Project(C[I],A)&&Project(C[(I+1)%4],B2))DrawLine(A.X,A.Y,B2.X,B2.Y,Edge,Thick*S);}};
+  const FBox2D Foot=Layout::Bounds(St);const double Top=20+Layout::BenchHeightCm;
+  Box(Foot,22,6);Box(Foot,Top,3);for(const FVector2D& C:{Foot.Min,FVector2D(Foot.Max.X,Foot.Min.Y),Foot.Max,FVector2D(Foot.Min.X,Foot.Max.Y)}){FVector2D A,B;if(Project(FVector(C,22),A)&&Project(FVector(C,Top),B))DrawLine(A.X,A.Y,B.X,B.Y,Edge,3*S);}
+  Box(Layout::Bench(St),Top,3);Box(Layout::Port(St,false),22,3);Box(Layout::Port(St,true),22,3);}
+
  auto Button=[&](const FString& Key,const FString& Label,float X,float Y,float A=180,float B=42,bool Selected=false,bool Enabled=true){const FName Id(*(TEXT("Factory")+Key));float& V=HoverAmounts.FindOrAdd(Id);V=FMath::FInterpTo(V,Enabled&&HoveredBox==Id?1.f:0.f,Dt,14);Rect(X+V*3,Y,A-V*3,B,!Enabled?FLinearColor(.28,.30,.32):Selected?Orange:FMath::Lerp(PC->FactoryMachine>0?FLinearColor(.78,.80,.79):Ink,Steel,V*.7f));if(V>.01)Rect(X+3,Y+B-2,A-6,2,Orange);Text(Label,X+12,Y+12,1.05,!Enabled?Steel:Selected?Ink:PC->FactoryMachine>0?Ink:Paper);if(Enabled)AddHitBox({X*S,Y*S},{A*S,B*S},Id,true);};
  auto Clip=[](const FString& V,int32 Max){if(V.Len()<=Max)return V;int32 Cut=Max-3;const int32 Space=V.Left(Cut+1).Find(TEXT(" "),ESearchCase::CaseSensitive,ESearchDir::FromEnd);if(Space>Max/2)Cut=Space;return V.Left(Cut).TrimEnd()+TEXT("...");};
  DrawFactoryMap(PC);
@@ -49,12 +60,25 @@ bool AFoundrylineBuildHUD::DrawFactory(AFoundrylinePlayerController* PC){auto* P
  Button(TEXT("Run"),Data.Running?TEXT("PAUSE"):TEXT("RUN PLANT"),18,206,182,44,Data.Running);Button(TEXT("Speed"),FString::Printf(TEXT("SPEED  %.0fx"),Data.Speed),214,206,182,44);
  FFoundrylineFactorySimulation View;View.State=Data;const auto Bill=FFoundrylineFactoryCatalog::TankerBill();
  auto SnapControls=[&](float Y){const FString Step=PC->FactorySnapIndex==0?TEXT("6 inches"):PC->FactorySnapIndex==1?TEXT("1 foot"):TEXT("2 feet");Button(TEXT("GridStep"),TEXT("GRID: ")+Step,18,Y,182,40);Button(TEXT("EdgeSnap"),PC->bFactoryEdgeSnap?TEXT("EDGE SNAP: ON"):TEXT("EDGE SNAP: OFF"),214,Y,182,40,PC->bFactoryEdgeSnap);};
+ // Welding station placement plus the walkway/forklift paint it needs. Returns the next free row.
+ auto StationPanel=[&](float Y){using Layout=FFoundrylineWeldingStationLayout;const bool Placing=PC->FactoryTool==TEXT("Station");
+  Text(TEXT("WELDING STATION"),22,Y,1.15,Ink);Text(FFoundrylineUnits::Length(Layout::LengthFt*Layout::Foot)+TEXT(" x ")+FFoundrylineUnits::Length(Layout::WidthFt*Layout::Foot),236,Y+3,.95,Steel);
+  Button(TEXT("ToolStation"),Placing?TEXT("PLACING / CLICK THE FLOOR"):TEXT("PLACE WELDING STATION"),18,Y+32,378,44,Placing);
+  if(Placing){Button(TEXT("StationRotate"),FString::Printf(TEXT("ROTATE [R] %d"),PC->FactoryStationQuarter*90),18,Y+84,182,40);Button(TEXT("StationSide"),PC->bFactoryStationSwap?TEXT("IN RIGHT [V]"):TEXT("IN LEFT [V]"),214,Y+84,182,40,PC->bFactoryStationSwap);}
+  else {Button(TEXT("ToolPedestrian"),TEXT("PAINT WALKWAY"),18,Y+84,182,40,PC->FactoryTool==TEXT("Pedestrian"));Button(TEXT("ToolForklift"),TEXT("PAINT FORK LANE"),214,Y+84,182,40,PC->FactoryTool==TEXT("Forklift"));}
+  const auto* Selected=Data.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==PC->FactoryStation;});
+  Button(TEXT("ToolErase"),TEXT("REMOVE PAINT"),18,Y+132,182,40,PC->FactoryTool==TEXT("Erase"));Button(TEXT("StationRemove"),Selected?FString::Printf(TEXT("REMOVE WS %02d"),Selected->Number):TEXT("SELECT STATION"),214,Y+132,182,40,false,Selected!=nullptr);
+  if(!PC->FactoryTool.IsNone()&&PC->FactoryTool!=TEXT("Erase"))Text(Clip(PC->FactoryBrushDimensions+TEXT(" / ")+PC->FactoryPlacementHint,54),22,Y+184,.88,PC->bFactoryPresetValid?FLinearColor(.05,.5,.15):FLinearColor(.78,.14,.05));
+  else if(Selected)Text(Layout::Name(Selected->Number)+(Selected->bSwapSides?TEXT(" / IN right, OUT left"):TEXT(" / IN left, OUT right")),22,Y+184,.88,Ink);
+  else Text(FString::Printf(TEXT("%d of %d placed / blue = valid, red = blocked"),Data.WeldingStations.Num(),Layout::MaxStations),22,Y+184,.88,Steel);
+  return Y+220;};
  if(Data.bCutPartsStarter){
   Text(TEXT("CUT-PARTS / STARTER SHOP"),22,278,1.3,Ink);Text(FFoundrylineCommerceCatalog::Date(Data.Commerce.Clock),22,316,1,Steel);Text(TEXT("CASH  ")+FFoundrylineCommerceCatalog::Money(Data.Commerce.CashCents),22,354,1.15,Ink);
   auto OpsButton=[&](const FString& Key,const FString& Label,float Y){const FName Id(*(TEXT("Ops")+Key));float& V=HoverAmounts.FindOrAdd(Id);V=FMath::FInterpTo(V,HoveredBox==Id?1:0,Dt,14);Rect(18,Y,378,48,FMath::Lerp(Ink,Steel,V*.65f));Text(Label,30,Y+14,1.1,Paper);AddHitBox({18*S,Y*S},{378*S,48*S},Id,true);};
   OpsButton(TEXT("Office"),TEXT("OFFICE COMPUTER / ORDERS"),408);OpsButton(TEXT("Tablet"),TEXT("LOADING TABLET / SHIPMENTS"),470);Button(TEXT("Computer1"),TEXT("BURN TABLE / PART + QUANTITY"),18,550,378,48);
   if(Data.Commerce.BrakeOwned)Button(TEXT("Computer2"),TEXT("PRESS BRAKE COMPUTER"),18,612,378,48);
-  Text(TEXT("ACCEPT ORDER > BUY STEEL > CUT > SHIP"),22,708,1,Steel);Text(TEXT("One shared loading bay / automatic forklifts"),22,750,.95,Steel);int Finished=0;for(const auto& P:Data.Pallets)if(P.Place==EFoundrylinePalletPlace::Rack&&P.Part!=EFoundrylinePart::Sheet)Finished+=P.Quantity;Text(FString::Printf(TEXT("Finished parts in racks: %d"),Finished),22,818,1.1,Ink);
+  const float Next=StationPanel(Data.Machines.ContainsByPredicate([](const auto& M){return M.Id==2;})?676:616);
+  int Finished=0;for(const auto& P:Data.Pallets)if(P.Place==EFoundrylinePalletPlace::Rack&&P.Part!=EFoundrylinePart::Sheet)Finished+=P.Quantity;Text(FString::Printf(TEXT("Finished parts in racks: %d"),Finished),22,Next+8,1.05,Ink);Text(TEXT("ACCEPT ORDER > BUY STEEL > CUT > SHIP"),22,Next+44,.95,Steel);
   Button(TEXT("Save"),TEXT("SAVE STARTER"),18,H-72,182,44,false,PC->HasAuthority());Button(TEXT("Load"),TEXT("LOAD STARTER"),214,H-72,182,44,false,PC->HasAuthority());Button(TEXT("Toggle"),TEXT("CLOSE [P]"),W-210,24,186,44);if(PC->bPropertyViewAccess)Button(TEXT("ReturnOffice"),TEXT("RETURN TO OFFICE [F]"),W-290,78,266,44);return true;
  }
  if(PC->FactoryPage==0){Text(TEXT("MACHINES"),22,278,1.1,Ink);const TCHAR* Labels[]={TEXT("PLASMA TABLE"),TEXT("PRESS BRAKE"),TEXT("SHEET ROLLER")};for(int I=0;I<3;++I){Button(FString::Printf(TEXT("Computer%d"),I+1),Labels[I],18,310+I*52,378,44);const auto* M=Data.Machines.FindByPredicate([&](const auto& V){return V.Id==I+1;});FString Status=!Data.Running?TEXT("Plant paused"):M&&M->Remaining>0?FString::Printf(TEXT("Working / %.1f s"),M->Remaining):M&&!M->Enabled?TEXT("Machine paused"):TEXT("Ready / awaiting work");Text(Status,209,323+I*52,.88,Muted);}
@@ -64,6 +88,7 @@ bool AFoundrylineBuildHUD::DrawFactory(AFoundrylinePlayerController* PC){auto* P
  }else if(PC->FactoryPage==1){Text(TEXT("RECEIVING"),22,280,1.2,Ink);Button(TEXT("Steel"),TEXT("RECEIVE 10 STEEL SHEETS"),18,318,378,44);Button(TEXT("Kits"),TEXT("RECEIVE 2 HEADS + BOUGHT KITS"),18,372,378,44);Text(TEXT("Arrival space must be clear before delivery."),22,431,.93,Steel);Text(TEXT("ASSIGNED RACK POSITIONS"),22,482,1.1,Ink);
   const int Start=FMath::Clamp(PC->FactoryStoragePage*5,0,FMath::Max(0,Data.Slots.Num()-1));for(int I=Start;I<FMath::Min(Start+5,Data.Slots.Num());++I){const auto& Slot=Data.Slots[I];const float Y=516+(I-Start)*67;Button(FString::Printf(TEXT("Slot%d"),Slot.Id),FFoundrylineWorkshopLayout::SlotName(Slot.Id),18,Y,378,58,PC->FactorySlot==Slot.Id);Text(FString::Printf(TEXT("%s  /  %d available  /  %d incoming"),FFoundrylineFactoryCatalog::Part(Slot.Part).Name,View.Available(Slot.Part,EFoundrylinePalletPlace::Rack,Slot.Id),View.Incoming(Slot.Part,Slot.Id)),30,Y+35,.82,Paper);}
   Button(TEXT("StoragePrev"),TEXT("< PREVIOUS"),18,886,182,42);Button(TEXT("StorageNext"),TEXT("NEXT >"),214,886,182,42);Text(FString::Printf(TEXT("Page %d / %d  -  fixed machine rack assignments"),PC->FactoryStoragePage+1,FMath::DivideAndRoundUp(Data.Slots.Num(),5)),22,948,.9,Steel);
+ }else if(PC->FactoryTool==TEXT("Station")){StationPanel(280);SnapControls(520);
  }else if(PC->FactoryTool==TEXT("Zone")){
   Text(TEXT("TANKER WORK ZONE"),22,280,1.2,Ink);Text(TEXT("Largest product / includes parts strip"),22,316,.95,Steel);
   for(int I=0;I<3;++I){const auto Size=FFoundrylineWorkZoneLayout::TotalSize(I);const FString Label=FString(FFoundrylineWorkZoneLayout::PresetName(I))+TEXT("  /  ")+FFoundrylineUnits::Length(Size.X)+TEXT(" x ")+FFoundrylineUnits::Length(Size.Y);Button(FString::Printf(TEXT("ZonePreset%d"),I),Label,18,358+I*60,378,48,PC->FactoryZonePreset==I);}
@@ -75,7 +100,7 @@ bool AFoundrylineBuildHUD::DrawFactory(AFoundrylinePlayerController* PC){auto* P
   const auto* R=Data.Routes.FindByPredicate([&](const auto& V){return V.Id==PC->FactoryRoute;});Button(TEXT("RouteNext"),R?R->Name:TEXT("SELECT SUPPLY ROUTE"),18,852,378,38);
   Text(PC->bFactoryPresetValid?TEXT("READY TO PLACE"):TEXT("PLACEMENT CHECK"),22,908,1,PC->bFactoryPresetValid?FLinearColor(.05,.5,.15):Orange);Text(Clip(PC->FactoryPlacementHint,55),22,942,.85,Ink);Text(TEXT("Shift: 1 inch / Tab: grid / G: show grid"),22,976,.86,Steel);
  }else {Button(TEXT("FloorOverlay"),PC->bFactoryOverlay?TEXT("OVERLAY ON"):TEXT("SHOW FLOOR OVERLAY"),18,274,378,42,PC->bFactoryOverlay);Text(TEXT("ZONE: CLICK / LANES: DRAG"),22,338,1.1,Ink);
-  const TCHAR* Keys[]={TEXT("Zone"),TEXT("Forklift"),TEXT("Pedestrian"),TEXT("Crossing"),TEXT("Erase")};const TCHAR* Labels[]={TEXT("NEW TANKER WORK ZONE"),TEXT("FORKLIFT LANE"),TEXT("PERSONNEL WALKWAY"),TEXT("PEDESTRIAN CROSSING"),TEXT("REMOVE PAINTED SECTION")};for(int I=0;I<5;++I)Button(FString(TEXT("Tool"))+Keys[I],Labels[I],18,370+I*46,378,38,PC->FactoryTool==FName(Keys[I]));
+  const TCHAR* Keys[]={TEXT("Zone"),TEXT("Station"),TEXT("Forklift"),TEXT("Pedestrian"),TEXT("Crossing"),TEXT("Erase")};const TCHAR* Labels[]={TEXT("NEW TANKER WORK ZONE"),TEXT("WELDING STATION / 17 x 13 FT"),TEXT("FORKLIFT LANE"),TEXT("PERSONNEL WALKWAY"),TEXT("PEDESTRIAN CROSSING"),TEXT("REMOVE PAINTED SECTION")};for(int I=0;I<6;++I)Button(FString(TEXT("Tool"))+Keys[I],Labels[I],18,366+I*40,378,34,PC->FactoryTool==FName(Keys[I]));
   Button(TEXT("WidthMinus"),TEXT("-"),18,610,48,40);Text(TEXT("Width: ")+FFoundrylineUnits::Length(PC->FactoryWidth),84,622,1,Ink);Button(TEXT("WidthPlus"),TEXT("+"),348,610,48,40);Button(TEXT("Direction"),PC->FactoryDirection==0?TEXT("TWO WAY"):PC->FactoryDirection==1?TEXT("ONE WAY +X / +Y"):TEXT("ONE WAY -X / -Y"),18,662,378,38);
   if(!PC->FactoryTool.IsNone()){
    SnapControls(718);Text(PC->FactoryBrushDimensions,22,780,1.08,Ink);

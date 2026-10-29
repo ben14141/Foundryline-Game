@@ -29,6 +29,8 @@ void FFoundrylineFactorySimulation::RefreshCommerceOffers(){
 }
 bool FFoundrylineFactorySimulation::InstallBrake(FString& E){
  auto& C=State.Commerce;if(C.BrakeOwned||C.CashCents<450000||C.UnpaidCents){E=TEXT("Press brake costs $4500; clear outstanding costs first");return false;}
+ // The brake bay, its feed lane and operator walkways must be clear of welding stations.
+ for(const FBox2D& Bay:{FBox2D({-2310,1336},{-1364,2170}),FBox2D({-1450,1450},{-300,1750}),FBox2D({-2310,140},{-2190,2170})})if(OverlapsWeldingStation(Bay,false)){E=TEXT("A welding station occupies the press-brake bay; move it before installing the brake");return false;}
  FFoundrylineFactoryMachine M;M.Id=2;M.Origin={-1900,1850,20};M.InputDock={-1364,1850,20};M.InputStock={-1500,1850,60};M.OutputDock={-1900,1336,20};M.OutputStock={-1900,1200,20};M.Auto=false;M.Making=Part::BentBracket;State.Machines.Add(M);
  for(const auto& P:FFoundrylineFactoryCatalog::DefaultPrograms())if(P.Machine==2&&(P.Part==Part::BentBracket||P.Part==Part::SupportChannel))State.Programs.Add(P);
  for(int I=0;I<2;++I){FFoundrylineFactorySlot S;S.Id=110+I;S.Part=I?Part::ReinforcementPlate:Part::Bracket;S.Position={-1500,1850,190.+I*130};S.Dock=M.InputDock;S.MachineId=2;S.bInputSupply=true;State.Slots.Add(S);for(auto& R:State.Routes){R.Sources.AddUnique(S.Id);R.Destinations.AddUnique(S.Id);R.Sources.AddUnique(2);R.Destinations.AddUnique(2);}}

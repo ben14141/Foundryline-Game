@@ -3,6 +3,7 @@
 #include "Production/FoundrylineWorkZoneLayout.h"
 #include "Production/FoundrylineWorkshopLayout.h"
 #include "Grid/FoundrylineFloorPlacement.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 namespace {using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;constexpr int SimulationPartCount=FFoundrylineFactoryCatalog::PartCount;
 bool CutPart(Part P){return P==Part::Bracket||P==Part::RailBlank||P==Part::ShellBlank;}
 Part InputPart(Part Out){return Out==Part::BentBracket?Part::Bracket:Out==Part::FrameRail?Part::RailBlank:Part::ShellBlank;}
@@ -60,6 +61,7 @@ bool FFoundrylineFactorySimulation::CanPlaceZone(const FFoundrylineFactoryZone& 
  for(const auto& S:Solids)if(FFoundrylineFloorPlacement::Overlap(S,Bounds)){E=TEXT("Zone overlaps equipment or racks");return false;}
  for(const auto& L:State.Lanes)if(FFoundrylineFloorPlacement::Overlap(FBox2D(L.Min,L.Max),Bounds)){E=TEXT("Work zone overlaps a floor lane or crossing");return false;}
  for(const auto& Other:State.Zones)if(FFoundrylineFloorPlacement::Overlap(FFoundrylineWorkZoneLayout::Bounds(Other),Bounds)){E=TEXT("Another work zone already reserves that space");return false;}
+ if(OverlapsWeldingStation(Bounds,true)){E=TEXT("A welding station or its access space is already there");return false;}
  return true;
 }
 bool FFoundrylineFactorySimulation::AddPresetZone(FVector Center,int32 Preset,int32 Quarter,int32 Side,int32 Route,FString& E){
@@ -90,9 +92,10 @@ FString FFoundrylineFactorySimulation::ZoneStatus(const FFoundrylineFactoryZone&
 void FFoundrylineFactorySimulation::Step(float Dt){if(!State.Running)return;float Left=FMath::Clamp(Dt,0.f,.25f)*FMath::Clamp(State.Speed,1.f,8.f);while(Left>.0001f){float Slice=FMath::Min(.1f,Left);TickCommerce(Slice);UpdateOperators(Slice);Plan();Dispatch();Travel(Slice);Machines(Slice);Assembly(Slice);Left-=Slice;}++State.Revision;}
 bool FFoundrylineFactorySimulation::Valid(FString& E)const{
  if(!State.CompanyId.IsValid()||!State.PlantId.IsValid()){E=TEXT("Missing company or plant ownership");return false;}
- if(State.Version!=9||State.Pallets.Num()>64||State.Jobs.Num()>32||State.Zones.Num()>8||State.Lanes.Num()>64||State.Routes.Num()>8||State.Drivers.Num()>4||State.Walkers.Num()>16||!FMath::IsFinite(State.Speed)||State.Speed<1||State.Speed>8){E=TEXT("Unsupported or oversized factory save");return false;}
+ if(State.Version!=10||State.Pallets.Num()>64||State.Jobs.Num()>32||State.Zones.Num()>8||State.Lanes.Num()>64||State.Routes.Num()>8||State.Drivers.Num()>4||State.Walkers.Num()>16||!FMath::IsFinite(State.Speed)||State.Speed<1||State.Speed>8){E=TEXT("Unsupported or oversized factory save");return false;}
  TSet<int> Ids;auto Id=[&](int V){if(V<=0||Ids.Contains(V))return false;Ids.Add(V);return true;};
  for(const auto& A:State.Pallets)if(!Id(A.Id)||int(A.Part)>=SimulationPartCount||A.Quantity<1||A.Quantity>FFoundrylineFactoryCatalog::Part(A.Part).Capacity||A.Reserved<0||A.Reserved>A.Quantity||A.Position.ContainsNaN()||!FMath::IsFinite(A.UnitLb)||A.UnitLb<0){E=TEXT("Invalid pallet or stock quantity");return false;}
+ for(const auto& S:State.WeldingStations)if(!Id(S.Id)){E=TEXT("Invalid welding station identity");return false;}
  for(const auto& Z:State.Zones)if(!Id(Z.Id)||Z.Min.ContainsNaN()||Z.Max.ContainsNaN()||Z.DropMin.ContainsNaN()||Z.DropMax.ContainsNaN()||Z.ReservedParts.Num()!=SimulationPartCount||Z.Installed.Num()!=SimulationPartCount||Z.CompletedMask<0||Z.CompletedMask>63||Z.ActiveStep< -1||Z.ActiveStep>5||!FMath::IsFinite(Z.Work)||Z.Work<0||!FMath::IsFinite(Z.ReservedLb)||!FMath::IsFinite(Z.InstalledLb)){E=TEXT("Invalid work zone or assembly progress");return false;}
  for(const auto& D:State.Drivers)if(!Id(D.Id)||D.Position.ContainsNaN()||D.Path.Num()>4096||!FMath::IsFinite(D.Distance)||D.Distance<0){E=TEXT("Invalid driver route");return false;}
  for(const auto& J:State.Jobs){if(!Id(J.Id)||J.Quantity<1||int(J.Part)>=SimulationPartCount||J.Phase<0||J.Phase>4||J.Pickup.ContainsNaN()||J.Drop.ContainsNaN()){E=TEXT("Invalid delivery");return false;}if(J.Phase<3){const auto* P=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J.SourcePallet;});if(!P||P->Reserved<J.Quantity){E=TEXT("Delivery has no stock reservation");return false;}}else if(!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Id==J.CarryPallet&&A.Place==Place::Forks&&A.Quantity==J.Quantity;})){E=TEXT("Delivery cargo is missing");return false;}}
@@ -123,5 +126,5 @@ bool FFoundrylineFactorySimulation::Valid(FString& E)const{
  for(const auto& P:State.Pallets){int Reserved=0;for(const auto& J:State.Jobs)if(J.Phase<3&&J.SourcePallet==P.Id)Reserved+=J.Quantity;if(Reserved!=P.Reserved){E=TEXT("Pallet reservations do not match delivery jobs");return false;}if(P.Place==Place::Forks&&!State.Jobs.ContainsByPredicate([&](const auto& J){return J.CarryPallet==P.Id&&J.Driver==P.Owner&&J.Phase>=3;})){E=TEXT("Orphaned forklift cargo");return false;}}
  for(const auto& J:State.Jobs)if(!Endpoint(J.Destination)||J.StoredAt.ContainsNaN()||!FMath::IsFinite(J.Handling)||J.Driver&&!State.Drivers.ContainsByPredicate([&](const auto& D){return D.Id==J.Driver&&D.Job==J.Id;})){E=TEXT("Invalid transport destination or driver");return false;}
  for(int V:Ids)if(V>=State.NextId){E=TEXT("Invalid next object identity");return false;}
- return EmployeesValid(E)&&CommerceValid(E);
+ return WeldingStationsValid(E)&&EmployeesValid(E)&&CommerceValid(E);
 }

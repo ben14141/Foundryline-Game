@@ -29,7 +29,13 @@ struct FOUNDRYLINE_API FFoundrylineWorkshopLayout {
  static TArray<FFoundrylineWorkshopRack> Racks();
  static TArray<FFoundrylineWorkshopRack> CutShopRacks(){return {{InputRack(1),0,TEXT("RAW STEEL / 60 x 120 IN")},{OutputRack(1),0,TEXT("CUT PARTS / PALLETS")}};}
  static TArray<FBox2D> CutShopSolids();
+ // Painted starter areas that stay clear of new stations: outbound staging, forklift bay and burn-table cell.
+ // Starter building slab; the commerce floor extends outside onto the truck apron.
+ static FBox2D CutShopInterior(){return {{-2370,30},{370,2170}};}
+ static TArray<FBox2D> CutShopReserved(){return {FBox2D({-1100,1850},{-600,2170}),FBox2D({0,220},{200,720}),FBox2D({-1600,400},{-1000,1100})};}
  static TArray<FBox2D> Solids();
+ // Equipment footprint for a replicated plant state, matching what the server seeded/installed.
+ static TArray<FBox2D> PlantSolids(const FFoundrylineFactoryState& State);
  static TArray<FFoundrylineFactorySlot> Slots();
  static const TCHAR* SlotName(int32 Id);
 };
