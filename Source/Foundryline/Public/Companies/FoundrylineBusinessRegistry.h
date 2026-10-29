@@ -53,6 +53,7 @@ public:
  bool RestoreBeforeWorldBinding(const UFoundrylineBusinessSave* Save,FString& Error);
  UFUNCTION(BlueprintPure,Category="Companies") FString GetBusinessDigest()const;
  UFUNCTION(BlueprintPure,Category="Companies") int32 GetCompanyCount()const{return Companies.Num();}
+ UFUNCTION(BlueprintPure,Category="Companies") int32 GetActiveMemberCount()const{return ActiveMembers.Num();}
 private:
  UPROPERTY(Replicated) TArray<FFoundrylineBusinessPublicCompany> Companies;
  UPROPERTY(Replicated) TArray<FFoundrylineBusinessPublicMember> ActiveMembers;

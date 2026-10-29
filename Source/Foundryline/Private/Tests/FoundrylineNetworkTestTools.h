@@ -55,6 +55,12 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Network",meta=(DevelopmentOnly)) static bool DrivePlayer(APlayerController* Player,FVector Direction,float Seconds);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Network",meta=(DevelopmentOnly)) static FString InspectPlayer(APlayerController* Player);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Network",meta=(DevelopmentOnly)) static bool RequestLateJoin();
+ // Session lifecycle checks: kick a PIE client on the listen server, enter Property View / truck drive as a player would, and report server-side cleanup state.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Network",meta=(DevelopmentOnly)) static bool KickClientForTest(APlayerController* Client);
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Network",meta=(DevelopmentOnly)) static bool QueuePropertyView(APlayerController* Player);
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Network",meta=(DevelopmentOnly)) static bool QueueFreightDriveToggle(APlayerController* Player);
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Network",meta=(DevelopmentOnly)) static bool SpawnFreightRigForTest(APlayerController* Host,FVector Location);
+ UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Network") static FString SessionReport(APlayerController* Player);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString PreviewFactoryBrush(APlayerController* Player,FName Tool,FVector Start,FVector End,bool Dragging,bool Commit=false);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool AimFactoryBrush(APlayerController* Player,FVector Point);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool StartEquipmentExercise(APlayerController* Host);
