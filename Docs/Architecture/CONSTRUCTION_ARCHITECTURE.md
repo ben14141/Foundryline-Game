@@ -1,0 +1,2 @@
+
+Adaptive shop facades: both tiers distribute an integer number of bays evenly along each wall, using preferred 4/6/8 m spacing. Windows retain native 200 x 180 cm dimensions and tier-specific sill heights. Full-height pilasters sit on bay boundaries; manual openings take precedence. Resize and column-spacing actions regenerate automatic shop windows while retaining unchanged opening IDs and manual doors/windows. Offices remain manual. Automatic window offsets use centimetres for balanced odd-metre walls; manual openings retain metre snapping.

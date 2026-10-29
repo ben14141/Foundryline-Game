@@ -1,0 +1,9 @@
+# Public repository content
+
+This repository publishes the Foundryline C++ project, configuration, tools and documentation. It deliberately excludes all `Content/` and `SourceAssets/` files, including game-authored wrappers that can contain purchased geometry or textures. Local files are not removed.
+
+Purchased assets must not be redistributed through this public repository. The project currently depends on licensed Factory LowPoly, Stylized Forest/vegetation, Softline UI Sounds, Megapoly.Art truck packs and Handyman Modular low-poly stylized content, plus locally generated maps, definitions, materials and other game content. Their original Unreal package paths must be preserved.
+
+A source-only clone is not a complete playable project. Restore the local Content and SourceAssets directories from an authorized private backup and install the required Fab licenses before running the game. Import/generation scripts in Tools document portions of setup; they are not a replacement for a complete asset backup. Builds may succeed without assets while gameplay cannot.
+
+Generated builds, caches, logs, screenshots, local saves and IDE state are also excluded. No purchased asset source data is included in the public Git history.

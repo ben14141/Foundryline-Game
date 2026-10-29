@@ -1,0 +1,18 @@
+#if WITH_DEV_AUTOMATION_TESTS
+#include "Misc/AutomationTest.h"
+#include "Engine/World.h"
+#include "EngineUtils.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "CollisionQueryParams.h"
+#include "Production/FoundrylineFactoryPlant.h"
+#include "Logistics/FoundrylineCarrierSceneActor.h"
+#include "World/FoundrylineWalkCharacter.h"
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCarrierPoolWalkingLifecycle,"Foundryline.Collision.CarrierPoolWalkingLifecycle",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FCarrierPoolWalkingLifecycle::RunTest(const FString&){
+ auto* W=UWorld::CreateWorld(EWorldType::Game,false);auto* P=W->SpawnActor<AFoundrylineFactoryPlant>(FVector(30000,-17000,0),FRotator(0,90,0));P->bCutPartsStarter=true;P->DispatchBeginPlay();auto& C=P->Model.State.Commerce;FFoundrylineFreightBooking B;B.Id=P->Model.State.NextId++;B.Carrier=1;B.Status=EFoundrylineBookingState::Approaching;B.ArrivalAt=C.Clock+10;B.DispatchAt=C.Clock-10;C.Bookings.Add(B);P->EnsureCommerceEquipment();AFoundrylineCarrierSceneActor* Carrier=nullptr;for(TActorIterator<AFoundrylineCarrierSceneActor> It(W);It;++It)if(It->GetOwner()==P)Carrier=*It;if(!TestNotNull(TEXT("Booking creates an active carrier"),Carrier)){W->DestroyWorld(false);return false;}Carrier->Tick(.016f);
+ TestTrue(TEXT("Active visible carrier collision enabled"),!Carrier->IsHidden()&&Carrier->GetActorEnableCollision());const auto* Capsule=GetDefault<AFoundrylineWalkCharacter>()->GetCapsuleComponent();const auto Shape=FCollisionShape::MakeCapsule(Capsule->GetUnscaledCapsuleRadius(),Capsule->GetUnscaledCapsuleHalfHeight());FVector Start,End;bool HasBounds=false;TInlineComponentArray<UPrimitiveComponent*> Parts;Carrier->GetComponents(Parts);for(auto* Part:Parts)if(Part->IsQueryCollisionEnabled()&&Part->GetCollisionResponseToChannel(ECC_Pawn)==ECR_Block){const auto Bounds=Part->Bounds;if(Bounds.BoxExtent.GetMin()<1)continue;End=Bounds.Origin;Start=End+FVector(Bounds.BoxExtent.X+Capsule->GetUnscaledCapsuleRadius()+100,0,0);HasBounds=true;break;}TestTrue(TEXT("Carrier has physical Pawn bounds"),HasBounds);FCollisionQueryParams Query;Query.AddIgnoredActor(P);FHitResult Hit;if(HasBounds)TestTrue(TEXT("Actual player capsule hits visible carrier at transformed plant"),W->SweepSingleByChannel(Hit,Start,End,FQuat::Identity,ECC_Pawn,Shape,Query)&&Hit.GetActor()==Carrier);
+ C.Bookings[0].Status=EFoundrylineBookingState::Delivered;P->EnsureCommerceEquipment();Carrier->Tick(.016f);TestTrue(TEXT("Retired pooled carrier hidden"),Carrier->IsHidden());TestFalse(TEXT("Retired carrier has no invisible collision"),Carrier->GetActorEnableCollision());if(HasBounds)TestFalse(TEXT("Former truck location is walkable after retire"),W->SweepSingleByChannel(Hit,Start,End,FQuat::Identity,ECC_Pawn,Shape,Query));
+ auto Next=B;Next.Id=P->Model.State.NextId++;Next.Status=EFoundrylineBookingState::Approaching;C.Bookings.Add(Next);P->EnsureCommerceEquipment();Carrier->Tick(.016f);int Count=0;for(TActorIterator<AFoundrylineCarrierSceneActor> It(W);It;++It)if(It->GetOwner()==P)++Count;TestEqual(TEXT("Next booking reuses existing carrier pool entry"),Count,1);TestTrue(TEXT("Reused visible carrier collision reenables"),!Carrier->IsHidden()&&Carrier->GetActorEnableCollision());C.Bookings.Last().Status=EFoundrylineBookingState::InTransit;P->EnsureCommerceEquipment();Carrier->Tick(.016f);TestTrue(TEXT("Offsite in-transit vehicle hidden"),Carrier->IsHidden());TestFalse(TEXT("Offsite vehicle leaves no collision"),Carrier->GetActorEnableCollision());W->DestroyWorld(false);return true;
+}
+#endif

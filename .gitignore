@@ -1,0 +1,33 @@
+# Unreal generated data and local IDE state
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vs/
+.idea/
+*.sln
+*.suo
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.sdf
+*.user
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# Local credentials
+.env
+.env.*
+!.env.example
+
+
+# Public repository: licensed Fab packs and all local Unreal/source-art content
+# stay on disk; install licensed dependencies separately. See Docs/REPOSITORY_CONTENT.md.
+/Content/
+/SourceAssets/
+
+# Script caches and local scratch files
+__pycache__/
+*.py[cod]
+*.blend1
+*.blend2
