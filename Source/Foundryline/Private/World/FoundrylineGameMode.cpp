@@ -55,4 +55,4 @@ void AFoundrylineGameMode::BeginPlay()
 }
 
 void AFoundrylineGameMode::PostLogin(APlayerController* Player){Super::PostLogin(Player);auto* R=AFoundrylineBusinessRegistry::Find(GetWorld());if(!R)R=GetWorld()->SpawnActor<AFoundrylineBusinessRegistry>();if(R)R->RegisterPlayer(Player);}
-void AFoundrylineGameMode::Logout(AController* Player){Super::Logout(Player);if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld()))R->RefreshDirectory();}
+void AFoundrylineGameMode::Logout(AController* Player){if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld()))R->UnregisterPlayer(Cast<APlayerController>(Player));Super::Logout(Player);}

@@ -2,6 +2,7 @@
 #include "Logistics/FoundrylineFreightRig.h"
 #include "World/FoundrylineCameraPawn.h"
 #include "EngineUtils.h"
+#include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
 #include "InputCoreTypes.h"
 #include "InputKeyEventArgs.h"
@@ -25,6 +26,8 @@ bool AFoundrylinePlayerController::HandleFreightInput(const FInputKeyEventArgs& 
 }
 void AFoundrylinePlayerController::TickFreightDrive(float Dt) {
  if(!IsValid(LocalFreightRig)) {LocalFreightRig=nullptr;if(GetPawn())GetPawn()->SetActorTickEnabled(true);return;}
+ // A refused claim (seat taken) keeps the view; take the seat once the other driver leaves.
+ if(!IsValid(LocalFreightRig->Driver)){FreightClaimClock+=Dt;if(FreightClaimClock>=1){FreightClaimClock=0;ServerFreightCommand(LocalFreightRig,10);}}else FreightClaimClock=0;
  FreightInputClock+=Dt;if(FreightInputClock>=.1f) {FreightInputClock=0;ServerFreightDrive(LocalFreightRig,float(FreightForward)-float(FreightReverse),float(FreightRight)-float(FreightLeft));}
  // Camera follows the interpolated vehicle after its visual tick.
 }

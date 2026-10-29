@@ -2,6 +2,7 @@
 #include "Logistics/FoundrylineMaterialHandlingCell.h"
 #include "World/FoundrylineCameraPawn.h"
 #include "EngineUtils.h"
+#include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
 #include "InputCoreTypes.h"
 #include "InputKeyEventArgs.h"
@@ -22,6 +23,7 @@ bool AFoundrylinePlayerController::HandleMaterialInput(const FInputKeyEventArgs&
 }
 void AFoundrylinePlayerController::TickMaterialHandling(float Dt){
  if(!IsValid(LocalMaterialCell)){LocalMaterialCell=nullptr;return;}
+ if(!LocalMaterialCell->bFactoryAutomation&&!IsValid(LocalMaterialCell->Driver)){MaterialClaimClock+=Dt;if(MaterialClaimClock>=1){MaterialClaimClock=0;ServerMaterialCommand(LocalMaterialCell,10);}}else MaterialClaimClock=0;
  MaterialInputClock+=Dt;if(MaterialInputClock>=.1f){MaterialInputClock=0;ServerMaterialDrive(LocalMaterialCell,float(MaterialForward)-float(MaterialReverse),float(MaterialRight)-float(MaterialLeft),float(MaterialUp)-float(MaterialDown));}
 }
 void AFoundrylinePlayerController::ServerMaterialCommand_Implementation(AFoundrylineMaterialHandlingCell* Cell,uint8 Action){

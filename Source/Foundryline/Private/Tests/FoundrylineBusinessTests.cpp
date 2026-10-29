@@ -21,4 +21,13 @@ bool FBusinessRegionTest::RunTest(const FString&){
  FFoundrylineBusinessLedger L;L.Seed();FString E;L.EnrolCoop(TEXT("host"),E);L.EnrolCoop(TEXT("guest"),E);L.Create(TEXT("guest"),TEXT("Guest"),L.State.Plots[1].Id,E);
  auto Street=L.Region(L.State.Plots[0].Id);Street.RegionId=FGuid(0xF001,3,2,1);Street.CompanyId=FGuid(0xF001,99,1,1);Street.PlantId=FGuid(0xF001,99,2,1);Street.Bounds.Min={-10000,-3700,0};Street.Bounds.Max={10000,-2400,5};Street.bHasBuildingSetback=false;auto* W=UWorld::CreateWorld(EWorldType::Game,false);auto* P=W->GetSubsystem<UFoundrylinePlacementSubsystem>();TestEqual(TEXT("Initial region"),P->InitializeRegions({L.Region(L.State.Plots[0].Id),Street}),EFoundrylinePlacementError::None);TestEqual(TEXT("A new business adds its own region"),P->RegisterBusinessRegion(L.Region(L.State.Plots[1].Id)),EFoundrylinePlacementError::None);const auto Revision=P->GetRevision();auto Forged=L.Region(L.State.Plots[0].Id);Forged.CompanyId=L.CompanyFor(TEXT("guest"));TestEqual(TEXT("Cannot rewrite another plot owner"),P->RegisterBusinessRegion(Forged),EFoundrylinePlacementError::AccessDenied);TestEqual(TEXT("Failed registration preserves revision"),P->GetRevision(),Revision);TestEqual(TEXT("Two independent plots and protected town street"),P->GetRegions().Num(),3);W->DestroyWorld(false);return true;
 }
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBusinessSessionDepartureTest,"Foundryline.Companies.SessionDeparture",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FBusinessSessionDepartureTest::RunTest(const FString&){
+ FFoundrylineBusinessLedger L;L.Seed();FString E;const FString Host=TEXT("session:host"),Guest=TEXT("session:guest"),Owner=TEXT("session:owner"),Verified=TEXT("verified:kept");
+ for(const auto& A:{Host,Guest,Owner,Verified})L.EnrolCoop(A,E);TestTrue(TEXT("Departing owner setup"),L.Create(Owner,TEXT("Owner Works"),L.State.Plots[1].Id,E));L.Invite(Owner,Guest,E);
+ TestTrue(TEXT("Departing anonymous member is forgotten"),L.ForgetSession(Guest)&&!L.CompanyFor(Guest).IsValid()&&!L.State.Invitations.ContainsByPredicate([&](const auto& I){return I.Account==Guest;}));
+ TestFalse(TEXT("Co-op owner session is kept"),L.ForgetSession(Host));TestFalse(TEXT("Business owner session is kept"),L.ForgetSession(Owner));TestFalse(TEXT("Verified account is kept"),L.ForgetSession(Verified));
+ TestTrue(TEXT("Ledger stays valid"),L.Valid(E));
+ for(int I=0;I<200;++I){const FString A=FString::Printf(TEXT("session:%d"),I);TestTrue(TEXT("Repeated joins never fill membership"),L.EnrolCoop(A,E));L.ForgetSession(A);}return true;
+}
 #endif

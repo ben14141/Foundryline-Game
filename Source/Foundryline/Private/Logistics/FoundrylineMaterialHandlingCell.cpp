@@ -107,7 +107,7 @@ bool AFoundrylineMaterialHandlingCell::Claim(APlayerController* P,bool Take){
 
  if(bFactoryAutomation)return false;
  if(!HasAuthority() || !P || P->GetWorld()!=GetWorld() || !P->PlayerState)return false;
- if(Take){if(Driver && Driver!=P->PlayerState)return false;Driver=P->PlayerState;}
+ if(Take){if(IsValid(Driver) && Driver!=P->PlayerState)return false;Driver=P->PlayerState;}
  else{if(Driver!=P->PlayerState)return false;Driver=nullptr;ThrottleInput=SteerInput=LiftInput=0;}
  ForceNetUpdate();return true;
 }

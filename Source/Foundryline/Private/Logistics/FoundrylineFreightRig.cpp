@@ -53,7 +53,7 @@ bool AFoundrylineFreightRig::Claim(APlayerController* Player,bool Take) {
  if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld());R&&Take&&!R->CanOperate(Player,BusinessCompanyId,BusinessPlantId)){return false;}
 
  if(!HasAuthority() || !IsValid(Player) || Player->GetWorld()!=GetWorld() || !Player->PlayerState) return false;
- if(Take) {if(Driver && Driver!=Player->PlayerState) return false;Driver=Player->PlayerState;}
+ if(Take) {if(IsValid(Driver) && Driver!=Player->PlayerState) return false;Driver=Player->PlayerState;}
  else {if(Driver!=Player->PlayerState) return false;Driver=nullptr;ThrottleInput=SteerInput=0;}
  ForceNetUpdate();return true;
 }
