@@ -1,0 +1,235 @@
+{
+  "original_authorship": true,
+  "units": "Blender metres / Unreal centimetres",
+  "materials": {
+    "FL_Rack_Orange": {
+      "base_color": [
+        0.800000011920929,
+        0.20499999821186066,
+        0.03500000014901161
+      ],
+      "metallic": 0.25,
+      "roughness": 0.3199999928474426
+    },
+    "FL_Rack_Graphite": {
+      "base_color": [
+        0.04500000178813934,
+        0.05999999865889549,
+        0.07199999690055847
+      ],
+      "metallic": 0.44999998807907104,
+      "roughness": 0.41999998688697815
+    },
+    "FL_Rack_Steel": {
+      "base_color": [
+        0.4300000071525574,
+        0.47999998927116394,
+        0.5299999713897705
+      ],
+      "metallic": 0.800000011920929,
+      "roughness": 0.30000001192092896
+    },
+    "FL_Rack_SafetyYellow": {
+      "base_color": [
+        0.8999999761581421,
+        0.5799999833106995,
+        0.03500000014901161
+      ],
+      "metallic": 0.20000000298023224,
+      "roughness": 0.4000000059604645
+    },
+    "FL_Rack_LabelWhite": {
+      "base_color": [
+        0.8500000238418579,
+        0.8700000047683716,
+        0.8299999833106995
+      ],
+      "metallic": 0.05000000074505806,
+      "roughness": 0.47999998927116394
+    }
+  },
+  "assets": [
+    {
+      "name": "PalletRack_1Level",
+      "file": "PalletRack_1Level.fbx",
+      "destination": "/Game/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_1Level"
+    },
+    {
+      "name": "PalletRack_2Levels",
+      "file": "PalletRack_2Levels.fbx",
+      "destination": "/Game/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_2Levels"
+    },
+    {
+      "name": "PalletRack_3Levels",
+      "file": "PalletRack_3Levels.fbx",
+      "destination": "/Game/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_3Levels"
+    }
+  ],
+  "variants": [
+    {
+      "name": "PalletRack_1Level",
+      "levels": 1,
+      "usable_pallet_slots": 2,
+      "dimensions_cm": [
+        305.0,
+        148.03,
+        152.4
+      ],
+      "shelf_top_cm": [
+        0.0
+      ],
+      "slot_bottoms": [
+        {
+          "id": 1,
+          "position_cm": [
+            -70,
+            0,
+            0.0
+          ]
+        },
+        {
+          "id": 2,
+          "position_cm": [
+            70,
+            0,
+            0.0
+          ]
+        }
+      ],
+      "minimum_clear_ceiling_cm": 182.4,
+      "maximum_pallet_payload_height_cm": 100,
+      "fork_access": "Open front; floor is level1; no front floor crossbeam",
+      "floor_level_included": true,
+      "vertices": 872,
+      "triangles": 1516,
+      "material_slots": 5
+    },
+    {
+      "name": "PalletRack_2Levels",
+      "levels": 2,
+      "usable_pallet_slots": 4,
+      "dimensions_cm": [
+        305.0,
+        148.03,
+        304.8
+      ],
+      "shelf_top_cm": [
+        0.0,
+        152.4
+      ],
+      "slot_bottoms": [
+        {
+          "id": 1,
+          "position_cm": [
+            -70,
+            0,
+            0.0
+          ]
+        },
+        {
+          "id": 2,
+          "position_cm": [
+            70,
+            0,
+            0.0
+          ]
+        },
+        {
+          "id": 3,
+          "position_cm": [
+            -70,
+            0,
+            152.4
+          ]
+        },
+        {
+          "id": 4,
+          "position_cm": [
+            70,
+            0,
+            152.4
+          ]
+        }
+      ],
+      "minimum_clear_ceiling_cm": 334.8,
+      "maximum_pallet_payload_height_cm": 100,
+      "fork_access": "Open front; floor is level1; no front floor crossbeam",
+      "floor_level_included": true,
+      "vertices": 2108,
+      "triangles": 3360,
+      "material_slots": 5
+    },
+    {
+      "name": "PalletRack_3Levels",
+      "levels": 3,
+      "usable_pallet_slots": 6,
+      "dimensions_cm": [
+        305.0,
+        148.03,
+        457.2
+      ],
+      "shelf_top_cm": [
+        0.0,
+        152.4,
+        304.8
+      ],
+      "slot_bottoms": [
+        {
+          "id": 1,
+          "position_cm": [
+            -70,
+            0,
+            0.0
+          ]
+        },
+        {
+          "id": 2,
+          "position_cm": [
+            70,
+            0,
+            0.0
+          ]
+        },
+        {
+          "id": 3,
+          "position_cm": [
+            -70,
+            0,
+            152.4
+          ]
+        },
+        {
+          "id": 4,
+          "position_cm": [
+            70,
+            0,
+            152.4
+          ]
+        },
+        {
+          "id": 5,
+          "position_cm": [
+            -70,
+            0,
+            304.8
+          ]
+        },
+        {
+          "id": 6,
+          "position_cm": [
+            70,
+            0,
+            304.8
+          ]
+        }
+      ],
+      "minimum_clear_ceiling_cm": 487.2,
+      "maximum_pallet_payload_height_cm": 100,
+      "fork_access": "Open front; floor is level1; no front floor crossbeam",
+      "floor_level_included": true,
+      "vertices": 3204,
+      "triangles": 5032,
+      "material_slots": 5
+    }
+  ]
+}
