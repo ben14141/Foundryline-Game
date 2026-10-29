@@ -25,7 +25,7 @@ def commit(p):
 def view_placed(p):
  commit(p) if 'commit' not in q['notes'] else None;look(p,unreal.Vector(spot.x+620,spot.y-650,430),unreal.Vector(spot.x,spot.y,40),70)
 STEPS=[
- (lambda p:look(p,unreal.Vector(-650,150,430),unreal.Vector(-1300,800,20),72),'WeldingStation_Preview_Invalid',(lambda:unreal.Vector(-1300,800,20),0,False)),
+ (lambda p:look(p,unreal.Vector(-1050,420,820),unreal.Vector(-1300,800,60),66),'WeldingStation_Preview_Invalid',(lambda:unreal.Vector(-1300,800,20),0,False)),
  (lambda p:look(p,unreal.Vector(spot.x+620,spot.y-650,430),unreal.Vector(spot.x,spot.y,40),70),'WeldingStation_Preview_Valid',(lambda:spot,0,False)),
  (lambda p:look(p,unreal.Vector(spot.x+620,spot.y-650,430),unreal.Vector(spot.x,spot.y,40),70),'WeldingStation_Preview_Rotated_Swapped',(lambda:spot,1,True)),
  (view_placed,'WeldingStation_Placed_Overview',None),
