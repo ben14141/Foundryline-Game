@@ -246,7 +246,8 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
      const float Half=(BW-12)/2;
      if(C.PickupOrder==O->Id)Button(TEXT("HelpAtBay"),TEXT("At the loading bay"),RX+28,CB-76,Half,54,EStyle::Ghost,false,TEXT("Finished parts for this order are stacked at the loading bay so a pickup truck can collect them. Only one order uses the bay at a time."));
      else Button(TEXT("Assign"),TEXT("Send to loading bay"),RX+28,CB-76,Half,54,EStyle::Primary,!PC->bOperationsPending,TEXT("Make this the order whose finished parts the forklift stacks at the loading bay. Only one order uses the bay at a time."));
-     Button(FString::Printf(TEXT("ProgramOrder%d"),O->Id),TEXT("Program plasma"),RX+40+Half,CB-76,Half,54,C.PickupOrder==O->Id?EStyle::Primary:EStyle::Secondary,!PC->bOperationsPending,TEXT("Open the plasma screen with this part and the quantity still needed filled in. You press Start there."));
+     if(O->Part==uint8(EFoundrylinePart::HeadacheRack))Button(FString::Printf(TEXT("StationOrder%d"),O->Id),TEXT("Set welding station"),RX+40+Half,CB-76,Half,54,C.PickupOrder==O->Id?EStyle::Primary:EStyle::Secondary,!PC->bOperationsPending&&Guide.OrderId==O->Id&&Guide.PartsToMake>0,TEXT("Set the welding station's batch to the racks this order still needs. Racks already made or in progress are not counted again."));
+     else Button(FString::Printf(TEXT("ProgramOrder%d"),O->Id),TEXT("Program plasma"),RX+40+Half,CB-76,Half,54,C.PickupOrder==O->Id?EStyle::Primary:EStyle::Secondary,!PC->bOperationsPending,TEXT("Open the plasma screen with this part and the quantity still needed filled in. You press Start there."));
     } else Text(O->Late?TEXT("Completed late."):TEXT("Completed and delivered."),RX+28,At,15,true,Green,BW);
    }
   }
@@ -312,7 +313,18 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
     if(M.Id<=2)Button(M.Id==1?TEXT("Plasma"):TEXT("BrakeComputer"),M.Id==1?TEXT("Open plasma screen"):TEXT("Open brake screen"),BX,RY+(M.Id==1&&Guide.Step==EFoundrylineGuideStep::ProgramPlasma?94:28),240,50,EStyle::Secondary,true,TEXT("Open this machine's own control screen."));
     if(!Op)Button(TEXT("Page7"),TEXT("Assign operator"),BX,RY+112,240,44,EStyle::Secondary,true,TEXT("Open Team to put someone on this machine."));
    }
-   if(S.Machines.IsEmpty())Text(TEXT("No machines installed."),CX,Top+20,20,true,Muted);
+   // Welding stations: what each is building, why it waits, and what sits on its OUT pallets.
+   for(const auto& St:S.WeldingStations){const float RY=Top+Row*196;if(RY+184>CB)break;++Row;const bool Building=St.Stage>0&&St.bAdvancing;const bool Held=Guide.StationId==St.Id&&(Guide.StationStatus.Contains(TEXT("Missing"))||Guide.StationStatus.Contains(TEXT("OUT full"))||Guide.StationStatus.Contains(TEXT("paused")));
+    const FLinearColor Col=Building?Green:Held?Amber:St.Recipe?Blue:Muted;const FString StateText=Building?TEXT("WELDING"):Held?TEXT("HELD UP"):St.Recipe?TEXT("STARTING"):TEXT("NO BATCH");
+    Card(CX,RY,CW,184);Rect(CX,RY,4,184,Col);Icon(3,CX+26,RY+26,30,Graphite);Text(FFoundrylineWeldingStationLayout::Name(St.Number),CX+72,RY+22,22,true,Ink,CW*.3f);Chip(StateText,CX+72,RY+58,Col,Col==Green?SoftGreen:Col==Amber?SoftOrange:Col==Blue?SoftBlue:Surface);
+    const float IX=CX+CW*.36f;int Out=0;for(const auto& P:S.Pallets)if(P.Owner==St.Id&&P.Place==EFoundrylinePalletPlace::StationOut)Out+=P.Quantity;
+    Text(TEXT("STATUS"),IX,RY+24,12,true,Muted);Wrap(Guide.StationId==St.Id?Guide.StationStatus:FString(St.Recipe?TEXT("Building headache racks"):TEXT("Choose a product and quantity")),IX,RY+44,CW*.3f,15,true,Ink,2);
+    Text(TEXT("MAKING"),IX,RY+90,12,true,Muted);Text(St.Recipe||St.Stage?FString::Printf(TEXT("Headache racks  /  %d left"),St.BatchRemaining+(St.Stage?1:0)):FString(TEXT("Nothing set")),IX,RY+110,17,true,Ink,CW*.3f);
+    Text(TEXT("ON OUT"),IX+CW*.32f,RY+24,12,true,Muted);Text(FString::Printf(TEXT("%d of %d"),Out,FFoundrylineWeldingStationLayout::OutPallets*FFoundrylineWeldingStationLayout::RacksPerOutPallet),IX+CW*.32f,RY+44,17,true,Ink);
+    HelpArea(FString::Printf(TEXT("StationOut%d"),St.Id),IX+CW*.32f-4,RY+20,170,50,FString::Printf(TEXT("Finished racks on the station's two OUT pallets, %d per pallet. A forklift takes a pallet when it is full, when the batch ends, or when an order needs it."),FFoundrylineWeldingStationLayout::RacksPerOutPallet));
+    if(Guide.StationId==St.Id&&Guide.bWeldedOrder&&Guide.Step==EFoundrylineGuideStep::ProgramPlasma)Button(FString::Printf(TEXT("StationOrder%d"),Guide.OrderId),FString::Printf(TEXT("Set for %s"),*Guide.OrderReference),CX+CW-266,RY+28,240,50,EStyle::Primary,!PC->bOperationsPending,TEXT("Set this station's batch to the racks the order still needs."));
+   }
+   if(S.Machines.IsEmpty()&&S.WeldingStations.IsEmpty())Text(TEXT("No machines installed."),CX,Top+20,20,true,Muted);
    // How parts move through the shop, with live counts.
    {const float FT=Top+Row*196+8;if(FT+200<CB){Card(CX,FT,CW,CB-FT>260?250:CB-FT,TEXT("How parts move through your shop"));
     struct FStage {const TCHAR* Name;FString Value;const TCHAR* Who;int Icon;};
@@ -362,11 +374,15 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
      Button(TEXT("Rebook"),TEXT("Move truck to this time"),RX+24,CB-74,RW-48,52,EStyle::Primary,!PC->bOperationsPending,TEXT("Rebook this truck for the new time. Costs half of the original fee."));}}
   } else {
    // Summary by material, then every pallet.
-   TMap<int32,FIntVector> ByPart;for(const auto& P:S.Pallets){if(P.Place==EFoundrylinePalletPlace::InTransit||P.Part==EFoundrylinePart::Sheet)continue;auto& V=ByPart.FindOrAdd(int(P.Part));if(P.BookingId)V.Z+=P.Quantity;else {V.X+=P.Quantity;if(P.Place==EFoundrylinePalletPlace::Pickup)V.Y+=P.Quantity;}}
+   TMap<int32,FIntVector> ByPart;for(const auto& P:S.Pallets){if(P.Place==EFoundrylinePalletPlace::InTransit||P.Part==EFoundrylinePart::Sheet||P.Part==EFoundrylinePart::HeadacheRack)continue;auto& V=ByPart.FindOrAdd(int(P.Part));if(P.BookingId)V.Z+=P.Quantity;else {V.X+=P.Quantity;if(P.Place==EFoundrylinePalletPlace::Pickup)V.Y+=P.Quantity;}}
    const float SH2=104;float A=CX;const float SWd=(CW-3*16)/4;
    Card(A,Top,SWd,SH2);Rect(A,Top,4,SH2,Graphite);Text(TEXT("STEEL SHEET"),A+20,Top+16,12,true,Muted);Text(Lb(Guide.SteelOnHandLb),A+20,Top+38,25,true,Ink);Text(FString::Printf(TEXT("about %.1f sheets"),Guide.SteelOnHandLb/SheetLb),A+20,Top+74,13,false,Muted);HelpArea(TEXT("StockSteel"),A,Top,SWd,SH2,TEXT("All steel in the shop, including what's already on the plasma table."));A+=SWd+16;
-   int Shown=0;for(const auto& P:ByPart){if(Shown++>=3)break;Card(A,Top,SWd,SH2);Rect(A,Top,4,SH2,Green);Text(PartName(P.Key).ToUpper(),A+20,Top+16,12,true,Muted,SWd-36);Text(FString::Printf(TEXT("%d free"),P.Value.X),A+20,Top+38,25,true,Ink);Text(FString::Printf(TEXT("%d at the bay  /  %d on trucks"),P.Value.Y,P.Value.Z),A+20,Top+74,13,false,Muted,SWd-36);HelpArea(FString::Printf(TEXT("StockPart%d"),P.Key),A,Top,SWd,SH2,TEXT("Free: finished and not yet booked on a truck. At the bay: ready for a pickup. On trucks: booked and leaving or gone."));A+=SWd+16;}
-   if(ByPart.IsEmpty()){Card(A,Top,CW-(A-CX),SH2);Text(TEXT("No finished parts yet"),A+20,Top+22,18,true,Ink);Text(TEXT("Parts appear here after the plasma cuts them."),A+20,Top+54,14,false,Muted);}
+   // Finished products (welded racks) are listed on their own, apart from cut parts.
+   {const int Racks=Guide.FinishedOnOut+Guide.FinishedInStorage+Guide.FinishedAtBayProducts+Guide.FinishedOnTrucks;Card(A,Top,SWd,SH2);Rect(A,Top,4,SH2,Orange);Text(TEXT("FINISHED PRODUCTS"),A+20,Top+16,12,true,Muted,SWd-36);Text(FString::Printf(TEXT("%d headache rack%s"),Racks,Racks==1?TEXT(""):TEXT("s")),A+20,Top+38,22,true,Ink,SWd-36);
+    Text(FString::Printf(TEXT("%d on OUT / %d stored / %d at bay / %d on trucks"),Guide.FinishedOnOut,Guide.FinishedInStorage,Guide.FinishedAtBayProducts,Guide.FinishedOnTrucks),A+20,Top+74,12,false,Muted,SWd-36);
+    HelpArea(TEXT("StockFinished"),A,Top,SWd,SH2,TEXT("Products your welding station builds. On OUT: on the station's pallets. Stored: on a rack slot. At bay: staged for an order. On trucks: booked or on the way."));A+=SWd+16;}
+   int Shown=0;for(const auto& P:ByPart){if(Shown++>=2)break;Card(A,Top,SWd,SH2);Rect(A,Top,4,SH2,Green);Text(PartName(P.Key).ToUpper(),A+20,Top+16,12,true,Muted,SWd-36);Text(FString::Printf(TEXT("%d free"),P.Value.X),A+20,Top+38,25,true,Ink);Text(FString::Printf(TEXT("%d at the bay  /  %d on trucks"),P.Value.Y,P.Value.Z),A+20,Top+74,13,false,Muted,SWd-36);HelpArea(FString::Printf(TEXT("StockPart%d"),P.Key),A,Top,SWd,SH2,TEXT("Free: finished and not yet booked on a truck. At the bay: ready for a pickup. On trucks: booked and leaving or gone."));A+=SWd+16;}
+   if(ByPart.IsEmpty()&&A<CX+CW-20){Card(A,Top,CW-(A-CX),SH2);Text(TEXT("No finished parts yet"),A+20,Top+22,18,true,Ink);Text(TEXT("Parts appear here after the plasma cuts them."),A+20,Top+54,14,false,Muted);}
    const float TTop=Top+SH2+18;Card(CX,TTop,CW,CB-TTop);const float Col[]={0,.13f,.38f,.5f,.72f};const TCHAR* Names[]={TEXT("PALLET"),TEXT("CONTAINS"),TEXT("QUANTITY"),TEXT("WHERE"),TEXT("STATUS")};
    for(int I=0;I<5;++I)Text(Names[I],CX+24+CW*Col[I],TTop+18,12,true,Muted);Rect(CX+16,TTop+44,CW-32,1,Line);
    TArray<const FFoundrylineFactoryPallet*> Rows;for(const auto& P:S.Pallets)Rows.Add(&P);Rows.Sort([](const auto& A,const auto& B){return A.Part!=B.Part?A.Part<B.Part:A.Id<B.Id;});

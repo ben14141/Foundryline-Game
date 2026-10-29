@@ -1,6 +1,7 @@
 #include "UI/FoundrylinePlayerController.h"
 #include "UI/FoundrylineOperationsTerminal.h"
 #include "Employees/FoundrylineEmployeeTypes.h"
+#include "UI/FoundrylineERPViewModel.h"
 #include "World/FoundrylineCameraPawn.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "EngineUtils.h"
@@ -47,6 +48,10 @@ void AFoundrylinePlayerController::OperationsAction(FName Action){const auto S=A
  // Guided shortcuts: local navigation/prefill, or the existing validated command for the named record.
  if(S.StartsWith(TEXT("BuySheets"))){const FString V=S.RightChop(9);if(!V.IsNumeric())return;OperationsSheets=FMath::Clamp(FCString::Atoi(*V),1,10);ConfirmOperations(FString::Printf(TEXT("Quantity set to %d sheet%s: what your orders still need."),OperationsSheets,OperationsSheets==1?TEXT(""):TEXT("s")));OperationsPage=3;OperationsWorkspaceTab=0;OperationsDocumentTab=0;OperationsListPage=0;return;}
  if(S.StartsWith(TEXT("AssignOrder"))||(S.StartsWith(TEXT("ProgramOrder"))&&S.Len()>12)){const FString V=S.RightChop(S.StartsWith(TEXT("AssignOrder"))?11:12);if(!V.IsNumeric())return;const int Id=FCString::Atoi(*V);if(!C.Orders.ContainsByPredicate([&](const auto& O){return O.Id==Id&&O.Status==EFoundrylineOrderState::Accepted;}))return;OperationsOrder=Id;OperationsAction(S.StartsWith(TEXT("AssignOrder"))?TEXT("Assign"):TEXT("ProgramOrder"));return;}
+ if(S.StartsWith(TEXT("StationOrder"))){const FString V=S.RightChop(12);if(!V.IsNumeric())return;const int Id=FCString::Atoi(*V);const auto G=FFoundrylineERPViewModel::Guide(P->Snapshot);
+  if(G.OrderId!=Id||!G.bWeldedOrder||!G.StationId||G.PartsToMake<=0)return;OperationsOrder=Id;
+  FFoundrylineFactoryCommand Cmd;Cmd.Action=EFoundrylineFactoryAction::ConfigureWeldingStation;Cmd.Id=G.StationId;Cmd.Other=1;Cmd.Count=FMath::Clamp(G.PartsToMake,1,100);Cmd.TargetPlantId=P->BusinessPlantId;SendFactory(Cmd);
+  ConfirmOperations(FString::Printf(TEXT("%s set to make %d headache rack%s for this order."),*G.StationName,Cmd.Count,Cmd.Count==1?TEXT(""):TEXT("s")));return;}
  if(S==TEXT("SheetsPlus")||S==TEXT("SheetsMinus")){OperationsSheets=FMath::Clamp(OperationsSheets+(S.EndsWith(TEXT("Plus"))?1:-1),1,10);return;}
  if(S==TEXT("TimePlus")||S==TEXT("TimeMinus")||S==TEXT("NextDay")){OperationsDelay=FMath::Clamp(OperationsDelay+(S==TEXT("NextDay")?1440:S==TEXT("TimePlus")?30:-30),30.,4320.);return;}
  if(S.StartsWith(TEXT("Carrier"))){OperationsCarrier=FMath::Clamp(FCString::Atoi(*S.RightChop(7)),0,3);OperationsDelay=FMath::Max(OperationsDelay,FFoundrylineCommerceCatalog::Carrier(OperationsCarrier).LeadMinutes+10);OperationsPallets.Reset();return;}

@@ -4,6 +4,7 @@
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "SaveSystem/FoundrylineFactorySave.h"
 #include "Kismet/GameplayStatics.h"
+#include "UI/FoundrylineERPViewModel.h"
 namespace WeldingCommerceTest {
 using Layout=FFoundrylineWeldingStationLayout;using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using Act=EFoundrylineCommerceAction;using Role=EFoundrylineEmployeeRole;
 // Reorganised cut-parts starter with the station north of the burn table, as in the assembly tests.
@@ -39,14 +40,24 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  FFoundrylineCommerceCommand A;A.Action=Act::AcceptOrder;A.Id=OrderId;if(!TestTrue(TEXT("Accept the rack order: ")+E,M.CommerceCommand(A,E)))return false;
  A.Action=Act::AssignPickup;if(!TestTrue(TEXT("Assign it to the pickup zone: ")+E,M.CommerceCommand(A,E)))return false;
 
+ // The Overview recommends the real next action for a rack order: staff the station, then set its batch, then ship.
+ using G=EFoundrylineGuideStep;auto Guide=FFoundrylineERPViewModel::Guide(M.State);
+ TestTrue(TEXT("Overview focuses the rack order"),Guide.OrderId==OrderId&&Guide.bWeldedOrder&&Guide.StationId==Id);
+ TestTrue(TEXT("Overview asks for a welder first: ")+Guide.Title,Guide.Step==G::StaffWork&&Guide.Title.Contains(TEXT("welder"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("No welder"));}));
+ TestTrue(TEXT("No steel is asked for a rack order"),Guide.bStepDone[int(G::BuySteel)]&&!Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("steel"));}));
+ if(!TestTrue(TEXT("Hire and assign a welder: ")+E,Welder(M,E)))return false;Guide=FFoundrylineERPViewModel::Guide(M.State);
+ TestTrue(TEXT("Then it asks to set the station for the order: ")+Guide.Title,Guide.Step==G::ProgramPlasma&&Guide.PartsToMake==Quantity&&Guide.Action==FString::Printf(TEXT("StationOrder%d"),OrderId));
  // Build exactly the order. Each finished rack is wanted by the order, so its OUT pallet goes whole to the pickup zone.
- TestTrue(TEXT("Batch for the order: ")+E,M.ConfigureWeldingStation(Id,1,Quantity,E));TopUpBins(M);if(!TestTrue(TEXT("Hire and assign a welder: ")+E,Welder(M,E)))return false;
+ TestTrue(TEXT("Batch for the order: ")+E,M.ConfigureWeldingStation(Id,1,Guide.PartsToMake,E));TopUpBins(M);Guide=FFoundrylineERPViewModel::Guide(M.State);
+ TestTrue(TEXT("With the batch set, the Overview follows the welding: ")+Guide.Title,Guide.Step==G::BookFreight&&Guide.PartsToMake==0&&Guide.PartsCutting==Quantity&&Guide.Title.Contains(TEXT("Welding racks")));
  bool SawOutReserved=false;auto Staged=[&](){for(const auto& P:M.State.Pallets)SawOutReserved|=P.Place==Place::StationOut&&P.Reserved>0;int N=0;for(const auto& P:M.State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==OrderId)N+=P.Quantity;return N==Quantity;};
  if(!TestTrue(TEXT("Racks are built and staged at the pickup zone"),Pump(M,Staged)))return false;
  TestTrue(TEXT("A forklift collected from OUT"),SawOutReserved);TestEqual(TEXT("OUT is clear"),Racks(M,Place::StationOut),0);TestEqual(TEXT("Nothing went to storage on the way"),Racks(M,Place::Rack),0);
  TestTrue(TEXT("Each staged pallet carries whole kits' mass"),!M.State.Pallets.ContainsByPredicate([&](const auto& P){return P.Place==Place::Pickup&&!FMath::IsNearlyEqual(P.UnitLb,KitLb,.01f);}));
  TestTrue(TEXT("Status after collection: ")+M.WeldingStationStatus(M.State.WeldingStations[0]),M.WeldingStationStatus(M.State.WeldingStations[0]).Contains(TEXT("Choose a product")));
  TestTrue(TEXT("Staged racks validate: ")+E,M.Valid(E));
+ Guide=FFoundrylineERPViewModel::Guide(M.State);TestTrue(TEXT("Overview says book a truck, and that a van won't do: ")+Guide.Detail,Guide.Title==TEXT("Book a pickup truck")&&Guide.Detail.Contains(TEXT("flatbed or larger")));
+ TestEqual(TEXT("Finished products at the bay are listed apart from parts"),Guide.FinishedAtBayProducts,Quantity);
 
  // Carrier footprint and weight: a 6 ft 6 in rack does not fit a pallet van; a pallet of racks takes two deck spaces.
  A={};A.Action=Act::BookPickup;A.Arrival=M.State.Commerce.Clock+60;for(const auto& P:M.State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==OrderId){A.Pallets.Add(P.Id);A.Quantities.Add(P.Quantity);}
@@ -78,6 +89,7 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  TestTrue(TEXT("Stored as a full pallet of five and a pallet of one, in rack slots"),Stacks==TArray<int>({1,Layout::RacksPerOutPallet}));
  TestEqual(TEXT("Eight units made in all"),M.State.WeldingStations[0].UnitsCompleted,Quantity+Layout::RacksPerOutPallet+1);
  TestTrue(TEXT("Stored racks validate: ")+E,M.Valid(E));
+ Guide=FFoundrylineERPViewModel::Guide(M.State);TestEqual(TEXT("Stock lists the stored racks as finished products"),Guide.FinishedInStorage,Layout::RacksPerOutPallet+1);
  // Bracket and plate sales keep working alongside: Foundryline.Commerce.TwoRecipeRepeatSales.
  return true;
 }
