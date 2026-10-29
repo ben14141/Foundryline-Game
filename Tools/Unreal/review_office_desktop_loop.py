@@ -44,13 +44,15 @@ def tick(dt):
   elif stage==10 and t-last>1:
    action('Page0');action('Order'+str(order));stage=11;last=t
   elif stage==11 and t-last>1:shot('16_Offer_Selected');stage=12;last=t
-  elif stage==12 and t-last>1:action('Accept');stage=13;last=t
+  elif stage==12 and t-last>1:action('Accept');stage=121;last=t
+  elif stage==121 and t-last>.8:shot('16b_Confirm_OrderAccepted');stage=13;last=t
   elif stage==13 and t-last>2:
    check('accepted',any(o['id']==order and o['status']==1 for o in r()['orders']) if 'status' in r()['orders'][0] else True)
    tour([(['Page9'],'17_Accepted_Home'),(['Page2','Order'+str(order)],'18_Accepted_YourOrder')],14)
   elif stage==14 and t-last>1:action('Assign');stage=15;last=t
   elif stage==15 and t-last>2:tour([(['Page9'],'19_Assigned_Home'),(['Page3','SheetsMinus'],'20_BuySteel_OneSheet')],16)
-  elif stage==16 and t-last>1:action('BuySteel');stage=17;last=t
+  elif stage==16 and t-last>1:action('BuySteel');stage=161;last=t
+  elif stage==161 and t-last>.8:shot('20b_Confirm_SteelBought');stage=17;last=t
   elif stage==17 and t-last>2:
    check('steel_booked',len(r()['bookings'])==1 and r()['cash']<400000)
    tour([(['Page9'],'21_SteelOrdered_Home'),(['Page4'],'22_SteelOrdered_Shipping'),(['Page3','Workspace1'],'23_SteelOrdered_Deliveries')],18)
@@ -79,7 +81,8 @@ def tick(dt):
     if p['place']==6:action('Pallet'+str(p['id']))
    stage=33;last=t
   elif stage==33 and t-last>2:shot('31_Tablet_PickupSelected');stage=34;last=t
-  elif stage==34 and t-last>1:action('Book');stage=35;last=t
+  elif stage==34 and t-last>1:action('Book');stage=341;last=t
+  elif stage==341 and t-last>.8:shot('31b_Confirm_PickupBooked');stage=35;last=t
   elif stage==35 and t-last>2:check('pickup_booked',sum(not b['inbound'] for b in r()['bookings'])==1);action('Close');T.setup_operations_review(pc(),1);stage=36;last=t
   elif stage==36 and t-last>2:factory('Interact');stage=37;last=t
   elif stage==37 and t-last>1:tour([(['Page9'],'32_PickupBooked_Home'),(['Page4'],'33_PickupBooked_Shipping')],38)

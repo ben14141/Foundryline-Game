@@ -64,16 +64,16 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
  };
  auto HelpArea=[&](const FString& Name,float A,float B,float D,float E,const FString& Help){Hit(TEXT("Help")+Name,A,B,D,E,false,Help);};
  // Hover: orange outline and tint on anything clickable; press: brief darker flash.
- auto Hover=[&](float A,float B,float D,float E,float V){if(V<.02f&&Press<.02f)return;const FLinearColor Edge=FLinearColor::LerpUsingHSV(Line,Orange,FMath::Max(V,Press));Rect(A,B,D,2,Edge);Rect(A,B+E-2,D,2,Edge);Rect(A,B,2,E,Edge);Rect(A+D-2,B,2,E,Edge);if(Press>.02f)Rect(A,B,D,E,FLinearColor(Orange.R,Orange.G,Orange.B,.18f*Press));};
+ auto Hover=[&](float A,float B,float D,float E,float V){if(V<.02f&&Press<.02f)return;const FLinearColor Edge=FLinearColor::LerpUsingHSV(Line,Blue,FMath::Max(V,Press));Rect(A,B,D,2,Edge);Rect(A,B+E-2,D,2,Edge);Rect(A,B,2,E,Edge);Rect(A+D-2,B,2,E,Edge);if(Press>.02f)Rect(A,B,D,E,FLinearColor(Blue.R,Blue.G,Blue.B,.16f*Press));};
  enum class EStyle:uint8 {Primary,Secondary,Ghost,Tab,Danger};
  auto Button=[&](const FString& Key,const FString& Label,float A,float B,float D,float E,EStyle Style=EStyle::Secondary,bool Enabled=true,const FString& Help=FString(),bool Selected=false){
   const float V=Hit(Key,A,B,D,E,Enabled,Help);const int Size=E>=48?17:E>=40?15:14;const float Lift=Enabled?-2.f*V:0.f;
   auto Label_=[&](FLinearColor Col,float Pad){Text(Label,A+(D-FMath::Min(D-Pad,Width(Label,Size,true)))/2,B+Lift+(E-Size*1.25f)/2,Size,true,Col,D-Pad);};
   if(Style==EStyle::Primary){if(!Enabled){Rect(A,B,D,E,Hex(TEXT("E4E7EA")));Label_(Faint,24);return;}Rect(A,B+E-3,D,3+2*V,Hex(TEXT("B5541A")));Rect(A,B+Lift,D,E,FMath::Lerp(FMath::Lerp(Orange,Hex(TEXT("F28A45")),V),Hex(TEXT("C2561A")),Press));if(V>.02f)Rect(A,B+Lift,D,2,FLinearColor(1,1,1,.35f*V));Label_(Paper,24);return;}
-  if(Style==EStyle::Tab){if(Selected){Rect(A,B,D,E,Paper);Rect(A,B+E-3,D,3,Orange);}else if(V>.01f){Rect(A,B,D,E,FMath::Lerp(Surface,Paper,V));Rect(A+D*.5f*(1-V),B+E-3,D*V,3,Hex(TEXT("F2B48A")));}Text(Label,A+(D-FMath::Min(D-20,Width(Label,Size,true)))/2,B+(E-Size*1.25f)/2,Size,true,Selected||V>.5f?Ink:Muted,D-20);return;}
+  if(Style==EStyle::Tab){if(Selected){Rect(A,B,D,E,Paper);Rect(A,B+E-3,D,3,Orange);}else if(V>.01f){Rect(A,B,D,E,FMath::Lerp(Surface,Paper,V));Rect(A+D*.5f*(1-V),B+E-3,D*V,3,Hex(TEXT("8FB2C9")));}Text(Label,A+(D-FMath::Min(D-20,Width(Label,Size,true)))/2,B+(E-Size*1.25f)/2,Size,true,Selected||V>.5f?Ink:Muted,D-20);return;}
   if(!Enabled){Rect(A,B,D,E,Surface);Border(A,B,D,E,Line);Label_(Faint,20);return;}
-  const FLinearColor Base=Style==EStyle::Ghost?Surface:Paper;Rect(A,B,D,E,Selected?SoftOrange:FMath::Lerp(Base,Hex(TEXT("FFF6EF")),V));Border(A,B,D,E,Selected?Orange:Line);Hover(A,B,D,E,V);
-  Label_(Style==EStyle::Danger?Red:V>.5f?Hex(TEXT("B5541A")):Ink,20);
+  const FLinearColor Base=Style==EStyle::Ghost?Surface:Paper;Rect(A,B,D,E,Selected?SoftOrange:FMath::Lerp(Base,Hex(TEXT("EEF4F8")),V));Border(A,B,D,E,Selected?Orange:Line);Hover(A,B,D,E,V);
+  Label_(Style==EStyle::Danger?Red:V>.5f?Blue:Ink,20);
  }; auto Card=[&](float A,float B,float D,float E,const FString& Title=FString(),FLinearColor Accent=FLinearColor::Transparent){Rect(A,B,D,E,Paper);Border(A,B,D,E,Line);if(Accent.A>0)Rect(A,B,D,4,Accent);if(!Title.IsEmpty())Text(Title.ToUpper(),A+20,B+18,12,true,Muted,D-40);};
  auto Chip=[&](const FString& T,float A,float B,FLinearColor Col,FLinearColor Back){const float D=Width(T,12,true)+20;Rect(A,B,D,24,Back);Text(T,A+10,B+4,12,true,Col);return D;};
  auto Bar=[&](float A,float B,float D,float Fraction,FLinearColor Col,float E=8){Rect(A,B,D,E,Surface);Rect(A,B,D*FMath::Clamp(Fraction,0.f,1.f),E,Col);};
@@ -121,15 +121,15 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
  const int Missing=(Guide.bOperator?0:1)+(Guide.bForkliftDriver?0:1);
  const FNav Nav[]={{9,TEXT("Home"),TEXT("What to do next"),0,0,Muted,TEXT("Your next step and a summary of the whole business.")},
   {0,TEXT("Orders"),TEXT("Customer work"),1,Guide.OffersWaiting,Blue,TEXT("Find customer orders, accept them and follow their progress.")},
-  {3,TEXT("Buy steel"),TEXT("Sheets for cutting"),2,0,Muted,TEXT("Order steel sheets. A truck delivers them to your loading bay.")},
-  {10,TEXT("Production"),TEXT("Machines at work"),3,0,Muted,TEXT("See what each machine is making, program the plasma cutter and buy equipment.")},
-  {4,TEXT("Stock & trucks"),TEXT("Parts and freight"),4,Guide.FinishedAtBay,Green,TEXT("Trucks coming and going, and every pallet you own.")},
+  {3,TEXT("Buy steel"),TEXT("Sheets to cut"),2,0,Muted,TEXT("Order steel sheets. A truck delivers them to your loading bay.")},
+  {10,TEXT("Production"),TEXT("Machines"),3,0,Muted,TEXT("See what each machine is making, program the plasma cutter and buy equipment.")},
+  {4,TEXT("Stock & trucks"),TEXT("Pallets and freight"),4,Guide.FinishedAtBay,Green,TEXT("Trucks coming and going, and every pallet you own.")},
   {7,TEXT("Team"),TEXT("People and jobs"),5,Missing,Red,TEXT("Hire people and give them jobs on machines and forklifts.")},
-  {5,TEXT("Money"),TEXT("Cash and payments"),6,0,Muted,TEXT("Cash, spending and customer payments.")}};
+  {5,TEXT("Money"),TEXT("Cash & payments"),6,0,Muted,TEXT("Cash, spending and customer payments.")}};
  const int GuidePage=!C.Enabled?-1:Guide.Step==EFoundrylineGuideStep::AcceptOrder?0:Guide.Step==EFoundrylineGuideStep::BuySteel?3:Guide.Step==EFoundrylineGuideStep::StaffWork?7:Guide.Step==EFoundrylineGuideStep::ProgramPlasma?10:4;
  for(int I=0;I<7;++I){const auto& N=Nav[I];const bool On=Page==N.Page||(N.Page==0&&Page==2)||(N.Page==10&&Page==6)||(N.Page==4&&Page==11);const float At=Y+HeadH+18+I*66;const float V=Hit(FString::Printf(TEXT("Page%d"),N.Page),X+10,At,NavW-20,60,true,N.Help);
   if(On||V>.01f)Rect(X+10,At,NavW-20,60,On?Paper:FMath::Lerp(Rail,Hex(TEXT("ECEFF1")),V));if(On){Border(X+10,At,NavW-20,60,Line);Rect(X+10,At,4,60,Orange);}else Hover(X+10,At,NavW-20,60,V);
-  Icon(N.Icon,X+26,At+17,26,On?Orange:Graphite);Text(N.Label,X+66,At+10,16,true,Ink,NavW-120);Text(N.Sub,X+66,At+33,12,false,Muted,NavW-120);
+  Icon(N.Icon,X+26,At+17,26,On?Orange:Graphite);Text(N.Label,X+66,At+10,16,true,Ink,NavW-(N.Badge>0?118:84));Text(N.Sub,X+66,At+33,12,false,Muted,NavW-(N.Badge>0?118:84));
   if(N.Badge>0){const FString B=FString::FromInt(N.Badge);const float D=FMath::Max(26.f,Width(B,12,true)+14);Rect(X+NavW-22-D,At+18,D,24,N.BadgeCol);Text(B,X+NavW-22-D+(D-Width(B,12,true))/2,At+22,12,true,Paper);}
   else if(N.Page==GuidePage&&Page==9){Rect(X+NavW-36,At+25,10,10,Orange);}}
  {const float B=Y+H-FootH-178;Text(TEXT("OTHER SCREENS"),X+22,B,11,true,Faint);
@@ -170,7 +170,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    FString::Printf(TEXT("%s owed to you on accepted orders"),*Cash(Guide.OwedToYouCents))};
   const float RowH=FMath::Min(56.f,(LH-58)/6);
   for(int I=0;I<6;++I){const float RY=LTop+48+I*RowH;const bool Done=Guide.bStepDone[I],Now=int(Guide.Step)==I;const float V=Hit(StepPages[I],CX+12,RY,LW-24,RowH-4,true,FString::Printf(TEXT("Open the screen for step %d: %s."),I+1,Steps[I]));
-   if(Now)Rect(CX+12,RY,LW-24,RowH-4,SoftOrange);else if(V>.01f)Rect(CX+12,RY,LW-24,RowH-4,FMath::Lerp(Paper,Hex(TEXT("FFF6EF")),V));Hover(CX+12,RY,LW-24,RowH-4,V);
+   if(Now)Rect(CX+12,RY,LW-24,RowH-4,SoftOrange);else if(V>.01f)Rect(CX+12,RY,LW-24,RowH-4,FMath::Lerp(Paper,Hex(TEXT("EEF4F8")),V));Hover(CX+12,RY,LW-24,RowH-4,V);
    const float CC=RY+(RowH-4)/2-15;Rect(CX+26,CC,30,30,Done?Green:Now?Orange:Surface);if(!Done&&!Now)Border(CX+26,CC,30,30,Line);Text(Done?TEXT("OK"):FString::FromInt(I+1),CX+26+(30-Width(Done?TEXT("OK"):FString::FromInt(I+1),12,true))/2,CC+7,12,true,Done||Now?Paper:Muted);
    Text(Steps[I],CX+72,RY+(RowH-4)/2-11,16,true,Done?Muted:Ink,LW*.42f);RightText(Notes[I],CX+LW-28,RY+(RowH-4)/2-9,13,false,Now?Amber:Muted);}
   // At a glance: each tile opens its section; hover explains the number.
@@ -187,13 +187,13 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    {TEXT("Page4"),TEXT("Trucks"),FString::Printf(TEXT("%d pickup%s"),Guide.PickupsBooked,Guide.PickupsBooked==1?TEXT(""):TEXT("s")),FString::Printf(TEXT("%d steel deliver%s due"),Guide.SteelDeliveriesDue,Guide.SteelDeliveriesDue==1?TEXT("y"):TEXT("ies")),TEXT("Customer pickups you've booked and steel deliveries that haven't finished unloading."),Blue},
    {TEXT("Page2"),TEXT("Owed to you"),Cash(Guide.OwedToYouCents),TEXT("On accepted orders"),TEXT("What customers will still pay for your accepted orders, according to each order's payment terms."),Green},
    {TEXT("Page5"),TEXT("Received"),Cash(Guide.ReceivedCents),TEXT("From customers"),TEXT("Payments customers have made on your recent orders."),Green}};
-  for(int I=0;I<8;++I){const auto& T=Tiles[I];const float A=RX+(I%2)*(TW+14),B=Top+26+(I/2)*(TH+12);const float V=Hit(T.Key,A,B,TW,TH,true,T.Help);Rect(A,B,TW,TH,FMath::Lerp(Paper,Hex(TEXT("FFF6EF")),V));Border(A,B,TW,TH,Line);Rect(A,B,4,TH,T.Col);Hover(A,B,TW,TH,V);if(V>.3f)RightText(TEXT("Open  >"),A+TW-16,B+16,12,true,Orange);
+  for(int I=0;I<8;++I){const auto& T=Tiles[I];const float A=RX+(I%2)*(TW+14),B=Top+26+(I/2)*(TH+12);const float V=Hit(T.Key,A,B,TW,TH,true,T.Help);Rect(A,B,TW,TH,FMath::Lerp(Paper,Hex(TEXT("EEF4F8")),V));Border(A,B,TW,TH,Line);Rect(A,B,4,TH,T.Col);Hover(A,B,TW,TH,V);if(V>.3f)RightText(TEXT("Open  >"),A+TW-16,B+16,12,true,Blue);
    Text(T.Label.ToUpper(),A+20,B+16,12,true,Muted,TW-36);Text(T.Value,A+20,B+38,25,true,Ink,TW-36);Text(T.Sub,A+20,B+74,13,false,Muted,TW-36);}
   // Coming up: next truck movements.
   const float UTop=Top+26+4*(TH+12)+6,UH=CB-UTop;Card(RX,UTop,RW,UH,TEXT("Trucks coming up"));
   TArray<const FFoundrylineFreightBooking*> Next;for(const auto& B:C.Bookings)if(B.Status!=EFoundrylineBookingState::Delivered)Next.Add(&B);Next.Sort([](const auto& A,const auto& B){return A.ArrivalAt<B.ArrivalAt;});
   const int Rows=FMath::Max(1,int((UH-56)/62));
-  for(int I=0;I<FMath::Min(Rows,Next.Num());++I){const auto& B=*Next[I];const float RY=UTop+46+I*62;const float V=Hit(FString::Printf(TEXT("CalendarBooking%d"),B.Id),RX+10,RY,RW-20,56,true,TEXT("Open this truck in Stock & trucks."));if(V>.01f)Rect(RX+10,RY,RW-20,56,FMath::Lerp(Paper,Hex(TEXT("FFF6EF")),V));Hover(RX+10,RY,RW-20,56,V);
+  for(int I=0;I<FMath::Min(Rows,Next.Num());++I){const auto& B=*Next[I];const float RY=UTop+46+I*62;const float V=Hit(FString::Printf(TEXT("CalendarBooking%d"),B.Id),RX+10,RY,RW-20,56,true,TEXT("Open this truck in Stock & trucks."));if(V>.01f)Rect(RX+10,RY,RW-20,56,FMath::Lerp(Paper,Hex(TEXT("EEF4F8")),V));Hover(RX+10,RY,RW-20,56,V);
    Chip(B.Inbound?TEXT("STEEL IN"):TEXT("PICKUP"),RX+20,RY+16,B.Inbound?Blue:Green,B.Inbound?SoftBlue:SoftGreen);Text(B.Inbound?FString::Printf(TEXT("%d sheet%s of steel"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s")):B.Customer,RX+118,RY+8,15,true,Ink,RW-150);Text(BookingStatus(B)+TEXT("  /  ")+FFoundrylineCommerceCatalog::Date(B.ArrivalAt),RX+118,RY+31,13,false,Muted,RW-150);}
   if(Next.IsEmpty())Wrap(TEXT("No trucks booked. Steel deliveries and customer pickups you book will show here."),RX+20,UTop+52,RW-40,14,false,Muted,3);
  }
@@ -205,7 +205,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
   Tabs({MakeTuple(FString(TEXT("Page0")),FString::Printf(TEXT("New offers (%d)"),OfferCount),!Mine,FString(TEXT("Orders customers are offering. Nothing is promised until you accept."))),MakeTuple(FString(TEXT("Page2")),FString::Printf(TEXT("Your orders (%d)"),MineCount),Mine,FString(TEXT("Orders you've accepted, plus recently completed ones.")))},CX,CY+74);
   const float Top=CY+134,LW=CW*.47f,RX=CX+LW+22,RW=CW-LW-22,RowH=96;const int Per=FMath::Max(1,int((CB-Top-50)/RowH)),F=First(Rows.Num(),Per);
   for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& O=*Rows[I];const float RY=Top+(I-F)*RowH;const bool On=O.Id==PC->OperationsOrder;const float V=Hit(FString::Printf(TEXT("Order%d"),O.Id),CX,RY,LW,RowH-8,true);
-   Rect(CX,RY,LW,RowH-8,On?SoftOrange:FMath::Lerp(Paper,Hex(TEXT("FFF6EF")),V));Border(CX,RY,LW,RowH-8,On?Orange:Line);if(On)Rect(CX,RY,4,RowH-8,Orange);else Hover(CX,RY,LW,RowH-8,V);Mark(O.Customer,CX+16,RY+16,44);
+   Rect(CX,RY,LW,RowH-8,On?SoftOrange:FMath::Lerp(Paper,Hex(TEXT("EEF4F8")),V));Border(CX,RY,LW,RowH-8,On?Orange:Line);if(On)Rect(CX,RY,4,RowH-8,Orange);else Hover(CX,RY,LW,RowH-8,V);Mark(O.Customer,CX+16,RY+16,44);
    Text(O.Customer,CX+74,RY+12,16,true,Ink,LW-250);Text(FString::Printf(TEXT("%d x %s"),O.Quantity,*PartName(O.Part)),CX+74,RY+36,14,false,Ink,LW-250);RightText(Cash(O.Quantity*O.UnitPriceCents),CX+LW-18,RY+12,18,true,Ink);
    float CA=CX+74;const FString St=O.Status==EFoundrylineOrderState::Completed?TEXT("COMPLETED"):O.Status==EFoundrylineOrderState::Accepted?(O.Late?TEXT("LATE"):C.PickupOrder==O.Id?TEXT("IN PROGRESS / AT BAY"):TEXT("IN PROGRESS")):O.Email?TEXT("EMAIL OFFER"):TEXT("OFFER");
    CA+=Chip(St,CA,RY+60,O.Late?Red:O.Status==EFoundrylineOrderState::Completed?Green:O.Status==EFoundrylineOrderState::Accepted?Orange:Blue,O.Late?SoftRed:O.Status==EFoundrylineOrderState::Completed?SoftGreen:O.Status==EFoundrylineOrderState::Accepted?SoftOrange:SoftBlue)+8;
@@ -282,7 +282,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    TArray<const FFoundrylineFreightBooking*> Rows;for(const auto& B:C.Bookings)if(B.Inbound)Rows.Add(&B);Rows.Sort([](const auto& A,const auto& B){return A.ArrivalAt>B.ArrivalAt;});
    Card(CX,Top,CW,CB-Top);const int Per=FMath::Max(1,int((CB-Top-110)/64)),F=First(Rows.Num(),Per);
    Text(TEXT("ORDER"),CX+24,Top+18,12,true,Muted);Text(TEXT("STEEL"),CX+CW*.2f,Top+18,12,true,Muted);Text(TEXT("ARRIVES"),CX+CW*.42f,Top+18,12,true,Muted);Text(TEXT("WHERE IT IS"),CX+CW*.66f,Top+18,12,true,Muted);Rect(CX+16,Top+44,CW-32,1,Line);
-   for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& B=*Rows[I];const float RY=Top+52+(I-F)*64;const float V=Hit(FString::Printf(TEXT("CalendarBooking%d"),B.Id),CX+8,RY,CW-16,58,true,TEXT("Open this delivery in Stock & trucks."));if(V>.01f||(I-F)%2)Rect(CX+8,RY,CW-16,58,V>.01f?Hex(TEXT("FFF6EF")):Rail);Hover(CX+8,RY,CW-16,58,V);
+   for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& B=*Rows[I];const float RY=Top+52+(I-F)*64;const float V=Hit(FString::Printf(TEXT("CalendarBooking%d"),B.Id),CX+8,RY,CW-16,58,true,TEXT("Open this delivery in Stock & trucks."));if(V>.01f||(I-F)%2)Rect(CX+8,RY,CW-16,58,V>.01f?Hex(TEXT("EEF4F8")):Rail);Hover(CX+8,RY,CW-16,58,V);
     Text(FString::Printf(TEXT("PO-%04d"),B.Id),CX+24,RY+18,15,true,Ink);Text(FString::Printf(TEXT("%d sheet%s  /  %s"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s"),*Lb(B.Sheets*SheetLb)),CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.ArrivalAt),CX+CW*.42f,RY+18,15,false,Ink,CW*.22f);
     Chip(BookingStatus(B).ToUpper(),CX+CW*.66f,RY+17,B.Status==EFoundrylineBookingState::Delivered?Green:Blue,B.Status==EFoundrylineBookingState::Delivered?SoftGreen:SoftBlue);}
    if(Rows.IsEmpty()){Text(TEXT("No steel ordered yet"),CX+24,Top+70,20,true,Ink);Button(TEXT("Workspace0"),TEXT("Buy steel  >"),CX+24,Top+112,200,44,EStyle::Primary,true,TEXT("Order your first steel sheets."));}
@@ -311,6 +311,12 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
     if(!Op)Button(TEXT("Page7"),TEXT("Assign operator"),BX,RY+112,240,44,EStyle::Secondary,true,TEXT("Open Team to put someone on this machine."));
    }
    if(S.Machines.IsEmpty())Text(TEXT("No machines installed."),CX,Top+20,20,true,Muted);
+   // How parts move through the shop, with live counts.
+   {const float FT=Top+Row*196+8;if(FT+200<CB){Card(CX,FT,CW,CB-FT>260?250:CB-FT,TEXT("How parts move through your shop"));
+    struct FStage {const TCHAR* Name;FString Value;const TCHAR* Who;int Icon;};
+    const FStage Flow[]={{TEXT("Steel rack"),Lb(Guide.SteelOnHandLb),TEXT("Truck delivers, forklift stores"),2},{TEXT("Plasma cutter"),FString::Printf(TEXT("%d cutting"),Guide.PartsInProgress),TEXT("Operator cuts parts"),3},{TEXT("Finished parts"),FString::Printf(TEXT("%d parts"),Guide.FinishedParts-Guide.FinishedAtBay),TEXT("Forklift racks them"),1},{TEXT("Loading bay"),FString::Printf(TEXT("%d parts"),Guide.FinishedAtBay),TEXT("Staged for your order"),4},{TEXT("Customer"),FString::Printf(TEXT("%d pickup%s booked"),Guide.PickupsBooked,Guide.PickupsBooked==1?TEXT(""):TEXT("s")),TEXT("Truck delivers, you get paid"),6}};
+    const float SW5=(CW-48-4*36)/5;for(int I=0;I<5;++I){const float A=CX+24+I*(SW5+36),B=FT+56;Rect(A,B,SW5,140,Rail);Border(A,B,SW5,140,Line);Icon(Flow[I].Icon,A+18,B+18,26,Graphite);Text(Flow[I].Name,A+56,B+20,15,true,Ink,SW5-70);Text(Flow[I].Value,A+18,B+60,22,true,Ink,SW5-36);Wrap(Flow[I].Who,A+18,B+96,SW5-36,12,false,Muted,2,17);
+     if(I<4){Rect(A+SW5+8,B+68,18,4,Orange);Rect(A+SW5+20,B+62,4,16,Orange);Rect(A+SW5+24,B+65,3,10,Orange);}}}}
   } else {
    const float EW=(CW-22)/2;
    auto Offer=[&](float A,const FString& Name,const FString& What,const FString& Note,int64 Price,const FString& Key,const FString& Label,bool Can,const FString& Help){Card(A,Top,EW,CB-Top);Icon(Key==TEXT("BuyBrake")?3:4,A+28,Top+30,38,Graphite);Text(Name,A+84,Top+30,26,true,Ink,EW-112);
@@ -335,7 +341,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    TArray<const FFoundrylineFreightBooking*> Rows;for(const auto& B:C.Bookings)Rows.Add(&B);Rows.Sort([](const auto& A,const auto& B){const bool AD=A.Status==EFoundrylineBookingState::Delivered,BD=B.Status==EFoundrylineBookingState::Delivered;return AD!=BD?!AD:AD?A.ArrivalAt>B.ArrivalAt:A.ArrivalAt<B.ArrivalAt;});
    const int Per=FMath::Max(1,int((CB-LTop-50)/80)),F=First(Rows.Num(),Per);
    for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& B=*Rows[I];const float RY=LTop+(I-F)*80;const bool On=Booking&&B.Id==Booking->Id;const float V=Hit(FString::Printf(TEXT("Booking%d"),B.Id),CX,RY,LW,72,true);
-    Rect(CX,RY,LW,72,On?SoftOrange:FMath::Lerp(Paper,Hex(TEXT("FFF6EF")),V));Border(CX,RY,LW,72,On?Orange:Line);if(On)Rect(CX,RY,4,72,Orange);else Hover(CX,RY,LW,72,V);
+    Rect(CX,RY,LW,72,On?SoftOrange:FMath::Lerp(Paper,Hex(TEXT("EEF4F8")),V));Border(CX,RY,LW,72,On?Orange:Line);if(On)Rect(CX,RY,4,72,Orange);else Hover(CX,RY,LW,72,V);
     Chip(B.Inbound?TEXT("STEEL IN"):TEXT("PICKUP"),CX+18,RY+24,B.Inbound?Blue:Green,B.Inbound?SoftBlue:SoftGreen);int Qty=0;for(const auto& Item:B.Manifest)Qty+=Item.Quantity;
     Text(B.Inbound?FString::Printf(TEXT("%d sheet%s of steel"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s")):FString::Printf(TEXT("%d parts to %s"),Qty,*B.Customer),CX+120,RY+14,16,true,Ink,LW-330);Text((B.Status==EFoundrylineBookingState::Delivered?TEXT("Arrived "):TEXT("Arrives "))+FFoundrylineCommerceCatalog::Date(B.ArrivalAt),CX+120,RY+40,13,false,Muted,LW-330);
     const FString St=BookingStatus(B).ToUpper();Chip(St,CX+LW-Width(St,12,true)-38,RY+24,B.Status==EFoundrylineBookingState::Delivered?Green:B.Status==EFoundrylineBookingState::Waiting?Amber:Blue,B.Status==EFoundrylineBookingState::Delivered?SoftGreen:B.Status==EFoundrylineBookingState::Waiting?SoftOrange:SoftBlue);}
@@ -454,7 +460,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
   } else {
    const float LW=CW*.5f,RX=CX+LW+22,RW=CW-LW-22;TArray<const FFoundrylineCustomerOrder*> Rows;for(const auto& O:C.Orders)if(O.Status!=EFoundrylineOrderState::Offered)Rows.Add(&O);Rows.Sort([](const auto& A,const auto& B){return A.Id>B.Id;});
    const int Per=FMath::Max(1,int((CB-Top-50)/88)),F=First(Rows.Num(),Per);
-   for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& O=*Rows[I];const float RY=Top+(I-F)*88;const bool On=O.Id==PC->OperationsOrder;const float V=Hit(FString::Printf(TEXT("Order%d"),O.Id),CX,RY,LW,80,true);Rect(CX,RY,LW,80,On?SoftOrange:FMath::Lerp(Paper,Hex(TEXT("FFF6EF")),V));Border(CX,RY,LW,80,On?Orange:Line);if(On)Rect(CX,RY,4,80,Orange);else Hover(CX,RY,LW,80,V);
+   for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& O=*Rows[I];const float RY=Top+(I-F)*88;const bool On=O.Id==PC->OperationsOrder;const float V=Hit(FString::Printf(TEXT("Order%d"),O.Id),CX,RY,LW,80,true);Rect(CX,RY,LW,80,On?SoftOrange:FMath::Lerp(Paper,Hex(TEXT("EEF4F8")),V));Border(CX,RY,LW,80,On?Orange:Line);if(On)Rect(CX,RY,4,80,Orange);else Hover(CX,RY,LW,80,V);
     Mark(O.Customer,CX+16,RY+18,44);Text(O.Customer,CX+74,RY+14,16,true,Ink,LW-260);Text(O.Reference+TEXT("  /  ")+Terms(O.Payment),CX+74,RY+42,13,false,Muted,LW-260);RightText(Cash(O.PaidCents),CX+LW-18,RY+14,18,true,O.PaidCents?Green:Muted);RightText(TEXT("of ")+Cash(O.Quantity*O.UnitPriceCents),CX+LW-18,RY+44,13,false,Muted);}
    if(Rows.IsEmpty()){Card(CX,Top,LW,120);Wrap(TEXT("Accepted orders and their payments will appear here."),CX+24,Top+30,LW-48,16,false,Muted,2);}
    Pager(Rows.Num(),Per,CX,CB-38,LW);
@@ -484,7 +490,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
   const float HW=Width(Head,12,true)+18;Rect(A+14,B+14,HW,24,Fade(FLinearColor(1,1,1,.22f)));Text(Head,A+23,B+18,12,true,Fade(Paper));Text(Msg,A+30+HW,B+15,16,true,Fade(Paper),D-HW-48);};
  if(PC->bOperationsPending)Toast(TEXT("SENDING"),TEXT("Waiting for the server to confirm..."),Graphite,.5,2);
  else if(!PC->OperationsStatus.IsEmpty()&&Now-PC->OperationsStatusAt<7)Toast(TEXT("NOT DONE"),PC->OperationsStatus,Red,Now-PC->OperationsStatusAt,7);
- else if(!PC->OperationsConfirm.IsEmpty())Toast(TEXT("DONE"),PC->OperationsConfirm,Green,Now-PC->OperationsConfirmAt,5);
+ else if(!PC->OperationsConfirm.IsEmpty())Toast(TEXT("DONE"),PC->OperationsConfirm,Green,Now-PC->OperationsConfirmAt,6);
  PC->CurrentMouseCursor=bClickableHover?EMouseCursor::Hand:EMouseCursor::Default;
  // Hover help popup, drawn last so it sits above everything.
  if(const FString* Help=HelpTexts.Find(HoveredBox)){float MX=0,MY=0;PC->GetMousePosition(MX,MY);MX/=Scale;MY/=Scale;const float TW=380;
