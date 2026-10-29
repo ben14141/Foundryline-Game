@@ -1,5 +1,6 @@
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "Core/FoundrylineUnits.h"
+#include "Economy/FoundrylineEconomyTuning.h"
 
 FVector FFoundrylineWeldingStationLayout::Point(const FFoundrylineWeldingStationRecord& S,double X,double Y,double Z){return FVector(S.Center.X,S.Center.Y,20)+Rotation(S).RotateVector(FVector((X-LengthFt/2)*Foot,(Y-WidthFt/2)*Foot,Z));}
 FBox2D FFoundrylineWeldingStationLayout::Rect(const FFoundrylineWeldingStationRecord& S,double X0,double Y0,double X1,double Y1){FBox2D B(ForceInit);for(auto C:{FVector2D(X0,Y0),FVector2D(X1,Y0),FVector2D(X1,Y1),FVector2D(X0,Y1)})B+=FVector2D(Point(S,C.X,C.Y));return B;}
@@ -28,3 +29,5 @@ bool FFoundrylineWeldingStationLayout::ProductFits(const FBox& P,FVector2D Carri
  if(Long>OutBayFt*Foot+.01||Short>PalletSizeCm().Y){E=TEXT("Finished product does not fit along the 6 ft 6 in OUT bay on one pallet");return false;}
  return true;
 }
+float FFoundrylineWeldingStationLayout::StageSeconds(int32 Stage){return FFoundrylineEconomyTuning::RackStageMinutes(Stage);}
+float FFoundrylineWeldingStationLayout::UnloadSeconds(){return FFoundrylineEconomyTuning::StationUnloadMinutes;}

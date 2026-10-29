@@ -1,6 +1,8 @@
 # Economy review: the welding chain (29 October 2026)
 
-Ben: "Check pricing. I have not at all. So economy is not set at all." This review reads the current numbers from code, works out what one headache rack really costs and earns, and proposes a coherent price set. **No prices are changed here; Ben decides.**
+Ben: "Check pricing. I have not at all. So economy is not set at all." This review reads the current numbers from code, works out what one headache rack really costs and earns, and proposes a coherent price set.
+
+**Status: the full proposed set was applied on 29 October 2026 at Ben's choice** (branch `welding/economy-v1`). The values now live in `Public/Economy/FoundrylineEconomyTuning.h`, and wages are paid by `FFoundrylinePayroll`. Sections 1–2 describe the numbers *before* the change. See "Result after applying" at the end.
 
 Time base: one plant second is one game minute (`TickCommerce` adds the plant step to the commerce clock, which the UI shows as minutes).
 
@@ -197,3 +199,29 @@ At today's wages ($0) labour adds nothing, which is part of why racks look cheap
 
 - `Foundryline.Factory.WeldingStation.PlayerFlow` prints the ledger. In the scripted run the costs were steel $255.24 (1 sheet), frames $720, lights $380, supplier freight $175, trucks $270 (3 rigid) and running $31.65, for a total of $1,831.89; revenue $2,250; net +$418.11; 2,452 game minutes.
 - `Tools/Unreal/review_welding_phase6.py` stores the final commerce report. Its costs were steel $255.24, frames $720, lights $380, supplier freight $175, trucks $270 (3 rigid) and running $30.74, for a total of $1,830.98; revenue $2,250; cash $4,419.02.
+
+## Result after applying (29 October 2026)
+
+`Foundryline.Factory.WeldingStation.PlayerFlow` is the same scripted player flow, one order at a time, and it ended at **$3,003.58** (−$996.42):
+
+| Line | Amount |
+| --- | --- |
+| Revenue | $3,360.00 |
+| Steel (1 sheet) | $255.24 |
+| Frame sections | $756.00 |
+| Light kits | $350.00 |
+| Supplier freight | $275.00 |
+| Pickup trucks (5 rigid) | $450.00 |
+| **Wages** | **$2,227.91** |
+| Running costs | $42.27 |
+| Game time | 2,772 minutes (46 game hours) for 7 racks |
+
+Racks still earn well over their materials and freight, but **wages are paid for every game hour a person holds a job, waiting included**. In this flow the plasma operator, the forklift driver and the welders mostly wait on supplier deliveries (60 min lead), trucks (40 min lead, 120 min transit) and one order at a time. That idle time costs about $48–66 an hour, and it is what turns the run negative. The per-rack labour estimate in section 3 counted only working minutes.
+
+Ways forward, for Ben:
+
+- (a) pay wages only while a person is working: this matches section 3's estimate, about 40% margin per rack;
+- (b) keep hourly wages but lower them;
+- (c) keep hourly wages and expect players to overlap orders. A station kept busy with two welders turns about $326 of rack revenue an hour against $66 of payroll.
+
+Nothing beyond the chosen set has been changed.

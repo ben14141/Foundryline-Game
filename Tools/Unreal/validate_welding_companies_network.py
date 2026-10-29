@@ -99,6 +99,8 @@ def tick(dt):
    check('starter_plant_still_has_no_station_or_racks',all(len(welding(p)['stations'])==0 for p in members('S')))
    cs={k:[commerce(p)['cash'] for p in members(k)] for k in 'ABS'};q['notes']['cash']=cs
    check('members_agree_on_their_company_cash',all(len(set(v))==1 for v in cs.values()))
+   ws={k:[(commerce(p)['payroll'],commerce(p)['wages_paid']) for p in members(k)] for k in 'AB'};q['notes']['wages']=ws
+   check('each_company_pays_its_own_welder',all(len(set(v))==1 and v[0][0]>0 and v[0][1]>0 for v in ws.values()))
    check('host_ledger_valid',commerce(host()).get('authoritative_valid',False))
    finish();return
   q['stage']=stage;out.write_text(json.dumps(q,indent=2))

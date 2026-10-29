@@ -137,8 +137,8 @@ def tick(dt):
   elif stage=='settle' and t-last>2:
    p=player();T.advance_commerce_test(p,200);go('paid',t)
   elif stage=='paid' and t-last>2:
-   p=player();c=commerce(p);o=order(c,oid);q['checks']['paid_exactly_once']=o['paid']==o['quantity']*45000 and o['delivered']==o['quantity'];q['notes']['revenue_after']=c['revenue']
-   q['checks']['revenue_counted_once']=c['revenue']-q['notes']['revenue_before']==(0 if o['payment']==0 else o['quantity']*45000) or c['revenue']-q['notes']['revenue_before']==o['quantity']*45000
+   p=player();c=commerce(p);o=order(c,oid);q['checks']['paid_exactly_once']=o['paid']==o['quantity']*48000 and o['delivered']==o['quantity'];q['notes']['revenue_after']=c['revenue']
+   q['checks']['revenue_counted_once']=c['revenue']-q['notes']['revenue_before']==(0 if o['payment']==0 else o['quantity']*48000) or c['revenue']-q['notes']['revenue_before']==o['quantity']*48000
    q['checks']['host_valid']=c.get('authoritative_valid',False);action(p,'Office');action(p,'Page2');action(p,'Order'+str(oid));go('paid_shot',t)
   elif stage=='paid_shot' and t-last>2.5:shot('Phase5_Payment_OrderComplete');go('money',t)
   elif stage=='money' and t-last>1.5:p=player();action(p,'Page5');go('money_shot',t)

@@ -1,23 +1,19 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "FoundrylineWeldingStationTestHelpers.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "SaveSystem/FoundrylineFactorySave.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/FoundrylineERPViewModel.h"
+#include "Economy/FoundrylineEconomyTuning.h"
 namespace WeldingCommerceTest {
 using Layout=FFoundrylineWeldingStationLayout;using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using Act=EFoundrylineCommerceAction;using Role=EFoundrylineEmployeeRole;
-// Reorganised cut-parts starter with the station north of the burn table, as in the assembly tests.
-bool Station(FFoundrylineFactorySimulation& M,FString& E){
- return M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,2170,20},304.8f,0,E)&&M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E)
-  &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1370,1450,20},{-1370,1450,20},200,0,E)&&M.AddWeldingStation({-1768.02,1823.12,20},0,false,E);
-}
-const float KitLb=2*2+4*5+6*16+2*4.5f;
-// Bins topped up to two whole kits (Phase 2 delivers exactly these), so the batch never waits on supplies.
-void TopUpBins(FFoundrylineFactorySimulation& M){const auto& S=M.State.WeldingStations[0];
- for(auto [P,Q,Lb]:{TTuple<Part,int,float>{Part::MountingPlate,4,2},{Part::Bracket,8,5},{Part::FrameSection,12,16},{Part::LightKit,4,4.5f}}){
-  auto* Bin=M.State.Pallets.FindByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::Buffer&&A.Part==P;});
-  if(Bin)Bin->Quantity=Q;else{FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Q;A.Place=Place::Buffer;A.Owner=S.Id;A.Position=Layout::BinPoint(S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}}}
+// The shared reorganised starter layout with the station placed.
+bool Station(FFoundrylineFactorySimulation& M,FString& E){return FoundrylineWeldingTestHelpers::PaintStarterAndPlaceStation(M,E);}
+using FoundrylineWeldingTestHelpers::KitLb;
+// Kit stock topped up to exactly two whole kits, so the batch never waits on supplies.
+void TopUpBins(FFoundrylineFactorySimulation& M){FoundrylineWeldingTestHelpers::KitStock(M,M.State.WeldingStations[0],true);}
 int Racks(const FFoundrylineFactorySimulation& M,Place Where){int N=0;for(const auto& A:M.State.Pallets)if(A.Part==Part::HeadacheRack&&A.Place==Where)N+=A.Quantity;return N;}
 bool Welder(FFoundrylineFactorySimulation& M,FString& E){return M.HireEmployee(Role::Welder,FGuid::NewGuid(),E)&&M.AssignEmployee(M.State.UnassignedEmployees.Last().Id,Role::Welder,M.State.WeldingStations[0].Id,E);}
 template<class F> bool Pump(FFoundrylineFactorySimulation& M,F Done,int Steps=30000,bool Refill=true){for(int I=0;I<Steps;++I){if(Done())return true;if(Refill&&!M.State.WeldingStations[0].Stage)TopUpBins(M);M.Step(.1f);}return Done();}
@@ -32,7 +28,8 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  if(!TestTrue(TEXT("Station places: ")+E,Station(M,E)))return false;const int Id=M.State.WeldingStations[0].Id;
  M.State.Running=true;M.State.Speed=8;M.Step(.1f);
  const auto* Offer=RackOffer();if(!TestNotNull(TEXT("A headache-rack offer appears once the station exists"),Offer))return false;
- TestTrue(TEXT("Rack offer: 2 or 3 racks at $450.00 each"),(Offer->Quantity==2||Offer->Quantity==3)&&Offer->UnitPriceCents==45000);
+ TestEqual(TEXT("Rack offers kept open on Sales while there is a station"),M.State.Commerce.Orders.FilterByPredicate([](const auto& O){return O.Status==EFoundrylineOrderState::Offered&&O.Part==uint8(Part::HeadacheRack);}).Num(),FFoundrylineEconomyTuning::RackOffersOnSale);
+ TestTrue(TEXT("Rack offer: 2 to 5 racks at $480.00 each"),Offer->Quantity>=2&&Offer->Quantity<=5&&Offer->UnitPriceCents==48000);
  TestTrue(TEXT("Part offers are not displaced"),M.State.Commerce.Orders.FilterByPredicate([](const auto& O){return O.Status==EFoundrylineOrderState::Offered&&O.Part!=uint8(Part::HeadacheRack);}).Num()>=PartOffers);
  const int OrderId=Offer->Id,Quantity=Offer->Quantity;const int64 Price=Offer->UnitPriceCents;
  {auto T=M;T.State.WeldingStations.Reset();for(auto& R:T.State.Routes){R.Destinations.Remove(Id);R.Sources.Remove(Id);}FFoundrylineCommerceCommand A;A.Action=Act::AcceptOrder;A.Id=OrderId;
@@ -46,6 +43,7 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  TestTrue(TEXT("Overview asks for a welder first: ")+Guide.Title,Guide.Step==G::StaffWork&&Guide.Title.Contains(TEXT("welder"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("No welder"));}));
  TestTrue(TEXT("No steel is asked for a rack order"),Guide.bStepDone[int(G::BuySteel)]&&!Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("steel"));}));
  if(!TestTrue(TEXT("Hire and assign a welder: ")+E,Welder(M,E)))return false;Guide=FFoundrylineERPViewModel::Guide(M.State);
+ TestTrue(TEXT("Paid welder with an idle station: the Overview says payroll is running and points at Orders"),Guide.PayrollCentsPerHour>0&&Guide.IdleWhilePaid.Contains(TEXT("welding station"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.StartsWith(TEXT("Payroll"))&&P.Action==TEXT("Page0");}));
  TestTrue(TEXT("Then it asks to set the station for the order: ")+Guide.Title,Guide.Step==G::ProgramPlasma&&Guide.PartsToMake==Quantity&&Guide.Action==FString::Printf(TEXT("StationOrder%d"),OrderId));
  // Build exactly the order. Each finished rack is wanted by the order, so its OUT pallet goes whole to the pickup zone.
  TestTrue(TEXT("Batch for the order: ")+E,M.ConfigureWeldingStation(Id,1,Guide.PartsToMake,E));TopUpBins(M);Guide=FFoundrylineERPViewModel::Guide(M.State);

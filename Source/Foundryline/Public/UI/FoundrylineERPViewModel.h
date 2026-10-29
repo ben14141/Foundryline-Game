@@ -69,6 +69,8 @@ struct FFoundrylineStarterGuide {
  // Welded products (headache racks): the focused order is made at a welding station instead of the plasma.
  bool bWeldedOrder=false,bWelder=false;int32 StationId=0;
  FString WelderName,StationName,StationStatus;
+ // Payroll per game hour, and what is idle while it runs (empty when everyone paid has work).
+ int64 PayrollCentsPerHour=0;FString IdleWhilePaid;
  // Finished products (welded) anywhere in the shop, listed apart from cut parts.
  int32 FinishedOnOut=0,FinishedInStorage=0,FinishedAtBayProducts=0,FinishedOnTrucks=0;
  // Whole-business glance (all accepted orders).

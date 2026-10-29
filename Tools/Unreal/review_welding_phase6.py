@@ -130,7 +130,7 @@ def tick(dt):
    if s['stage']==2 and s['advancing'] and s['work']>40 and (run==1 or s['at_work']==2):q['notes']['return_to']='run';queue_shot('Phase6_Welder%s_Welding'%('A' if run==1 else 'sAB'),(at(s,250,-430,240),at(s,-60,-40,100),55),t)
    if s['racks']>=1 and s['out']>=1:q['notes']['return_to']='run';queue_shot('Phase6_Run%d_RackOnOUT'%run,(at(s,560,-360,270),at(s,205,-20,60),55),t)
    if o['status']==2:
-    q['notes']['run%d_paid'%run]=o;q['checks']['order_%d_paid_once'%run]=o['paid']==o['quantity']*45000 and o['delivered']==o['quantity'];q['notes']['run%d_seconds'%run]=t-q['notes']['run%d_start'%run]
+    q['notes']['run%d_paid'%run]=o;q['checks']['order_%d_paid_once'%run]=o['paid']==o['quantity']*48000 and o['delivered']==o['quantity'];q['notes']['run%d_seconds'%run]=t-q['notes']['run%d_start'%run]
     action(p,'Office');action(p,'Page2');action(p,'Order'+str(oid));go('paid_shot',t)
    else:T.advance_commerce_test(p,6)
   elif stage=='paid_shot' and t-last>2.5:go('after_paid',t);shot('Phase6_Run%d_OrderPaid'%run)

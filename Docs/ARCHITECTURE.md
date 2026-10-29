@@ -41,12 +41,12 @@ Tools/                          Read-only repository checks and inventory tools
 | Buildings | Building identity, footprints, edge walls, doors and generated visuals | Modular wall/floor/door practice via Construction; enclosure rules pending |
 | Zones | Work-zone definitions, capabilities, minimum size and access | Reserved |
 | Pathing | Employee/vehicle networks, route queries, congestion, invalidation | Paved driving maps, articulated paths, shared node graph and congestion costs |
-| Employees | Company-scoped named roster, free test hiring, assignments, walking and production staff gates | [Employee foundation](Architecture/EMPLOYEES.md), [hiring](Architecture/EMPLOYEE_HIRING.md), [specific jobs](Architecture/EMPLOYEE_JOBS.md); payroll, skills and shifts remain later work |
-| Production | Recipes, operations, dependencies, dynamic work and rework | Fixed recipes, machine cycles, linked racks and assembly; see Architecture/FIRST_ORDER_LOOP.md |
+| Employees | Company-scoped named roster, free test hiring, assignments, walking and production staff gates | [Employee foundation](Architecture/EMPLOYEES.md), [hiring](Architecture/EMPLOYEE_HIRING.md), [specific jobs](Architecture/EMPLOYEE_JOBS.md); wages are paid by Economy payroll; skills and shifts remain later work |
+| Production | Recipes, operations, dependencies, dynamic work and rework | Fixed recipes, machine cycles, linked racks and assembly; see Architecture/FIRST_ORDER_LOOP.md. Welding stations: `FoundrylineWeldingStationLayout` (geometry), `FoundrylineWeldingStation{Placement,Logistics,Assembly,Validation}.cpp` (plant simulation by concern) and `FoundrylineWeldingStationVisuals.cpp` (presentation); see Planning/WELDING_WORKSTATION_PLAN.md |
 | Logistics | Freight, vehicles, receiving/shipping, staging and parking operations | Trip planning and server traffic coordinator; live fleet pending |
 | Inventory | Quantities, containers, buffers, reservations and transfers | Exact pallet quantities, reservations, racks and forklift transfers |
 | Orders | Customers' contracts, work orders, quotes and payment milestones | Fixed offers, acceptance, deadlines, manifests and delivery payment terms |
-| Economy | Cash ledger, payroll, costs, receivables/payables and financing | Company cash, purchasing/carrier fees, operating costs and delivery payments; financing deferred |
+| Economy | Cash ledger, payroll, costs, receivables/payables and financing | Company cash, purchasing/carrier fees, operating costs and delivery payments. `FFoundrylineEconomyTuning` holds every price, wage and process time of the cut-parts and welding chain; `FFoundrylinePayroll` pays wages per game hour from the employing plant's company. Financing deferred; see Planning/ECONOMY_REVIEW_WELDING.md |
 | Management | Policies, delegation, authority limits and manager decisions | Reserved |
 | Companies | Company/plant ownership, property and organization records | Server business registry, membership/invitations, exclusive plots and scoped permissions; see Architecture/BUSINESS_FOUNDATION.md |
 | Competition | Competitor economy, bidding and acquisition opportunities | Reserved |
@@ -76,6 +76,8 @@ Tools/                          Read-only repository checks and inventory tools
   headers last. Use domain-qualified includes, not private relative include paths.
 - Centimetres are the common physical unit. Snap classes never resize meshes.
 - Currency uses integer cents. Do not introduce floating-point account balances.
+- Prices, wages and process times live in `Public/Economy/FoundrylineEconomyTuning.h`; systems read them there rather
+  than repeating literals.
 - Stable definition IDs are explicit names; runtime entities use persistent GUIDs.
 - Suggested authored assets: DA_ (definition), BP_ (visual actor), WBP_ (UI),
   M_/MI_ (material/instance), SM_ (static mesh), SK_ (skeletal mesh), T_ (texture),

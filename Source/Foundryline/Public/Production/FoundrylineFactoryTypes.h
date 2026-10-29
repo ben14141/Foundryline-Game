@@ -64,6 +64,8 @@ struct FFoundrylineFactoryMachine {
  UPROPERTY(SaveGame) EFoundrylinePart NextPart=EFoundrylinePart::Bracket;
  UPROPERTY(SaveGame) int32 NextBatch=1;
  UPROPERTY(SaveGame) bool NextAuto=true;
+ // Game minutes spent loading the next sheet onto the plasma bed (economy v1).
+ UPROPERTY(SaveGame) float SheetLoad=0;
 };
 USTRUCT()
 struct FFoundrylineFactoryZone {

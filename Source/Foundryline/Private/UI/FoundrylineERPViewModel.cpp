@@ -5,6 +5,7 @@
 #include "Employees/FoundrylineEmployeeTypes.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
+#include "Economy/FoundrylinePayroll.h"
 namespace {
  int64 Add(int64 A,int64 B){if(B>0&&A>MAX_int64-B)return MAX_int64;if(B<0&&A<MIN_int64-B)return MIN_int64;return A+B;}
  int64 Sub(int64 A,int64 B){if(B>0&&A<MIN_int64+B)return MIN_int64;if(B<0&&A>MAX_int64+B)return MAX_int64;return A-B;}
@@ -108,6 +109,15 @@ else ++Out.PickupsBooked;}
  Done[int(G::AcceptOrder)]=Focus&&Out.bAssignedToBay;Done[int(G::BuySteel)]=Focus&&Out.SheetsToBuy==0;Done[int(G::StaffWork)]=Out.bWeldedOrder?Out.bWelder&&Out.bForkliftDriver:Out.bOperator&&Out.bForkliftDriver;
  Done[int(G::ProgramPlasma)]=Focus&&Out.PartsToMake==0;Done[int(G::BookFreight)]=Focus&&Out.PartsToMake+Out.PartsCutting+Out.PartsReady==0;Done[int(G::GetPaid)]=false;
  Out.Step=G::GetPaid;for(int I=0;I<int(G::Count);++I)if(!Done[I]){Out.Step=G(I);break;}
+ // Payroll runs every game hour, so idle paid people are a cost: point at the next order. A station idles with no batch and
+ // nothing on the bench; the plasma with nothing to cut; a forklift driver with no job.
+ Out.PayrollCentsPerHour=FFoundrylinePayroll::PlantCentsPerHour(S);
+ if(Out.PayrollCentsPerHour>0){
+  const bool StationIdle=S.WeldingStations.ContainsByPredicate([&](const auto& St){return !St.Stage&&(!St.Recipe||St.BatchRemaining<=0)&&S.Walkers.ContainsByPredicate([&](const auto& W){return W.Station==St.Id;});});
+  const bool PlasmaIdle=Plasma&&Plasma->Remaining<=0&&Plasma->BatchRemaining<=0&&S.Operators.ContainsByPredicate([](const auto& O){return O.Machine==1;});
+  const bool DriverIdle=S.Drivers.ContainsByPredicate([](const auto& D){return D.EmployeeId&&!D.Job;})&&!S.Jobs.Num();
+  Out.IdleWhilePaid=StationIdle?TEXT("the welding station waits"):PlasmaIdle?TEXT("the plasma waits"):DriverIdle?TEXT("the forklift waits"):TEXT("");
+ }
  const int64 SheetsCost=FMath::RoundToInt64(Out.SheetsToBuy*SheetLb*100)+2500;
  switch(Out.Step){
   case G::AcceptOrder:
@@ -124,9 +134,15 @@ else ++Out.PickupsBooked;}
    else if(Out.bWeldedOrder){Out.Title=Out.PartsCutting?FString::Printf(TEXT("Welding racks: %d left"),Out.PartsCutting):TEXT("Moving racks to the loading bay");Out.Detail=TEXT("The welder builds each rack, and the forklift takes its OUT pallet to the loading bay. Speed up time with 4x or 8x at the top.");Out.ActionLabel=TEXT("View production");Out.Action=TEXT("Page10");}
    else {Out.Title=Out.PartsCutting?FString::Printf(TEXT("Cutting parts: %d left"),Out.PartsCutting):TEXT("Moving parts to the loading bay");Out.Detail=TEXT("The operator cuts the parts and the forklift stacks them at the loading bay. Speed up time with 4x or 8x at the top.");Out.ActionLabel=TEXT("View production");Out.Action=TEXT("Page10");}
    break;
-  default:Out.Title=TEXT("Truck is on its way - payment follows");Out.Detail=FString::Printf(TEXT("%s: %s once the truck delivers. Nothing else to do for this order; try 8x speed."),*Out.OrderCustomer,FFoundrylineCommerceCatalog::PaymentName(Focus->Payment));Out.ActionLabel=TEXT("Track shipment");Out.Action=TEXT("Page4");break;
+  default:
+   // Nothing pending on the focused order while paid people sit idle: the next step is another order.
+   if(!Out.IdleWhilePaid.IsEmpty()&&(!Focus||Out.PartsToMake+Out.PartsCutting+Out.PartsReady==0)){Out.Title=TEXT("Accept another order");Out.Detail=FString::Printf(TEXT("Payroll %s/h is running while %s. Overlap orders so your people keep working."),*FFoundrylineCommerceCatalog::Money(Out.PayrollCentsPerHour),*Out.IdleWhilePaid);Out.ActionLabel=TEXT("Find an order");Out.Action=TEXT("Page0");break;}
+   Out.Title=TEXT("Truck is on its way - payment follows");Out.Detail=FString::Printf(TEXT("%s: %s once the truck delivers. Nothing else to do for this order; try 8x speed."),*Out.OrderCustomer,FFoundrylineCommerceCatalog::PaymentName(Focus->Payment));Out.ActionLabel=TEXT("Track shipment");Out.Action=TEXT("Page4");break;
  }
  // Everything missing right now, in plain language, each with the screen that fixes it.
+ // When the step already points at Orders, the payroll reason leads its detail; otherwise it is listed as a problem.
+ if(!Out.IdleWhilePaid.IsEmpty()&&Out.Action==TEXT("Page0")&&!Out.Detail.StartsWith(TEXT("Payroll")))Out.Detail=FString::Printf(TEXT("Payroll %s/h is running while %s. "),*FFoundrylineCommerceCatalog::Money(Out.PayrollCentsPerHour),*Out.IdleWhilePaid)+Out.Detail;
+ if(!Out.IdleWhilePaid.IsEmpty()&&Out.Action!=TEXT("Page0"))Need(FString::Printf(TEXT("Payroll %s/h is running while %s. Accept another order."),*FFoundrylineCommerceCatalog::Money(Out.PayrollCentsPerHour),*Out.IdleWhilePaid),TEXT("Page0"));
  if(!Out.bOperator&&!Out.bWeldedOrder)Need(TEXT("No one is running the plasma cutter"),TEXT("Page7"));
  if(Out.bWeldedOrder&&!Out.bWelder)Need(TEXT("No welder at the welding station"),TEXT("Page7"));
  // A station held up (missing parts, OUT full, no welder at work) says why, in its own words.

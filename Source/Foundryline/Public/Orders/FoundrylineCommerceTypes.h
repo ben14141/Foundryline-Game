@@ -70,6 +70,13 @@ USTRUCT() struct FFoundrylineCommerceState {
  UPROPERTY(SaveGame) int64 EarnedRevenueCents=0;
  UPROPERTY(SaveGame) int64 CostCents=0;
  UPROPERTY(SaveGame) double ExpenseFraction=0;
+ // Wages owed but not yet a whole cent and the wages paid so far (FFoundrylinePayroll), and equipment still being
+ // installed (game minutes left; times in FFoundrylineEconomyTuning).
+ UPROPERTY(SaveGame) double WageFraction=0;
+ UPROPERTY(SaveGame) int64 WagesPaidCents=0;
+ UPROPERTY(SaveGame) float BrakeInstallMinutes=0;
+ UPROPERTY(SaveGame) float ForkliftInstallMinutes=0;
+ UPROPERTY(SaveGame) int32 ForkliftInstallDriver=0;
  UPROPERTY(SaveGame) bool BrakeOwned=false;
  UPROPERTY(SaveGame) int32 PickupOrder=0;
  UPROPERTY(SaveGame) int32 ActiveBooking=0;
@@ -108,6 +115,5 @@ struct FOUNDRYLINE_API FFoundrylineCommerceCatalog {
  static bool CarrierFits(int32 Vehicle,uint8 Part){return ItemLengthCm(Part)<=Carrier(Vehicle).DeckCm;}
  // "4 sheets of steel" / "6 frame sections" for an inbound delivery.
  static FString InboundLabel(const FFoundrylineFreightBooking& Booking);
- static constexpr int64 SupplierFreightCents=2500;
 
 };

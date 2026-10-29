@@ -1,24 +1,18 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "FoundrylineWeldingStationTestHelpers.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "SaveSystem/FoundrylineFactorySave.h"
 #include "Kismet/GameplayStatics.h"
 namespace WeldingTwoWelderTest {
 using Layout=FFoundrylineWeldingStationLayout;using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using Role=EFoundrylineEmployeeRole;
-// Same reorganised cut-parts starter as the Phase 1-3 tests, with two complete kits already in the station bins.
+// The shared reorganised starter with the station placed and two complete kits in its stock.
 bool TwoWelderStation(FFoundrylineFactorySimulation& M,FString& E){
- M.SeedCutPartsShop(true);M.State.Commerce.CashCents=1000000;
- if(!(M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,2170,20},304.8f,0,E)&&M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E)
-  &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1370,1450,20},{-1370,1450,20},200,0,E)&&M.AddWeldingStation({-1768.02,1823.12,20},0,false,E)))return false;
- const auto& S=M.State.WeldingStations[0];
- for(auto [P,Q,Lb]:{TTuple<Part,int,float>{Part::MountingPlate,4,2},{Part::Bracket,8,5},{Part::FrameSection,12,16},{Part::LightKit,4,4.5f}}){
-  FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Q;A.Place=Place::Buffer;A.Owner=S.Id;A.Position=Layout::BinPoint(S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}
- return true;
+ if(!FoundrylineWeldingTestHelpers::StarterStation(M,E))return false;FoundrylineWeldingTestHelpers::KitStock(M,M.State.WeldingStations[0],false);return true;
 }
 int Hire(FFoundrylineFactorySimulation& M,FString& E){return M.HireEmployee(Role::Welder,FGuid::NewGuid(),E)?M.State.UnassignedEmployees.Last().Id:0;}
-// Assembly-only checks: no forklift route collects from OUT (Phase 5 covers collection), so finished racks stay there.
-void LeaveOut(FFoundrylineFactorySimulation& M){for(const auto& S:M.State.WeldingStations)for(auto& R:M.State.Routes)R.Sources.Remove(S.Id);}
+using FoundrylineWeldingTestHelpers::LeaveOut;
 int OutCount(const FFoundrylineFactorySimulation& M,int Station){int V=0;for(const auto& A:M.State.Pallets)if(A.Owner==Station&&A.Place==Place::StationOut)V+=A.Quantity;return V;}
 template<class F> bool StepUntil(FFoundrylineFactorySimulation& M,F Done,int Steps=20000){for(int I=0;I<Steps;++I){if(Done())return true;M.Step(.1f);}return Done();}
 // Work done per second of plant time over a short stretch of welding.
