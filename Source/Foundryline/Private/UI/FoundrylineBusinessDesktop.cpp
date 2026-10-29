@@ -100,7 +100,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
  auto PageHeader=[&](const FString& Title,const FString& Sub){Text(Title,CX,CY,28,true,Ink,CW);Text(Sub,CX,CY+41,15,false,Muted,CW);};
  auto PartName=[](int32 Part){return FString(FFoundrylineFactoryCatalog::Part(EFoundrylinePart(Part)).Name);};
  auto Terms=[](EFoundrylinePayment P){return FString(P==EFoundrylinePayment::Upfront?TEXT("Pays when you accept"):P==EFoundrylinePayment::PerDelivery?TEXT("Pays for each delivery"):TEXT("Pays when all parts arrive"));};
- auto PlaceName=[](EFoundrylinePalletPlace P){const TCHAR* N[]={TEXT("Receiving area"),TEXT("Storage rack"),TEXT("Plasma input"),TEXT("Machine output"),TEXT("Buffer"),TEXT("On a forklift"),TEXT("Loading bay"),TEXT("Delivery truck"),TEXT("Pickup truck"),TEXT("On the road")};return FString(N[FMath::Clamp(int(P),0,9)]);};
+ auto PlaceName=[](EFoundrylinePalletPlace P){const TCHAR* N[]={TEXT("Receiving area"),TEXT("Storage rack"),TEXT("Plasma input"),TEXT("Machine output"),TEXT("Buffer"),TEXT("On a forklift"),TEXT("Loading bay"),TEXT("Delivery truck"),TEXT("Pickup truck"),TEXT("On the road"),TEXT("Welding station IN"),TEXT("Welding station OUT")};return FString(N[FMath::Clamp(int(P),0,11)]);};
  auto BookingStatus=[&](const FFoundrylineFreightBooking& B){const TCHAR* N[]={TEXT("Booked"),TEXT("Truck on the way"),TEXT("Waiting for the bay"),B.Inbound?TEXT("Unloading"):TEXT("Loading"),TEXT("Leaving"),TEXT("On the road"),TEXT("Delivered")};return FString(N[FMath::Clamp(int(B.Status),0,6)]);};
  const double SheetLb=FFoundrylineSteelSheet::PoundsEach();
  const auto* Plasma=S.Machines.FindByPredicate([](const auto& M){return M.Id==1;});

@@ -138,8 +138,12 @@ bool FFoundrylineFactorySimulation::OutCollected(const FFoundrylineWeldingStatio
 // Where a finished product on OUT goes when no accepted order is collecting it: a finished-goods rack slot already holding
 // that product with room, else an empty slot that is not a machine's supply rack.
 int32 FFoundrylineFactorySimulation::FinishedGoodsSlot(Part P,int32 Count)const{
- for(const auto& S:State.Slots)if(S.Part==P&&!S.bInputSupply&&Available(P,Place::Rack,S.Id)+Incoming(P,S.Id)+Count<=Catalog::Part(P).Capacity&&!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==Place::Rack&&A.Owner==S.Id&&A.Part!=P;}))return S.Id;
- for(const auto& S:State.Slots)if(!S.bInputSupply&&!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==Place::Rack&&A.Owner==S.Id;})&&!State.Jobs.ContainsByPredicate([&](const auto& J){return J.Destination==S.Id;}))return S.Id;
+ // A stack of finished racks needs the headroom up to the next shelf in the same rack bay (a 130 cm shelf pitch takes 4 racks,
+ // the top level any number); racks only, other products have no stack height here.
+ auto Headroom=[&](const FFoundrylineFactorySlot& S){double Room=TNumericLimits<double>::Max();for(const auto& O:State.Slots)if(O.Id!=S.Id&&FVector::Dist2D(O.Position,S.Position)<60&&O.Position.Z>S.Position.Z+1)Room=FMath::Min(Room,O.Position.Z-S.Position.Z-10);return Room;};
+ auto Fits=[&](const FFoundrylineFactorySlot& S,int32 Total){return P!=Part::HeadacheRack||Layout::PalletTopCm+Total*Layout::RackSizeCm().Z<=Headroom(S);};
+ for(const auto& S:State.Slots){const int Have=Available(P,Place::Rack,S.Id)+Incoming(P,S.Id);if(S.Part==P&&!S.bInputSupply&&Have+Count<=Catalog::Part(P).Capacity&&Fits(S,Have+Count)&&!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==Place::Rack&&A.Owner==S.Id&&A.Part!=P;}))return S.Id;}
+ for(const auto& S:State.Slots)if(!S.bInputSupply&&Fits(S,Count)&&!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==Place::Rack&&A.Owner==S.Id;})&&!State.Jobs.ContainsByPredicate([&](const auto& J){return J.Destination==S.Id;}))return S.Id;
  return 0;
 }
 // IN is a transfer port: one forklift and one single-type pallet at a time, emptied into the bins before the next category.

@@ -89,6 +89,8 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  TestTrue(TEXT("Stored as a full pallet of five and a pallet of one, in rack slots"),Stacks==TArray<int>({1,Layout::RacksPerOutPallet}));
  TestEqual(TEXT("Eight units made in all"),M.State.WeldingStations[0].UnitsCompleted,Quantity+Layout::RacksPerOutPallet+1);
  TestTrue(TEXT("Stored racks validate: ")+E,M.Valid(E));
+ for(const auto& P:M.State.Pallets)if(P.Part==Part::HeadacheRack&&P.Place==Place::Rack)if(const auto* Slot=M.State.Slots.FindByPredicate([&](const auto& V){return V.Id==P.Owner;})){double Room=1e9;for(const auto& O:M.State.Slots)if(O.Id!=Slot->Id&&FVector::Dist2D(O.Position,Slot->Position)<60&&O.Position.Z>Slot->Position.Z+1)Room=FMath::Min(Room,O.Position.Z-Slot->Position.Z-10);
+  TestTrue(FString::Printf(TEXT("A stored stack of %d fits under the shelf above it"),P.Quantity),Layout::PalletTopCm+P.Quantity*Layout::RackSizeCm().Z<=Room);}
  Guide=FFoundrylineERPViewModel::Guide(M.State);TestEqual(TEXT("Stock lists the stored racks as finished products"),Guide.FinishedInStorage,Layout::RacksPerOutPallet+1);
  // Bracket and plate sales keep working alongside: Foundryline.Commerce.TwoRecipeRepeatSales.
  return true;
