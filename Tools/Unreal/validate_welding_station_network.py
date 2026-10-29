@@ -15,13 +15,14 @@ def make_guid(text):
  for n,i in zip('abcd',range(0,32,8)):g.set_editor_property(n,int(text.replace('-','')[i:i+8],16))
  return g
 def host():return next(p for p in players() if p.has_authority())
+def guests():return [p for p in players() if not p.has_authority()]
 def finish():
  q['completed']=True;out.write_text(json.dumps(q,indent=2));unreal.unregister_slate_post_tick_callback(handle);unreal.SystemLibrary.execute_console_command(worlds()[0],'QUIT_EDITOR')
 def tick(dt):
  global stage,last
  try:
   t=time.monotonic()-start
-  if t>420:raise RuntimeError('Welding network timeout at stage '+str(stage))
+  if t>520:raise RuntimeError('Welding network timeout at stage '+str(stage))
   if stage==0 and t>3:stage=1;last=t;unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_request_begin_play()
   elif stage==1 and t-last>12:
    ps=players();q['checks']['four_players']=len(ps)==4;c=next(p for p in ps if not p.has_authority())
@@ -67,35 +68,55 @@ def tick(dt):
    c=next(p for p in players() if not p.has_authority());T.queue_welding_station(c,CENTER,0,False,False,True,s[0]['id'] if s else 0);stage=10;last=t
   elif stage==10 and t-last>2:
    q['checks']['station_with_booked_parts_not_removed']=all(len(x['stations'])==1 for x in reports())
-   # Phase 3: two kits in the bins (host fixture); a client hires a welder and gives them the station.
+   # Phases 3-4: two kits in the bins (host fixture); a client hires three welders.
    sid=reports()[0]['stations'][0]['id'];q['notes']['sid']=sid;T.setup_welding_assembly_review(host(),sid)
-   c=next(p for p in players() if not p.has_authority());T.queue_employee_hire(c,1,make_guid('484952450000000300000002'+format(1,'08x')),make_guid(staff(c)['plant']));stage=11;last=t
+   c=guests();plant=make_guid(staff(c[0])['plant'])
+   for n in range(3):T.queue_employee_hire(c[0],1,make_guid('484952450000000300000002'+format(n+1,'08x')),plant)
+   stage=11;last=t
   elif stage==11 and t-last>3:
-   c=next(p for p in players() if not p.has_authority());people=[e for e in staff(c)['employees'] if e['role']==3]
-   q['checks']['client_hired_welder']=bool(people)
-   if people:q['notes']['welder']=max(people,key=lambda e:e['id'])['id'];T.queue_employee_assignment(c,q['notes']['welder'],1,q['notes']['sid'],make_guid(staff(c)['plant']))
+   c=guests();plant=make_guid(staff(c[0])['plant']);people=sorted(e['id'] for e in staff(c[0])['employees'] if e['role']==3)
+   q['checks']['client_hired_welders']=len(people)>=3
+   if len(people)<3:raise RuntimeError('Expected three hired welders: '+json.dumps(people))
+   a,b1,b2=people[-3:];q['notes'].update(welder_a=a,racers=[b1,b2])
+   # Welder A from one client; then two clients race for Welder B in the same tick.
+   T.queue_employee_assignment(c[0],a,1,q['notes']['sid'],plant,0);T.queue_employee_assignment(c[0],b1,1,q['notes']['sid'],plant,1);T.queue_employee_assignment(c[1],b2,1,q['notes']['sid'],plant,1)
    stage=12;last=t
-  elif stage==12:
-   # Fast-forward only until the host is welding (90 s at 1x), then let every peer's snapshot catch up.
+  elif stage==12 and t-last>3:
+   s=[x['stations'][0] for x in reports() if x['stations']];w=[x['welders'] for x in s];a=q['notes']['welder_a'];b1,b2=q['notes']['racers']
+   q['notes']['slots']=w;winner=w[0][1]
+   q['checks']['client_assigned_welder_a_on_every_peer']=all(x[0]==a for x in w)
+   q['checks']['slot_b_race_has_one_winner_on_every_peer']=winner in (b1,b2) and all(x==w[0] for x in w)
+   loser=b2 if winner==b1 else b1;q['notes']['race']={'winner':winner,'loser':loser}
+   q['checks']['race_loser_stays_unassigned_everywhere']=all(any(e['id']==loser and e['assignment']==0 for e in staff(p)['employees']) for p in players())
+   stage=13;last=t
+  elif stage==13:
    s=[x['stations'][0] for x in reports() if x['stations']]
-   if s and s[0]['stage']<2:T.advance_factory_test(host(),5)
-   if t-last>3 and all(x['stage']==2 for x in s):
-    q['checks']['client_assigned_welder_on_every_peer']=all(any(e['id']==q['notes'].get('welder') and e['assignment']==q['notes']['sid'] and e['role']==1 for e in staff(p)['employees']) for p in players())
-    q['checks']['every_peer_sees_the_unit_welding']=len(s)==len(players()) and all(x['stage']==2 for x in s)
-    q['notes']['welding']=s[0];c=next(p for p in players() if not p.has_authority());T.queue_factory_action(c,'Run');stage=13;last=t
-   elif t-last>120:raise RuntimeError('Unit never reached welding on every peer: '+json.dumps(s[:2]))
-  elif stage==13 and t-last>2:
-   q['notes']['paused_a']=[x['stations'][0]['work'] for x in reports()];stage=14;last=t
-  elif stage==14 and t-last>3:
+   if s and (s[0]['stage']<2 or s[0]['at_work']<2):T.advance_factory_test(host(),5)
+   if t-last>3 and all(x['stage']==2 and x['at_work']==2 for x in s):
+    q['notes']['both_welding']=s[0];q['checks']['every_peer_sees_both_welders_at_170']=len(s)==len(players()) and all(x['rate']==1.7 and x['advancing'] for x in s)
+    q['checks']['every_peer_shows_two_guns_in_hand']=all(x['guns_in_hand']==2 for x in s);q['notes']['guns']=[(x['guns_in_hand'],x['sparks']) for x in s]
+    q['checks']['late_join_2_requested']=T.request_late_join();stage=14;last=t
+   elif t-last>120:raise RuntimeError('Both welders never welded on every peer: '+json.dumps(s[:2]))
+  elif stage==14 and t-last>12:
+   ps=players();s=[x['stations'][0] for x in reports() if x['stations']];q['checks']['six_peers']=len(ps)==6
+   q['checks']['late_joiner_sees_both_welders_and_weld_points']=len(s)==len(ps) and all(x['welders']==s[0]['welders'] and x['at_work']==2 and x['guns_in_hand']==2 for x in s);q['notes']['late']=[(x['at_work'],x['guns_in_hand'],x['sparks']) for x in s]
+   q['notes']['work_before_leave']=s[0]['work'];c=guests();T.queue_employee_assignment(c[1],q['notes']['race']['winner'],3,0,make_guid(staff(c[1])['plant']));stage=15;last=t
+  elif stage==15 and t-last>3:
+   s=[x['stations'][0] for x in reports() if x['stations']];q['notes']['after_leave']=s[0]
+   q['checks']['welder_b_leaves_progress_kept_rate_100_everywhere']=all(x['welders'][1]==0 and x['stage']==2 and x['work']>=q['notes']['work_before_leave']-.01 and x['rate']==1.0 and x['guns_in_hand']==1 for x in s)
+   c=guests();T.queue_factory_action(c[0],'Run');stage=16;last=t
+  elif stage==16 and t-last>2:
+   q['notes']['paused_a']=[x['stations'][0]['work'] for x in reports()];stage=17;last=t
+  elif stage==17 and t-last>3:
    b=[x['stations'][0]['work'] for x in reports()];q['checks']['client_pause_keeps_progress_everywhere']=b==q['notes']['paused_a'] and all(x['stations'][0]['stage']==2 for x in reports())
-   T.queue_factory_action(next(p for p in players() if not p.has_authority()),'Run');stage=15;last=t
-  elif stage==15:
+   T.queue_factory_action(guests()[0],'Run');stage=18;last=t
+  elif stage==18:
    if t-last>2:T.advance_factory_test(host(),40)
    s=[x['stations'][0] for x in reports() if x['stations']]
    if t-last>4 and all(x['out']==1 and x['stage']==0 for x in s):
-    q['checks']['one_rack_on_out_on_every_peer']=len(s)==len(players()) and all(x['out']==1 and x['units']==1 for x in s);q['notes']['finished']=s[0];stage=16;last=t
+    q['checks']['one_rack_on_out_on_every_peer']=len(s)==len(players()) and all(x['out']==1 and x['units']==1 for x in s);q['notes']['finished']=s[0];stage=19;last=t
    elif t-last>150:raise RuntimeError('Unit never finished on every peer: '+json.dumps(s[:2]))
-  elif stage==16:
+  elif stage==19:
    T.advance_factory_test(host(),40)
    if t-last>3:s=[x['stations'][0] for x in reports()];q['checks']['finished_once_no_second_unit_while_out_full']=all(x['out']==1 and x['units']==1 and x['stage']==0 for x in s);finish();return
 

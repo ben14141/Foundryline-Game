@@ -33,6 +33,8 @@ struct FFoundrylineFactoryState;
 // A projection, not a second employee entity. Driver/welder IDs come from their existing records.
 struct FFoundrylineEmployeeRecord {
  int32 Id=0,Assignment=0,VehicleId=0;
+ // Welding-station slot (0 Welder A, 1 Welder B) when Assignment is a station.
+ int32 StationSlot=0;
  EFoundrylineEmployeeRole Role=EFoundrylineEmployeeRole::Operator;
  FGuid CompanyId,PlantId;
  FString Key,Label,CurrentJob;

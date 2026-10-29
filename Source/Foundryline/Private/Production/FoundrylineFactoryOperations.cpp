@@ -121,7 +121,7 @@ void FFoundrylineFactorySimulation::Dispatch(){
  for(auto& W:State.Walkers){const auto* Z=State.Zones.FindByPredicate([&](const auto& A){return A.Id==W.Zone;});
   // A station welder stays at Welder A's work point while the station has a unit or a batch to make.
   const auto* St=W.Station?State.WeldingStations.FindByPredicate([&](const auto& A){return A.Id==W.Station;}):nullptr;const bool AtStation=St&&StationNeedsWelder(*St);
-  const FVector Goal=Z&&Z->Ordered?FFoundrylineWorkZoneLayout::WorkPoint(*Z):AtStation?FFoundrylineWeldingStationLayout::WorkPoint(*St,0):W.Home;
+  const FVector Goal=Z&&Z->Ordered?FFoundrylineWorkZoneLayout::WorkPoint(*Z):AtStation?FFoundrylineWeldingStationLayout::WorkPoint(*St,W.StationSide):W.Home;
   if((Z||St)&&!W.Path.IsEmpty()&&!W.Path.Last().Equals(Goal,1)){W.Path.Reset();W.Distance=0;W.Retry=0;}
   if(!W.Path.IsEmpty()||W.Retry>0)continue;if((Z&&Z->Ordered||AtStation)&&W.Position.Equals(W.Home,1)&&State.Walkers.ContainsByPredicate([&](const auto& Other){return Other.Id!=W.Id&&!Other.Zone&&!Other.Station&&!Other.Position.Equals(Other.Home,1);}))continue;
   W.Path=W.Position.Equals(Goal,1)?TArray<FVector>{Goal}:Path(W.Position,Goal,true);W.Distance=0;W.Retry=1;

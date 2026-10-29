@@ -30,7 +30,7 @@ bool FWeldingStationAssembly::RunTest(const FString&){using namespace WeldingAss
  FFoundrylineAssemblyRecipe R;FFoundrylineFactoryCatalog::Recipe(1,R);const float KitLb=2*2+4*5+6*16+2*4.5f;
  M.State.Running=true;M.State.Speed=8;const float Mass=M.SteelMass();
  for(int I=0;I<200;++I)M.Step(.1f);TestEqual(TEXT("No unit starts without a welder"),Station(M).Stage,0);
- TestTrue(TEXT("Status asks for Welder A: ")+M.WeldingStationStatus(Station(M)),M.WeldingStationStatus(Station(M)).Contains(TEXT("assign Welder A")));
+ TestTrue(TEXT("Status asks for a welder: ")+M.WeldingStationStatus(Station(M)),M.WeldingStationStatus(Station(M)).Contains(TEXT("assign a welder")));
 
  // Hire a welder and give them the station from the office computer's assignment command.
  if(!TestTrue(TEXT("Hire a welder: ")+E,M.HireEmployee(Role::Welder,FGuid::NewGuid(),E)))return false;
@@ -105,7 +105,7 @@ bool FWeldingStationAssembly::RunTest(const FString&){using namespace WeldingAss
  {auto T=M;T.State.WeldingStations[0].ReservedLb=50;TestFalse(TEXT("Empty bench holding mass rejected"),T.Valid(E));}
  {auto T=M;if(auto* V=T.State.Walkers.FindByPredicate([&](const auto& X){return X.Id==Welder;})){V->Station=999999;TestFalse(TEXT("Welder at an unknown station rejected"),T.Valid(E));}}
  // Schema 11 plants load with an empty bench.
- {auto T=M;T.State.Version=11;T.State.WeldingStations[0].Reserved.Reset();T.MigrateWeldingStations();TestEqual(TEXT("Schema 11 migrates to 12"),T.State.Version,12);TestTrue(TEXT("Migrated schema 11 plant validates: ")+E,T.Valid(E));}
+ {auto T=M;T.State.Version=11;T.State.WeldingStations[0].Reserved.Reset();T.MigrateWeldingStations();TestEqual(TEXT("Schema 11 migrates to 13"),T.State.Version,13);TestTrue(TEXT("Migrated schema 11 plant validates: ")+E,T.Valid(E));}
  return true;
 }
 #endif

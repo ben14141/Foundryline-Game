@@ -24,6 +24,8 @@ bool FFoundrylineFactoryCatalog::Recipe(int32 Id,FFoundrylineAssemblyRecipe& Out
  if(Id!=1)return false;
  Out.Id=1;Out.Name=TEXT("Headache rack");Out.Output=EFoundrylinePart::HeadacheRack;Out.Bill.Init(0,PartCount);
  Out.Bill[int32(EFoundrylinePart::MountingPlate)]=2;Out.Bill[int32(EFoundrylinePart::Bracket)]=4;Out.Bill[int32(EFoundrylinePart::FrameSection)]=6;Out.Bill[int32(EFoundrylinePart::LightKit)]=2;
+ // Two welders share one rack: 170% together, less than double because they work around each other at one fixture.
+ Out.TwoWelderRate=1.7f;
  return true;
 }
 
