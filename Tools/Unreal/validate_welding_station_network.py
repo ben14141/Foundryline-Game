@@ -1,4 +1,5 @@
-"""Four-player listen-server welding-station placement check, then a fifth late joiner. No save slots are written."""
+"""Four-player listen-server welding-station check (placement, supplies, one-welder assembly), then a fifth late joiner.
+No save slots are written."""
 import unreal,time,json,traceback
 from pathlib import Path
 unreal.EditorPythonScripting.set_keep_python_script_alive(True)
@@ -8,13 +9,19 @@ CENTER=unreal.Vector(-1806.12,1823.12,20)
 def worlds():return unreal.EditorLevelLibrary.get_pie_worlds(False)
 def players():return [a for w in worlds() for a in unreal.GameplayStatics.get_all_actors_of_class(w,unreal.PlayerController) if a.is_local_controller()]
 def reports():return [json.loads(T.welding_station_report(p)) for p in players()]
+def staff(p):return json.loads(T.employee_report(p))
+def make_guid(text):
+ g=unreal.Guid()
+ for n,i in zip('abcd',range(0,32,8)):g.set_editor_property(n,int(text.replace('-','')[i:i+8],16))
+ return g
+def host():return next(p for p in players() if p.has_authority())
 def finish():
  q['completed']=True;out.write_text(json.dumps(q,indent=2));unreal.unregister_slate_post_tick_callback(handle);unreal.SystemLibrary.execute_console_command(worlds()[0],'QUIT_EDITOR')
 def tick(dt):
  global stage,last
  try:
   t=time.monotonic()-start
-  if t>220:raise RuntimeError('Welding network timeout at stage '+str(stage))
+  if t>420:raise RuntimeError('Welding network timeout at stage '+str(stage))
   if stage==0 and t>3:stage=1;last=t;unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_request_begin_play()
   elif stage==1 and t-last>12:
    ps=players();q['checks']['four_players']=len(ps)==4;c=next(p for p in ps if not p.has_authority())
@@ -59,7 +66,38 @@ def tick(dt):
    q['checks']['member_client_sees_booked_frames']=len(s)>1 and all(x['bins']['14'][1]==12 for x in s[1:])
    c=next(p for p in players() if not p.has_authority());T.queue_welding_station(c,CENTER,0,False,False,True,s[0]['id'] if s else 0);stage=10;last=t
   elif stage==10 and t-last>2:
-   q['checks']['station_with_booked_parts_not_removed']=all(len(x['stations'])==1 for x in reports());finish();return
+   q['checks']['station_with_booked_parts_not_removed']=all(len(x['stations'])==1 for x in reports())
+   # Phase 3: two kits in the bins (host fixture); a client hires a welder and gives them the station.
+   sid=reports()[0]['stations'][0]['id'];q['notes']['sid']=sid;T.setup_welding_assembly_review(host(),sid)
+   c=next(p for p in players() if not p.has_authority());T.queue_employee_hire(c,1,make_guid('484952450000000300000002'+format(1,'08x')),make_guid(staff(c)['plant']));stage=11;last=t
+  elif stage==11 and t-last>3:
+   c=next(p for p in players() if not p.has_authority());people=[e for e in staff(c)['employees'] if e['role']==3]
+   q['checks']['client_hired_welder']=bool(people)
+   if people:q['notes']['welder']=max(people,key=lambda e:e['id'])['id'];T.queue_employee_assignment(c,q['notes']['welder'],1,q['notes']['sid'],make_guid(staff(c)['plant']))
+   stage=12;last=t
+  elif stage==12:
+   # Fast-forward only until the host is welding (90 s at 1x), then let every peer's snapshot catch up.
+   s=[x['stations'][0] for x in reports() if x['stations']]
+   if s and s[0]['stage']<2:T.advance_factory_test(host(),5)
+   if t-last>3 and all(x['stage']==2 for x in s):
+    q['checks']['client_assigned_welder_on_every_peer']=all(any(e['id']==q['notes'].get('welder') and e['assignment']==q['notes']['sid'] and e['role']==1 for e in staff(p)['employees']) for p in players())
+    q['checks']['every_peer_sees_the_unit_welding']=len(s)==len(players()) and all(x['stage']==2 for x in s)
+    q['notes']['welding']=s[0];c=next(p for p in players() if not p.has_authority());T.queue_factory_action(c,'Run');stage=13;last=t
+   elif t-last>120:raise RuntimeError('Unit never reached welding on every peer: '+json.dumps(s[:2]))
+  elif stage==13 and t-last>2:
+   q['notes']['paused_a']=[x['stations'][0]['work'] for x in reports()];stage=14;last=t
+  elif stage==14 and t-last>3:
+   b=[x['stations'][0]['work'] for x in reports()];q['checks']['client_pause_keeps_progress_everywhere']=b==q['notes']['paused_a'] and all(x['stations'][0]['stage']==2 for x in reports())
+   T.queue_factory_action(next(p for p in players() if not p.has_authority()),'Run');stage=15;last=t
+  elif stage==15:
+   if t-last>2:T.advance_factory_test(host(),40)
+   s=[x['stations'][0] for x in reports() if x['stations']]
+   if t-last>4 and all(x['out']==1 and x['stage']==0 for x in s):
+    q['checks']['one_rack_on_out_on_every_peer']=len(s)==len(players()) and all(x['out']==1 and x['units']==1 for x in s);q['notes']['finished']=s[0];stage=16;last=t
+   elif t-last>150:raise RuntimeError('Unit never finished on every peer: '+json.dumps(s[:2]))
+  elif stage==16:
+   T.advance_factory_test(host(),40)
+   if t-last>3:s=[x['stations'][0] for x in reports()];q['checks']['finished_once_no_second_unit_while_out_full']=all(x['out']==1 and x['units']==1 and x['stage']==0 for x in s);finish();return
 
   q['stage']=stage;out.write_text(json.dumps(q,indent=2))
  except Exception:q['errors'].append(traceback.format_exc());finish()

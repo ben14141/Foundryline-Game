@@ -108,7 +108,9 @@ bool UFoundrylineNetworkTestTools::SetupWeldingAssemblyReview(APlayerController*
  auto* PC=Cast<AFoundrylinePlayerController>(Host);if(!PC||!PC->HasAuthority()||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;auto* Plant=PC->FactoryPlant();if(!Plant)return false;
  auto& M=Plant->Model;const auto* S=M.State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==StationId;});if(!S)return false;
  for(auto [P,Q,Lb]:{TTuple<EFoundrylinePart,int,float>{EFoundrylinePart::MountingPlate,4,2},{EFoundrylinePart::Bracket,8,5},{EFoundrylinePart::FrameSection,12,16},{EFoundrylinePart::LightKit,4,4.5f}}){
-  FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Q;A.Place=EFoundrylinePalletPlace::Buffer;A.Owner=StationId;A.Position=FFoundrylineWeldingStationLayout::BinPoint(*S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}
+  // Top up only what the bins can still take, counting deliveries already booked for them.
+  const int Room=FMath::Min(Q,FFoundrylineWeldingStationLayout::BinCapacity(P)-M.StationStock(*S,P));if(Room<=0)continue;
+  FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Room;A.Place=EFoundrylinePalletPlace::Buffer;A.Owner=StationId;A.Position=FFoundrylineWeldingStationLayout::BinPoint(*S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}
  M.State.Running=true;++M.State.Revision;PC->FactoryStation=StationId;return true;
 #else
  return false;
