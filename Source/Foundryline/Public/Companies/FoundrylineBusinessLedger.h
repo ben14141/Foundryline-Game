@@ -65,6 +65,8 @@ struct FOUNDRYLINE_API FFoundrylineBusinessLedger {
  bool Invite(const FString& Owner,const FString& Invitee,FString& Error);
  bool Accept(const FString& Account,FGuid Company,FString& Error);
  bool RemoveMember(const FString& Owner,const FString& Account,FString& Error);
+ // Anonymous session identities never reconnect, so a departing non-owner's membership is dropped.
+ bool ForgetSession(const FString& Account);
  bool AdjustBalance(FGuid Company,int64 Delta,FString& Error);
  bool Valid(FString& Error)const;
  bool Restore(const FFoundrylineBusinessState& Snapshot,FString& Error);

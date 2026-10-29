@@ -94,7 +94,7 @@ public:
  UFUNCTION(Server,Reliable,BlueprintCallable,Category="Material Handling") void ServerMaterialCommand(AFoundrylineMaterialHandlingCell* Cell,uint8 Action);
  UFUNCTION(Server,Unreliable,BlueprintCallable,Category="Material Handling") void ServerMaterialDrive(AFoundrylineMaterialHandlingCell* Cell,float Throttle,float Steering,float Lift);
  bool MaterialForward=false,MaterialReverse=false,MaterialLeft=false,MaterialRight=false,MaterialUp=false,MaterialDown=false;
- float MaterialInputClock=0;
+ float MaterialInputClock=0,MaterialClaimClock=0;
  void ToggleFreightDrive();
  void TickFreightDrive(float Dt);
  bool HandleFreightInput(const FInputKeyEventArgs& Params);
@@ -102,7 +102,7 @@ public:
  UFUNCTION(Server,Reliable,BlueprintCallable,Category="Logistics") void ServerFreightCommand(AFoundrylineFreightRig* Rig,uint8 Action);
  UFUNCTION(Server,Unreliable,BlueprintCallable,Category="Logistics") void ServerFreightDrive(AFoundrylineFreightRig* Rig,float Throttle,float Steering);
  bool FreightForward=false,FreightReverse=false,FreightLeft=false,FreightRight=false;
- float FreightInputClock=0;
+ float FreightInputClock=0,FreightClaimClock=0;
 
 	virtual void PlayerTick(float DeltaSeconds) override;
 	virtual bool InputKey(const FInputKeyEventArgs& Params) override;
@@ -176,6 +176,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 	virtual void SetupInputComponent() override;
 
 private:

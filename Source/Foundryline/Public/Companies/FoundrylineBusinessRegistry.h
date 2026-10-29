@@ -29,6 +29,8 @@ public:
  static AFoundrylineBusinessRegistry* Find(const UWorld* World);
  virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out)const override;
  bool RegisterPlayer(APlayerController* Player);
+ // Logout: release vehicle claims and drop the departing session before the directory refresh.
+ void UnregisterPlayer(APlayerController* Player);
  // A future authentication adapter calls this before default enrolment. Never pass a client claim.
  bool RegisterVerifiedAccount(APlayerController* Player,const FString& VerifiedAccount,FString& Error);
  void RefreshDirectory();

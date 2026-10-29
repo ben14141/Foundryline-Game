@@ -38,6 +38,13 @@ void AFoundrylinePlayerController::BeginPlay()
 	}
 }
 
+void AFoundrylinePlayerController::EndPlay(const EEndPlayReason::Type Reason)
+{
+ // Logout destroys only the possessed pawn; also remove the parked camera or walker.
+ if(HasAuthority() && Reason==EEndPlayReason::Destroyed) for(APawn* Spare:{BuildCamera.Get(),static_cast<APawn*>(Walker.Get())}) if(IsValid(Spare) && Spare!=GetPawn()) Spare->Destroy();
+ Super::EndPlay(Reason);
+}
+
 void AFoundrylinePlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
