@@ -34,16 +34,20 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   // The fixture kit is authored in its stored pose on the bench's lower shelf, so it shares the bench transform.
   StationStoredFixtures.Add(Fixture?Mesh(Fixture,T):nullptr);
  }
- // One welding machine per welder side, each with its own holstered gun and coiled leads (same offsets as zone welders).
+ // One welding machine per welder side, front panel facing in, each with its own holstered gun and the lead to it.
  auto* Machine=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_Machine.SM_Welder_Machine")):nullptr;
  auto* Gun=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_MIGGun.SM_Welder_MIGGun")):nullptr;
- auto* Leads=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_Leads.SM_Welder_Leads")):nullptr;
+ auto* Cable=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cylinder.Cylinder")):nullptr;auto* Rubber=Render?LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Shared/Materials/MaterialHandling/M_MH_Rubber.M_MH_Rubber")):nullptr;
+ StationIdleLeads.Reset();
  for(const auto& S:Snapshot.WeldingStations)for(int Side=0;Side<2;++Side){const FTransform T=Layout::MachineTransform(S,Side);const FVector Size=Layout::MachineSizeCm();
   auto* Box=NewObject<UBoxComponent>(this);Box->SetupAttachment(RootComponent);Box->SetBoxExtent(Size/2);Box->ComponentTags.Add(TEXT("FoundrylinePhysicalCollision"));Box->SetCollisionProfileName(TEXT("BlockAllDynamic"));Box->SetCanEverAffectNavigation(false);Box->RegisterComponent();AddInstanceComponent(Box);
   Box->SetRelativeLocationAndRotation(T.GetLocation()+FVector(0,0,Size.Z/2),T.Rotator());StationCollision.Add(Box);
   if(!Render)continue;
   auto Mesh=[&](UStaticMesh* M,const FTransform& At)->UStaticMeshComponent*{if(!M)return nullptr;auto* C=NewObject<UStaticMeshComponent>(this);C->SetupAttachment(RootComponent);C->SetStaticMesh(M);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);C->SetRelativeTransform(At);StationMeshes.Add(C);return C;};
-  Mesh(Machine,T);Mesh(Leads,T);auto* Holstered=Mesh(Gun,FTransform(T.Rotator(),T.TransformPosition(FVector(17,-38,87))));if(!Side)StationHolsteredGuns.Add(Holstered);
+  Mesh(Machine,T);auto* Holstered=Mesh(Gun,FTransform(T.Rotator(),T.TransformPosition(FVector(17,-38,87))));if(!Side)StationHolsteredGuns.Add(Holstered);
+  // The coiled-lead model would spill into the walkway once the front faces in, so the idle lead is routed instead.
+  const auto P=Layout::IdleLead();if(Cable)for(int I=0;I+1<P.Num();++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetMobility(EComponentMobility::Movable);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(Cable);Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.024f));Lead->SetEndScale(FVector2D(.024f));
+   const FVector A=T.TransformPosition(P[I]),B=T.TransformPosition(P[I+1]);Lead->SetStartAndEnd(A,B-A,B,B-A);Lead->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lead->SetCanEverAffectNavigation(false);if(Rubber)Lead->SetMaterial(0,Rubber);Lead->RegisterComponent();AddInstanceComponent(Lead);StationMeshes.Add(Lead);StationIdleLeads.Add(Lead);}
  }
  // Parts bay rack beside IN (frame cradle below, three bins on the shelf) and the steel OUT cradle, built from painted blocks.
  // SM_PalletRack_1Level is a 10 ft x 4 ft 10 in floor pallet bay with no shelf, so it cannot stand in the 4.5 x 2.5 ft parts bay.
@@ -73,7 +77,6 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
  auto* Riser=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/WeldingBench/SM_WeldingFixtureRiser.SM_WeldingFixtureRiser"));
  auto* HoldDown=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/WeldingBench/SM_WeldingFixtureHoldDown.SM_WeldingFixtureHoldDown"));
  auto* Hologram=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Production/Materials/M_FactoryHologram.M_FactoryHologram"));
- auto* Cable=LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));auto* Rubber=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Shared/Materials/MaterialHandling/M_MH_Rubber.M_MH_Rubber"));
  for(const auto& S:Snapshot.WeldingStations){const FTransform BenchAt=Layout::BenchTransform(S),On=Layout::ProductTransform(S);
   auto Add=[&](UStaticMesh* M,const FTransform& At)->UStaticMeshComponent*{if(!M)return nullptr;auto* C=NewObject<UStaticMeshComponent>(this);C->SetupAttachment(RootComponent);C->SetMobility(EComponentMobility::Movable);C->SetStaticMesh(M);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);C->SetRelativeTransform(At);C->SetVisibility(false);StationUnitParts.Add(C);return C;};
   // The kit's risers and hold-downs set out as the rack jig; the stored kit on the shelf hides while they are in use.
@@ -130,7 +133,8 @@ void AFoundrylineFactoryPlant::AnimateWeldingStations(float Dt,double Age){
   StationShownStage[I]=Stage;
   // Welder A holds their own gun only while welding at the work point; sparks only while the weld advances.
   const FVector WorkAt=Layout::WorkPoint(S,0);const bool AtWork=Snapshot.Walkers.ContainsByPredicate([&](const auto& W){return W.Station==S.Id&&FVector::Dist2D(W.Position,WorkAt)<=1;});const bool InHand=Stage==2&&AtWork;
-  if(StationHolsteredGuns.IsValidIndex(I))Show(StationHolsteredGuns[I],!InHand);auto* G=StationGuns[I].Get();Show(G,InHand);
+  if(StationHolsteredGuns.IsValidIndex(I))Show(StationHolsteredGuns[I],!InHand);
+  for(int J=I*6;J<I*6+3&&J<StationIdleLeads.Num();++J)if(StationIdleLeads[J]&&StationIdleLeads[J]->IsVisible()==InHand)StationIdleLeads[J]->SetVisibility(!InHand);auto* G=StationGuns[I].Get();Show(G,InHand);
   for(int J=I*4;J<I*4+4&&J<StationLeads.Num();++J)if(StationLeads[J]&&StationLeads[J]->IsVisible()!=InHand)StationLeads[J]->SetVisibility(InHand);
   if(StationWeldEffects.IsValidIndex(I)&&StationWeldEffects[I])StationWeldEffects[I]->SetLocalActivity(InHand&&Snapshot.Running&&S.bAdvancing);
   if(!G||!InHand)continue;
