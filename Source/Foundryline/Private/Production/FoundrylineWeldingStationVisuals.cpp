@@ -16,7 +16,7 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
  FString Key;for(const auto& S:Snapshot.WeldingStations)Key+=FString::Printf(TEXT("%d:%s:%d:%d;"),S.Id,*S.Center.ToString(),S.QuarterTurns,S.bSwapSides?1:0);
  if(Key==StationLayoutKey)return;StationLayoutKey=Key;
  for(UStaticMeshComponent* C:StationMeshes)if(C)C->DestroyComponent();StationMeshes.Reset();for(UBoxComponent* C:StationCollision)if(C)C->DestroyComponent();StationCollision.Reset();
- for(USceneComponent* C:StationUnitParts)if(C)C->DestroyComponent();StationUnitParts.Reset();StationStoredFixtures.Reset();StationLiftedFixtures.Reset();StationRackGhosts.Reset();StationRackBuilds.Reset();StationRacks.Reset();
+ for(USceneComponent* C:StationUnitParts)if(C)C->DestroyComponent();StationUnitParts.Reset();StationStoredFixtures.Reset();StationJigParts.Reset();StationRackGhosts.Reset();StationRackBuilds.Reset();StationRacks.Reset();
  StationHolsteredGuns.Reset();StationGuns.Reset();StationLeads.Reset();StationWeldEffects.Reset();StationShownStage.Reset();
  if(Snapshot.WeldingStations.IsEmpty())return;
  const bool Render=GetNetMode()!=NM_DedicatedServer;
@@ -70,11 +70,14 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
  if(!Render)return;
  // The unit on the bench, Welder A's gun in hand with its lead back to their own machine, and the sparks at the tip.
  auto* Rack=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Products/HeadacheRack/SM_HeadacheRack.SM_HeadacheRack"));
+ auto* Riser=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/WeldingBench/SM_WeldingFixtureRiser.SM_WeldingFixtureRiser"));
+ auto* HoldDown=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/WeldingBench/SM_WeldingFixtureHoldDown.SM_WeldingFixtureHoldDown"));
  auto* Hologram=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Production/Materials/M_FactoryHologram.M_FactoryHologram"));
  auto* Cable=LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));auto* Rubber=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Shared/Materials/MaterialHandling/M_MH_Rubber.M_MH_Rubber"));
  for(const auto& S:Snapshot.WeldingStations){const FTransform BenchAt=Layout::BenchTransform(S),On=Layout::ProductTransform(S);
   auto Add=[&](UStaticMesh* M,const FTransform& At)->UStaticMeshComponent*{if(!M)return nullptr;auto* C=NewObject<UStaticMeshComponent>(this);C->SetupAttachment(RootComponent);C->SetMobility(EComponentMobility::Movable);C->SetStaticMesh(M);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);C->SetRelativeTransform(At);C->SetVisibility(false);StationUnitParts.Add(C);return C;};
-  StationLiftedFixtures.Add(Add(Fixture,Layout::FixtureOnBench()*BenchAt));
+  // The kit's risers and hold-downs set out as the rack jig; the stored kit on the shelf hides while they are in use.
+  for(const auto& At:Layout::JigRisers())StationJigParts.Add(Add(Riser,At*BenchAt));for(const auto& At:Layout::JigHoldDowns())StationJigParts.Add(Add(HoldDown,At*BenchAt));
   // Ghost and weld-progress copies sweep along the rack's length, the way the welder works along it.
   auto Progress=[&](UStaticMeshComponent* C,bool Ghost){if(!C)return C;for(int Slot=0;Slot<C->GetNumMaterials();++Slot){
     auto* Base=Ghost?Hologram:LoadObject<UMaterialInterface>(nullptr,*(FString(TEXT("/Game/Foundryline/Production/Materials/M_FactoryBuild"))+RackBuildSuffix(C->GetMaterial(Slot))));if(!Base)continue;
@@ -108,7 +111,8 @@ void AFoundrylineFactoryPlant::AnimateWeldingStations(float Dt,double Age){
   const float Shown=F<=0?-1:F>=1?2:F;
   auto Show=[](UStaticMeshComponent* C,bool V){if(C&&C->IsVisible()!=V)C->SetVisibility(V);};
   auto Fraction=[](UStaticMeshComponent* C,float V){if(!C)return;for(int Slot=0;Slot<C->GetNumMaterials();++Slot)if(auto* M=Cast<UMaterialInstanceDynamic>(C->GetMaterial(Slot)))M->SetScalarParameterValue(TEXT("BuildFraction"),V);};
-  if(StationStoredFixtures.IsValidIndex(I))Show(StationStoredFixtures[I],Stage==0||Stage==4);if(StationLiftedFixtures.IsValidIndex(I))Show(StationLiftedFixtures[I],Stage>=1&&Stage<=3);
+  const bool OnJig=Stage>=1&&Stage<=3,HasJig=StationJigParts.IsValidIndex(I*8)&&StationJigParts[I*8];
+  if(StationStoredFixtures.IsValidIndex(I))Show(StationStoredFixtures[I],!OnJig||!HasJig);for(int J=I*8;J<I*8+8&&J<StationJigParts.Num();++J)Show(StationJigParts[J],OnJig);
   // Fit-up: the real kit parts are laid out first (RebuildVisuals), then the rack takes shape on the fixture.
   Show(StationRackGhosts[I],Stage==1&&F>=.6f||Stage==2);Show(StationRackBuilds[I],Stage==2);Show(StationRacks[I],Stage>=3);
   if(Stage==1)Fraction(StationRackGhosts[I],-1);if(Stage==2){Fraction(StationRackGhosts[I],Shown);Fraction(StationRackBuilds[I],Shown);}
@@ -146,7 +150,8 @@ void AFoundrylineFactoryPlant::AddStationFitUpParts(){
    const FBox B=Ism->GetStaticMesh()->GetBoundingBox();const bool Turn=B.GetSize().Y>B.GetSize().X;const float Scale=FMath::Min(1.f,float(MaxLength/FMath::Max(1.,B.GetSize().GetMax())));
    const FRotator Rot(0,Bench.Rotator().Yaw+(Turn?90:0),0);Ism->AddInstance(FTransform(Rot,Bench.TransformPosition(Local)-FVector(0,0,B.Min.Z*Scale),FVector(Scale)));};
   for(int I=0;I<6;++I)Lay(Part::FrameSection,FVector(0,-26-I*6.5,Layout::BenchHeightCm),200);
-  for(int I=0;I<2;++I)Lay(Part::MountingPlate,FVector(-90,36,Layout::BenchHeightCm+I*1.5),40);
-  for(int I=0;I<4;++I)Lay(Part::Bracket,FVector(78+(I%2)*24,30+(I/2)*20,Layout::BenchHeightCm),22);
+  // Clear of the jig risers and hold-downs.
+  for(int I=0;I<2;++I)Lay(Part::MountingPlate,FVector(-40,18,Layout::BenchHeightCm+I*1.5),40);
+  for(int I=0;I<4;++I)Lay(Part::Bracket,FVector(12+(I%2)*24,10+(I/2)*20,Layout::BenchHeightCm),22);
  }
 }

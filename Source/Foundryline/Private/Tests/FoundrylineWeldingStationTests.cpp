@@ -27,8 +27,9 @@ void OpenFloor(FFoundrylineFactorySimulation& M,int Q,bool WalkwayB=true,bool Ri
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeldingStationLayout,"Foundryline.Factory.WeldingStation.Layout",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FWeldingStationLayout::RunTest(const FString&){
  // Same light-bezel point in the upright rack source and in the assembled bench setup (Blender Y is mirrored by FBX import).
- TestTrue(TEXT("Rack lies on its back on the fixture kit lifted onto the worktop"),Layout::ProductOnBench().TransformPosition(FVector(-61,-8.44,67.8)).Equals(FVector(-61,37.32,141.54),.05));
- TestTrue(TEXT("Lifted fixture kit stands on the worktop and the rack rests on its top"),FMath::IsNearlyEqual(Layout::FixtureOnBench().TransformPosition(FVector(0,0,Layout::FixtureShelfCm)).Z,Layout::BenchHeightCm,.01)&&FMath::IsNearlyEqual(Layout::RackOnBenchCm().Min.Z,Layout::FixtureOnBench().TransformPosition(FVector(0,0,Layout::FixtureTopStoredCm)).Z,.01));
+ TestTrue(TEXT("Rack lies on its back on the jig: tube undersides on the riser tops"),FMath::IsNearlyEqual(Layout::ProductOnBench().TransformPosition(FVector(0,Layout::RackTubeHalfCm,40)).Z,Layout::BenchHeightCm+Layout::JigRiserCm,.01));
+ TestTrue(TEXT("Bed-rail plates clear the worktop and the rack stays over it"),Layout::RackOnBenchCm().Min.Z>Layout::BenchHeightCm&&Layout::RackOnBenchCm().Min.Z<Layout::BenchHeightCm+2&&FMath::Abs(Layout::RackOnBenchCm().Min.Y)<2*Layout::Foot&&Layout::RackOnBenchCm().Max.Y<2*Layout::Foot);
+ for(const auto& R:Layout::JigRisers())TestTrue(TEXT("Every riser stands on the worktop under the rack"),FMath::IsNearlyEqual(R.GetLocation().Z,Layout::BenchHeightCm)&&FMath::Abs(R.GetLocation().X)<4*Layout::Foot-5.08&&FMath::Abs(R.GetLocation().Y)<2*Layout::Foot-5.08);
  FString E;TestTrue(TEXT("Full-size rack fits the bench fixture, clear height and OUT cradle: ")+E,Layout::ProductFits(Layout::RackOnBenchCm(),FVector2D(Layout::RackSizeCm()),E));
  TestFalse(TEXT("A product longer than the bench is rejected, not scaled"),Layout::ProductFits(FBox(FVector(-150,-40,95),FVector(150,40,120)),{300,80},E));
  TestFalse(TEXT("Mounts resting on the worktop are rejected"),Layout::ProductFits(FBox(FVector(-99,-40,Layout::BenchHeightCm),FVector(99,40,120)),{198,81},E));

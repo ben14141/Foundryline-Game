@@ -31,7 +31,7 @@ def at(s,dx,dy,z):return unreal.Vector(s['x']+dx,s['y']+dy,z)
 MOMENTS=[
  ('Phase3_FitUp_KitParts',lambda s:s['stage']==1 and 12.5<=s['work']<15,(40,260,300),(0,-10,92),55),
  ('Phase3_RackOnFixture',lambda s:s['stage']==2 and s['work']>=40,(170,-240,235),(0,0,118),55),
- ('Phase3_WelderWorking_MachineA',lambda s:s['stage']==2 and s['work']>=55,(-300,-330,175),(-70,-70,105),58),
+ ('Phase3_WelderWorking_MachineA',lambda s:s['stage']==2 and s['work']>=55,(250,-430,240),(-90,-90,95),52),
  ('Phase3_Panel_Welding',lambda s:s['stage']==2 and s['work']>=62,(620,-650,430),(0,0,40),70),
  ('Phase3_FinalAssembly_Lights',lambda s:s['stage']==3 and s['work']>=10,(-20,-230,215),(0,0,125),55),
  ('Phase3_RackMovingToOut',lambda s:s['stage']==4 and s['work']>=.2,(80,-390,300),(110,0,110),60),

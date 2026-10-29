@@ -117,11 +117,12 @@ private:
  FString StationLayoutKey;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationMeshes;
  UPROPERTY() TArray<TObjectPtr<class UBoxComponent>> StationCollision;
- // The unit on each station's bench, by snapshot station index: fixture kit stored on the shelf or lifted onto the
- // worktop, the rack as hologram, as weld progress and as the finished product, and Welder A's gun, lead and sparks.
+ // The unit on each station's bench, by snapshot station index: fixture kit stored on the shelf or set out as a jig on
+ // the worktop, the rack as hologram, as weld progress and as the finished product, and Welder A's gun, lead and sparks.
  UPROPERTY() TArray<TObjectPtr<class USceneComponent>> StationUnitParts;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationStoredFixtures;
- UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationLiftedFixtures;
+ // Eight jig parts per station (four risers, four hold-downs), in JigRisers/JigHoldDowns order.
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationJigParts;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRackGhosts;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRackBuilds;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRacks;
