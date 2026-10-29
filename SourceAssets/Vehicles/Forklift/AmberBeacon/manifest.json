@@ -1,0 +1,87 @@
+{
+  "original_authorship": true,
+  "asset": "ForkliftAmberBeacon",
+  "units": "metres source; Unreal centimetres",
+  "roof_attachment_cm": [
+    -115,
+    0,
+    253
+  ],
+  "bulb_anchor_local_cm": [
+    0,
+    0,
+    10.1
+  ],
+  "housing_diameter_cm": 20,
+  "height_cm": 18.4,
+  "lens_wall_mm": 2,
+  "clearance_bulb_to_inner_lens_cm": 5.3,
+  "light": {
+    "color_linear": [
+      1,
+      0.22,
+      0.025
+    ],
+    "intensity_lumens": 45,
+    "attenuation_radius_cm": 120,
+    "cast_shadows": false,
+    "stationary_flashing": false
+  },
+  "materials": {
+    "Beacon_GraphiteHousing": {
+      "color": [
+        0.02500000037252903,
+        0.032999999821186066,
+        0.0430000014603138
+      ],
+      "metallic": 0.6000000238418579,
+      "roughness": 0.25999999046325684
+    },
+    "Beacon_StainlessHardware": {
+      "color": [
+        0.41999998688697815,
+        0.4699999988079071,
+        0.5099999904632568
+      ],
+      "metallic": 0.949999988079071,
+      "roughness": 0.23999999463558197
+    },
+    "Beacon_RubberGasket": {
+      "color": [
+        0.012000000104308128,
+        0.01600000075995922,
+        0.017999999225139618
+      ],
+      "metallic": 0.0,
+      "roughness": 0.699999988079071
+    },
+    "Beacon_AmberLens": {
+      "color": [
+        1.0,
+        0.20000000298023224,
+        0.00800000037997961
+      ],
+      "metallic": 0.0,
+      "roughness": 0.1599999964237213
+    },
+    "Beacon_BulbEmitter": {
+      "color": [
+        1.0,
+        0.6499999761581421,
+        0.18000000715255737
+      ],
+      "metallic": 0.0,
+      "roughness": 0.2199999988079071
+    },
+    "Beacon_CeramicSocket": {
+      "color": [
+        0.6499999761581421,
+        0.6600000262260437,
+        0.6200000047683716
+      ],
+      "metallic": 0.0,
+      "roughness": 0.46000000834465027
+    }
+  },
+  "old_beacon_removal": "Existing joined base and lens centred(-115,0)cm, Z253..269cm; remove only in a separate licensed-derived body variant, not vendor original."
+}

@@ -1,0 +1,136 @@
+{
+  "labels": [
+    {
+      "name": "SideBrand",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.15000462532044345,
+      "max_gap_mm": 0.1500195264816373,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 283
+    },
+    {
+      "name": "SideModel",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.1500195264816373,
+      "max_gap_mm": 0.1500195264816373,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 272
+    },
+    {
+      "name": "AmpReadout",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.1500096321106481,
+      "max_gap_mm": 0.1500096321106481,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 186
+    },
+    {
+      "name": "VoltReadout",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.1500096321106481,
+      "max_gap_mm": 0.1500096321106481,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 162
+    },
+    {
+      "name": "ReadoutUnits",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.1500096321106481,
+      "max_gap_mm": 0.1500096321106481,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 18
+    },
+    {
+      "name": "EncoderLegend",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.15003919601441762,
+      "max_gap_mm": 0.15003919601441762,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 95
+    },
+    {
+      "name": "EncoderLegend",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.15003919601441762,
+      "max_gap_mm": 0.15003919601441762,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 85
+    },
+    {
+      "name": "SocketLegend",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.14997959136964223,
+      "max_gap_mm": 0.14997959136964223,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 89
+    },
+    {
+      "name": "SocketLegend",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.14997959136964223,
+      "max_gap_mm": 0.14997959136964223,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 154
+    },
+    {
+      "name": "CylinderGasLabel",
+      "surface": "cylinder_wrapped",
+      "min_gap_mm": 0.14495038662068063,
+      "max_gap_mm": 0.2967153940193037,
+      "min_surface_normal_dot": 0.9983100444078445,
+      "extrusion_mm": 0,
+      "vertices": 2245
+    },
+    {
+      "name": "CylinderLabelSmall",
+      "surface": "cylinder_wrapped",
+      "min_gap_mm": 0.1489874969281293,
+      "max_gap_mm": 0.29616763485893904,
+      "min_surface_normal_dot": 0.9986791042611003,
+      "extrusion_mm": 0,
+      "vertices": 3860
+    },
+    {
+      "name": "GaugeUnits",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.14999723434447332,
+      "max_gap_mm": 0.14999723434447332,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 151
+    },
+    {
+      "name": "GaugeUnits",
+      "surface": "panel_flush",
+      "min_gap_mm": 0.14999723434447332,
+      "max_gap_mm": 0.14999723434447332,
+      "min_surface_normal_dot": 1.0,
+      "extrusion_mm": 0,
+      "vertices": 25
+    },
+    {
+      "name": "TorchModel",
+      "surface": "cylinder_wrapped",
+      "min_gap_mm": 0.1430128432561093,
+      "max_gap_mm": 0.20138461070721056,
+      "min_surface_normal_dot": 0.9967176757851332,
+      "extrusion_mm": 0,
+      "vertices": 975
+    }
+  ],
+  "all_label_geometry_surface_applied": true,
+  "remaining_font_objects": 0,
+  "gauge_tick_gap_mm": [
+    0.05,
+    0.15
+  ]
+}
