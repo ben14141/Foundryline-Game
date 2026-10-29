@@ -120,6 +120,8 @@ private:
  FString StationLayoutKey;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationMeshes;
  UPROPERTY() TArray<TObjectPtr<class UBoxComponent>> StationCollision;
+ // Lead from each machine to its holstered gun, three segments per machine (station index * 2 + side).
+ UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> StationIdleLeads;
  // The unit on each station's bench, by snapshot station index: fixture kit stored on the shelf or set out as a jig on
  // the worktop, the rack as hologram, as weld progress and as the finished product, and Welder A's gun, lead and sparks.
  UPROPERTY() TArray<TObjectPtr<class USceneComponent>> StationUnitParts;
