@@ -154,8 +154,9 @@ struct FFoundrylineFactoryWalker {
  UPROPERTY(SaveGame) float Speed=0;
  UPROPERTY(SaveGame) int32 Id=0;
  UPROPERTY(SaveGame) int32 Zone=0;
- // Schema 12: welding station this welder works at (Welder A side), exclusive with Zone.
+ // Schema 12: welding station this welder works at, exclusive with Zone. Schema 13: their slot there (0 Welder A, 1 Welder B).
  UPROPERTY(SaveGame) int32 Station=0;
+ UPROPERTY(SaveGame) int32 StationSide=0;
  UPROPERTY(SaveGame) FVector Position=FVector::ZeroVector;
  UPROPERTY(SaveGame) TArray<FVector> Path;
  UPROPERTY(SaveGame) float Distance=0;
@@ -196,7 +197,7 @@ struct FFoundrylineWeldingStationRecord {
 USTRUCT()
 struct FFoundrylineFactoryState {
  GENERATED_BODY()
- UPROPERTY(SaveGame) int32 Version=12;
+ UPROPERTY(SaveGame) int32 Version=13;
  UPROPERTY(SaveGame,NotReplicated) FFoundrylineCommerceState Commerce;
  UPROPERTY(SaveGame) bool bCutPartsStarter=false;
  UPROPERTY(SaveGame) FGuid CompanyId=FGuid(0xF001,1,1,1);
@@ -237,7 +238,8 @@ struct FFoundrylineAssemblyStep {const TCHAR* Name;int32 Prerequisites;float Sec
 // Parts bought ready-made: fixed unit weight and supplier price. A delivered bundle or crate holds the part's Capacity.
 struct FFoundrylineBoughtPart {float UnitLb=0;int64 PriceCents=0;};
 // Welding-station product data: the finished part and its per-unit bill (indexed by EFoundrylinePart).
-struct FFoundrylineAssemblyRecipe {int32 Id=0;const TCHAR* Name=TEXT("");EFoundrylinePart Output=EFoundrylinePart::Count;TArray<int32> Bill;};
+// TwoWelderRate: balance value for the shared work rate with both station welders at work (one welder is 1.0).
+struct FFoundrylineAssemblyRecipe {int32 Id=0;const TCHAR* Name=TEXT("");EFoundrylinePart Output=EFoundrylinePart::Count;TArray<int32> Bill;float TwoWelderRate=1.7f;};
 struct FOUNDRYLINE_API FFoundrylineFactoryCatalog {
  static constexpr int32 PartCount=17;
  static FFoundrylinePartSpec Part(EFoundrylinePart Id);

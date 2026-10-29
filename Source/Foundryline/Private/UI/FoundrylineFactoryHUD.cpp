@@ -74,11 +74,15 @@ bool AFoundrylineBuildHUD::DrawFactory(AFoundrylinePlayerController* PC){auto* P
    const auto Parts=FFoundrylineFactoryCatalog::AssemblyParts();
    for(int I=0;I<Parts.Num();++I){const int Ready=View.StationStock(*Selected,Parts[I],false),Coming=View.StationStock(*Selected,Parts[I])-Ready,Target=View.StationTarget(*Selected,Parts[I]);
     Text(FString::Printf(TEXT("%s %d/%d%s"),FFoundrylineFactoryCatalog::AssemblyName(Parts[I]),Ready,Target,Coming?*FString::Printf(TEXT(" +%d"),Coming):TEXT("")),22+(I%2)*196,Y+184+(I/2)*26,.82,Ready>=Target?Steel:Ink);}
+   // Both welder slots, then the shared rate now and with both welders at work.
+   for(int Slot=0;Slot<2;++Slot){const auto* W=View.StationWelder(*Selected,Slot);const bool AtWork=W&&FVector::Dist2D(W->Position,Layout::WorkPoint(*Selected,Slot))<=1;
+    Text(FString::Printf(TEXT("Welder %s  %s"),Slot?TEXT("B"):TEXT("A"),W?*FString::Printf(TEXT("%s / %s"),*W->DisplayName,AtWork?TEXT("at the bench"):TEXT("walking")):TEXT("open / assign on the office computer")),22,Y+236+Slot*22,.82,W?Ink:Steel);}
+   Text(FString::Printf(TEXT("Rate %d%% now / %d%% with both"),FMath::RoundToInt(100*View.StationRate(*Selected)),FMath::RoundToInt(100*View.StationRate(*Selected,2))),22,Y+282,.82,Steel);
    // Station name, then the whole status sentence on its own line (wrapped at a word if it is ever longer).
-   Text(Layout::Name(Selected->Number),22,Y+238,.88,Steel);const FString Status=View.WeldingStationStatus(*Selected);int32 Cut=Status.Len();
+   Text(Layout::Name(Selected->Number),22,Y+310,.88,Steel);const FString Status=View.WeldingStationStatus(*Selected);int32 Cut=Status.Len();
    if(Status.Len()>46){Cut=46;while(Cut>0&&Status[Cut]!=' ')--Cut;if(!Cut)Cut=46;}
-   Text(Status.Left(Cut),22,Y+262,.92,Ink);if(Cut<Status.Len())Text(Status.Mid(Cut).TrimStart(),22,Y+286,.92,Ink);
-   return Y+(Cut<Status.Len()?320:296);}
+   Text(Status.Left(Cut),22,Y+334,.92,Ink);if(Cut<Status.Len())Text(Status.Mid(Cut).TrimStart(),22,Y+358,.92,Ink);
+   return Y+(Cut<Status.Len()?392:368);}
   if(!Placing){Button(TEXT("ToolPedestrian"),TEXT("PAINT WALKWAY"),18,Y+84,182,40,PC->FactoryTool==TEXT("Pedestrian"));Button(TEXT("ToolForklift"),TEXT("PAINT FORK LANE"),214,Y+84,182,40,PC->FactoryTool==TEXT("Forklift"));}
 
   Button(TEXT("ToolErase"),TEXT("REMOVE PAINT"),18,Y+132,182,40,PC->FactoryTool==TEXT("Erase"));Button(TEXT("StationRemove"),Selected?FString::Printf(TEXT("REMOVE WS %02d"),Selected->Number):TEXT("SELECT STATION"),214,Y+132,182,40,false,Selected!=nullptr);

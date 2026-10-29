@@ -16,7 +16,7 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Employees",meta=(DevelopmentOnly)) static bool QueueFactoryOrderZone(APlayerController* Player,int32 ZoneId);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Employees",meta=(DevelopmentOnly)) static bool QueueEmployeeHire(APlayerController* Player,int32 Role,FGuid RequestId,FGuid TargetPlant);
  UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Employees") static FString EmployeeReport(APlayerController* Player);
- UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Employees",meta=(DevelopmentOnly)) static bool QueueEmployeeAssignment(APlayerController* Player,int32 Id,int32 Role,int32 Target,FGuid TargetPlant);
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Employees",meta=(DevelopmentOnly)) static bool QueueEmployeeAssignment(APlayerController* Player,int32 Id,int32 Role,int32 Target,FGuid TargetPlant,int32 Slot=0);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Commerce",meta=(DevelopmentOnly)) static bool QueueCommerceAction(APlayerController* Player,const FString& Action);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Commerce",meta=(DevelopmentOnly)) static bool QueueCommerceForeignTarget(APlayerController* Player,FGuid PlantId);
  UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Commerce") static FString CommerceReport(APlayerController* Player);

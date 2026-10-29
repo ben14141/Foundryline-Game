@@ -25,8 +25,9 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void UpdateOperators(float Dt);
  bool CanEmployeeAdvance(FVector From,FVector To,int32 EmployeeId)const;
  bool TryEmployeePassing(FVector From,FVector To,int32 EmployeeId,TArray<FVector>& Path,float& Distance)const;
- bool AssignEmployee(int32 Id,EFoundrylineEmployeeRole Role,int32 Target,FString& Error);
- bool AssignEmployeeInternal(int32 Id,EFoundrylineEmployeeRole Role,int32 Target,FString& Error);
+ // Slot: welding-station welder slot (0 Welder A, 1 Welder B); 0 for every other job.
+ bool AssignEmployee(int32 Id,EFoundrylineEmployeeRole Role,int32 Target,FString& Error,int32 Slot=0);
+ bool AssignEmployeeInternal(int32 Id,EFoundrylineEmployeeRole Role,int32 Target,FString& Error,int32 Slot=0);
  bool MachineStaffReady(int32 Machine)const;
  bool EmployeesValid(FString& Error)const;
  FVector OperatorWorkPoint(int32 Machine)const;
@@ -66,8 +67,12 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  // Free stock a forklift could bring from this business's racks.
  int32 StationRackSupply(EFoundrylinePart Part)const;
  FString WeldingStationStatus(const FFoundrylineWeldingStationRecord& Station)const;
- // Welder A standing at their work point beside the bench.
- bool StationWelderReady(const FFoundrylineWeldingStationRecord& Station)const;
+ // Welders assigned to the station (AtWork: standing at their own slot's work point), and the shared work rate from those
+ // at work: 0, 1 (100%) or the recipe's TwoWelderRate.
+ int32 StationWelders(const FFoundrylineWeldingStationRecord& Station,bool AtWork)const;
+ bool StationWelderReady(const FFoundrylineWeldingStationRecord& Station)const{return StationWelders(Station,true)>0;}
+ float StationRate(const FFoundrylineWeldingStationRecord& Station,int32 AtWork=-1)const;
+ const FFoundrylineFactoryWalker* StationWelder(const FFoundrylineWeldingStationRecord& Station,int32 Side)const{return State.Walkers.FindByPredicate([&](const auto& W){return W.Station==Station.Id&&W.StationSide==Side;});}
  // The station wants its welder: a unit is on the bench, or a batch is set.
  static bool StationNeedsWelder(const FFoundrylineWeldingStationRecord& Station){return Station.Stage>0&&Station.Stage<4||Station.Recipe&&Station.BatchRemaining>0;}
  bool IsStationStock(const FFoundrylineFactoryPallet& Pallet)const;

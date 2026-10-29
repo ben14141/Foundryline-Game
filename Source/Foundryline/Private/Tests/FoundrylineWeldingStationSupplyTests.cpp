@@ -90,7 +90,7 @@ bool FWeldingStationSupplies::RunTest(const FString&){
  {auto T=M;T.State.WeldingStations[0].BatchRemaining=5;TestFalse(TEXT("Batch without a recipe rejected"),T.Valid(E));}
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Part==Part::FrameSection)A.Quantity=13;TestFalse(TEXT("Overfilled bin rejected"),T.Valid(E));}
  // Schema 10 plant: zone part ledgers grow and saved stations join the route.
- {auto T=M;T.State.Version=10;for(auto& Route:T.State.Routes)Route.Destinations.Remove(Id);T.MigrateWeldingStations();TestEqual(TEXT("Schema 10 migrates to 12"),T.State.Version,12);TestTrue(TEXT("Migrated station is a route destination"),T.State.Routes[0].Destinations.Contains(Id));TestTrue(TEXT("Migrated schema 10 plant validates: ")+E,T.Valid(E));}
+ {auto T=M;T.State.Version=10;for(auto& Route:T.State.Routes)Route.Destinations.Remove(Id);T.MigrateWeldingStations();TestEqual(TEXT("Schema 10 migrates to 13"),T.State.Version,13);TestTrue(TEXT("Migrated station is a route destination"),T.State.Routes[0].Destinations.Contains(Id));TestTrue(TEXT("Migrated schema 10 plant validates: ")+E,T.Valid(E));}
  return true;
 }
 #endif

@@ -43,7 +43,7 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   Box->SetRelativeLocationAndRotation(T.GetLocation()+FVector(0,0,Size.Z/2),T.Rotator());StationCollision.Add(Box);
   if(!Render)continue;
   auto Mesh=[&](UStaticMesh* M,const FTransform& At)->UStaticMeshComponent*{if(!M)return nullptr;auto* C=NewObject<UStaticMeshComponent>(this);C->SetupAttachment(RootComponent);C->SetStaticMesh(M);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);C->SetRelativeTransform(At);StationMeshes.Add(C);return C;};
-  Mesh(Machine,T);Mesh(Leads,T);auto* Holstered=Mesh(Gun,FTransform(T.Rotator(),T.TransformPosition(FVector(17,-38,87))));if(!Side)StationHolsteredGuns.Add(Holstered);
+  Mesh(Machine,T);Mesh(Leads,T);StationHolsteredGuns.Add(Mesh(Gun,FTransform(T.Rotator(),T.TransformPosition(FVector(17,-38,87)))));
  }
  // Parts bay rack beside IN (frame cradle below, three bins on the shelf) and the steel OUT cradle, built from painted blocks.
  // SM_PalletRack_1Level is a 10 ft x 4 ft 10 in floor pallet bay with no shelf, so it cannot stand in the 4.5 x 2.5 ft parts bay.
@@ -83,13 +83,14 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
     auto* Base=Ghost?Hologram:LoadObject<UMaterialInterface>(nullptr,*(FString(TEXT("/Game/Foundryline/Production/Materials/M_FactoryBuild"))+RackBuildSuffix(C->GetMaterial(Slot))));if(!Base)continue;
     C->SetMaterial(Slot,RackProgressMaterial(Base,On));}return C;};
   StationRackGhosts.Add(Progress(Add(Rack,On),true));StationRackBuilds.Add(Progress(Add(Rack,On),false));StationRacks.Add(Add(Rack,On));
-  const FRotator GunRotation(-30,Layout::WorkYaw(S,0),0);auto* InHand=Add(Gun,FTransform(GunRotation,On.GetLocation()));StationGuns.Add(InHand);
-  if(InHand){auto* Effect=NewObject<UFoundrylineWeldingEffectComponent>(this);Effect->SetIsReplicated(false);Effect->SetLocalActivity(false);Effect->SetupAttachment(InHand,TEXT("WeldTip"));Effect->RegisterComponent();AddInstanceComponent(Effect);StationUnitParts.Add(Effect);StationWeldEffects.Add(Effect);}else StationWeldEffects.Add(nullptr);
-  // Lead: machine A's output terminal, down to the floor, along to the welder's feet, up to the gun (the end follows the gun).
-  const FTransform MachineA=Layout::MachineTransform(S,0);const FVector Work=Layout::WorkPoint(S,0),ToMachine=(MachineA.GetLocation()-Work).GetSafeNormal2D();
-  const FVector Points[]={MachineA.TransformPosition({54,-12,53}),MachineA.TransformPosition({80,-12,4}),Work+ToMachine*25+FVector(0,0,4),Work+FVector(0,0,85),On.GetLocation()};
-  for(int I=0;I<4;++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetMobility(EComponentMobility::Movable);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(Cable);Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.024f));Lead->SetEndScale(FVector2D(.024f));
-   Lead->SetStartAndEnd(Points[I],Points[I+1]-Points[I],Points[I+1],Points[I+1]-Points[I]);Lead->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lead->SetCanEverAffectNavigation(false);if(Rubber)Lead->SetMaterial(0,Rubber);Lead->RegisterComponent();AddInstanceComponent(Lead);Lead->SetVisibility(false);StationUnitParts.Add(Lead);StationLeads.Add(Lead);}
+  // Each welder slot has its own gun in hand, sparks, and a lead back to that welder's own machine: the machine's output
+  // terminal, down to the floor, along to the welder's feet, up to the gun (the end follows the gun).
+  for(int Side=0;Side<2;++Side){const FRotator GunRotation(-30,Layout::WorkYaw(S,Side),0);auto* InHand=Add(Gun,FTransform(GunRotation,On.GetLocation()));StationGuns.Add(InHand);
+   if(InHand){auto* Effect=NewObject<UFoundrylineWeldingEffectComponent>(this);Effect->SetIsReplicated(false);Effect->SetLocalActivity(false);Effect->SetupAttachment(InHand,TEXT("WeldTip"));Effect->RegisterComponent();AddInstanceComponent(Effect);StationUnitParts.Add(Effect);StationWeldEffects.Add(Effect);}else StationWeldEffects.Add(nullptr);
+   const FTransform Own=Layout::MachineTransform(S,Side);const FVector Work=Layout::WorkPoint(S,Side),ToMachine=(Own.GetLocation()-Work).GetSafeNormal2D();
+   const FVector Points[]={Own.TransformPosition({54,-12,53}),Own.TransformPosition({80,-12,4}),Work+ToMachine*25+FVector(0,0,4),Work+FVector(0,0,85),On.GetLocation()};
+   for(int I=0;I<4;++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetMobility(EComponentMobility::Movable);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(Cable);Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.024f));Lead->SetEndScale(FVector2D(.024f));
+    Lead->SetStartAndEnd(Points[I],Points[I+1]-Points[I],Points[I+1],Points[I+1]-Points[I]);Lead->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lead->SetCanEverAffectNavigation(false);if(Rubber)Lead->SetMaterial(0,Rubber);Lead->RegisterComponent();AddInstanceComponent(Lead);Lead->SetVisibility(false);StationUnitParts.Add(Lead);StationLeads.Add(Lead);}}
   StationShownStage.Add(-1);
  }
 }
@@ -105,7 +106,7 @@ UMaterialInstanceDynamic* AFoundrylineFactoryPlant::RackProgressMaterial(UMateri
 // Presentation follows the replicated unit stage and progress, extrapolated between snapshots only while work advances.
 void AFoundrylineFactoryPlant::AnimateWeldingStations(float Dt,double Age){
  using Layout=FFoundrylineWeldingStationLayout;
- for(int I=0;I<Snapshot.WeldingStations.Num()&&I<StationRacks.Num()&&I<StationGuns.Num();++I){const auto& S=Snapshot.WeldingStations[I];const int Stage=FMath::Clamp(S.Stage,0,4);
+ for(int I=0;I<Snapshot.WeldingStations.Num()&&I<StationRacks.Num();++I){const auto& S=Snapshot.WeldingStations[I];const int Stage=FMath::Clamp(S.Stage,0,4);
   const bool Advancing=Snapshot.Running&&(S.bAdvancing||Stage==4);const float Seconds=Layout::StageSeconds(Stage);
   const float Work=S.Work+(Advancing?float(FMath::Clamp(Age,0.,.5))*Snapshot.Speed:0.f),F=Seconds>0?FMath::Clamp(Work/Seconds,0.f,1.f):0.f;
   const float Shown=F<=0?-1:F>=1?2:F;
@@ -128,17 +129,21 @@ void AFoundrylineFactoryPlant::AnimateWeldingStations(float Dt,double Age){
     R->SetRelativeLocationAndRotation(FVector(XY.X,XY.Y,Down>0?FMath::Lerp(Top,B.GetLocation().Z,Down):FMath::Lerp(A.GetLocation().Z,Top,Up)),FQuat::Slerp(A.GetRotation(),B.GetRotation(),Across));}
    else if(StationShownStage[I]!=Stage)R->SetRelativeTransform(A);}
   StationShownStage[I]=Stage;
-  // Welder A holds their own gun only while welding at the work point; sparks only while the weld advances.
-  const FVector WorkAt=Layout::WorkPoint(S,0);const bool AtWork=Snapshot.Walkers.ContainsByPredicate([&](const auto& W){return W.Station==S.Id&&FVector::Dist2D(W.Position,WorkAt)<=1;});const bool InHand=Stage==2&&AtWork;
-  if(StationHolsteredGuns.IsValidIndex(I))Show(StationHolsteredGuns[I],!InHand);auto* G=StationGuns[I].Get();Show(G,InHand);
-  for(int J=I*4;J<I*4+4&&J<StationLeads.Num();++J)if(StationLeads[J]&&StationLeads[J]->IsVisible()!=InHand)StationLeads[J]->SetVisibility(InHand);
-  if(StationWeldEffects.IsValidIndex(I)&&StationWeldEffects[I])StationWeldEffects[I]->SetLocalActivity(InHand&&Snapshot.Running&&S.bAdvancing);
-  if(!G||!InHand)continue;
-  const FTransform Bench=Layout::BenchTransform(S);const FVector Along=Bench.GetUnitAxis(EAxis::X),Toward=(WorkAt-Bench.GetLocation()).GetSafeNormal2D();
-  const FVector Seam=Bench.GetLocation()+FVector(0,0,Layout::RackOnBenchCm().Max.Z-8)+Toward*30+Along*(55*FMath::Sin(Work*.18f))+FVector(0,0,1.5f*FMath::Sin(Work*2.6f));
-  const FVector Socket=G->GetSocketTransform(TEXT("WeldTip"),RTS_Component).GetLocation();const FVector Target=Seam-G->GetRelativeRotation().RotateVector(Socket);
-  const FVector Position=FMath::VInterpTo(G->GetRelativeLocation(),Target,Dt,18);G->SetRelativeLocation(Position);if(StationLeads.IsValidIndex(I*4+3))StationLeads[I*4+3]->SetEndPosition(Position);
-  for(const auto& Employee:CachedEmployees)if(Employee.Role==EFoundrylineEmployeeRole::Welder&&Employee.Assignment==S.Id)if(auto* Visual=EmployeeVisuals.FindRef(Employee.Key).Get())Visual->PresentWeldingGrip(G->GetComponentLocation(),G->GetComponentTransform().TransformPosition(FVector(3,-3,8)));
+  // Each welder holds their own gun only while welding at their work point; sparks only while the shared weld advances.
+  // Their weld paths are on opposite edges of the rack and on their own half of its length, so the two never meet.
+  for(int Side=0;Side<2;++Side){const int K=I*2+Side;if(!StationGuns.IsValidIndex(K))break;
+   const FFoundrylineFactoryWalker* Welder=Snapshot.Walkers.FindByPredicate([&](const auto& W){return W.Station==S.Id&&W.StationSide==Side;});
+   const FVector WorkAt=Layout::WorkPoint(S,Side);const bool InHand=Stage==2&&Welder&&FVector::Dist2D(Welder->Position,WorkAt)<=1;
+   if(StationHolsteredGuns.IsValidIndex(K))Show(StationHolsteredGuns[K],!InHand);auto* G=StationGuns[K].Get();Show(G,InHand);
+   for(int J=K*4;J<K*4+4&&J<StationLeads.Num();++J)if(StationLeads[J]&&StationLeads[J]->IsVisible()!=InHand)StationLeads[J]->SetVisibility(InHand);
+   if(StationWeldEffects.IsValidIndex(K)&&StationWeldEffects[K])StationWeldEffects[K]->SetLocalActivity(InHand&&Snapshot.Running&&S.bAdvancing);
+   if(!G||!InHand)continue;
+   const FTransform Bench=Layout::BenchTransform(S);const FVector Along=Bench.GetUnitAxis(EAxis::X),Toward=(WorkAt-Bench.GetLocation()).GetSafeNormal2D();
+   const float Half=FVector::DotProduct(WorkAt-Bench.GetLocation(),Along)<0?-1.f:1.f;
+   const FVector Seam=Bench.GetLocation()+FVector(0,0,Layout::RackOnBenchCm().Max.Z-8)+Toward*30+Along*(Half*40+28*FMath::Sin(Work*.18f+Side*1.3f))+FVector(0,0,1.5f*FMath::Sin(Work*2.6f+Side));
+   const FVector Socket=G->GetSocketTransform(TEXT("WeldTip"),RTS_Component).GetLocation();const FVector Target=Seam-G->GetRelativeRotation().RotateVector(Socket);
+   const FVector Position=FMath::VInterpTo(G->GetRelativeLocation(),Target,Dt,18);G->SetRelativeLocation(Position);if(StationLeads.IsValidIndex(K*4+3))StationLeads[K*4+3]->SetEndPosition(Position);
+   for(const auto& Employee:CachedEmployees)if(Welder&&Employee.Id==Welder->Id&&Employee.Role==EFoundrylineEmployeeRole::Welder)if(auto* Visual=EmployeeVisuals.FindRef(Employee.Key).Get())Visual->PresentWeldingGrip(G->GetComponentLocation(),G->GetComponentTransform().TransformPosition(FVector(3,-3,8)));}
  }
 }
 // Fit-up's first part: the kit's frame sections, plates and brackets laid out on the worktop beside the fixture, one by one.

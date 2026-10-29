@@ -69,7 +69,7 @@ bool FFoundrylineFactorySimulation::RemoveWeldingStation(int32 Id,FString& E){
  if(State.WeldingStations[I].Stage){E=TEXT("Finish the headache rack on the bench before removing the station");return false;}
  if(State.Pallets.ContainsByPredicate([&](const auto& P){return P.Owner==Id&&(P.Place==Place::Buffer||P.Place==Place::StationIn||P.Place==Place::StationOut);})||State.Jobs.ContainsByPredicate([&](const auto& J){return J.Destination==Id;})||State.Commerce.Bookings.ContainsByPredicate([&](const auto& B){return B.StationId==Id&&B.Status!=EFoundrylineBookingState::Delivered;})){E=TEXT("Return the station's supplies and finish its transport before removing it");return false;}
  // Its welder goes back to the waiting area, unassigned.
- for(auto& W:State.Walkers)if(W.Station==Id){W.Station=0;W.Path.Reset();W.Distance=0;W.Retry=0;}
+ for(auto& W:State.Walkers)if(W.Station==Id){W.Station=W.StationSide=0;W.Path.Reset();W.Distance=0;W.Retry=0;}
  State.WeldingStations.RemoveAt(I);for(auto& R:State.Routes)R.Destinations.Remove(Id);++State.Revision;return true;
 }
 void FFoundrylineFactorySimulation::MigrateWeldingStations(){
@@ -79,7 +79,9 @@ void FFoundrylineFactorySimulation::MigrateWeldingStations(){
  State.Version=11;for(auto& Z:State.Zones){Z.ReservedParts.SetNumZeroed(Catalog::PartCount);Z.Installed.SetNumZeroed(Catalog::PartCount);}
  for(const auto& S:State.WeldingStations)for(auto& R:State.Routes)if(R.Destinations.Num()<80)R.Destinations.AddUnique(S.Id);}
  // Schema 12: stations start with an empty bench; welders keep their zone jobs.
- if(State.Version==11){State.Version=12;for(auto& S:State.WeldingStations){S.Reserved.SetNumZeroed(Catalog::PartCount);S.Stage=S.UnitRecipe=0;S.Work=S.ReservedLb=0;}}
+ // Schema 13: station welders gain a slot; saved ones are Welder A.
+ if(State.Version==12){State.Version=13;for(auto& V:State.Walkers)if(!V.Station)V.StationSide=0;return;}
+ if(State.Version==11){State.Version=12;for(auto& S:State.WeldingStations){S.Reserved.SetNumZeroed(Catalog::PartCount);S.Stage=S.UnitRecipe=0;S.Work=S.ReservedLb=0;}State.Version=13;}
 }
 bool FFoundrylineFactorySimulation::ConfigureWeldingStation(int32 Id,int32 Recipe,int32 Batch,FString& E){
  auto* S=State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==Id;});if(!S){E=TEXT("Choose a welding station in this plant");return false;}
@@ -132,11 +134,15 @@ void FFoundrylineFactorySimulation::UnloadWeldingStations(float Dt){
   else {In->Place=Place::Buffer;In->Position=Layout::BinPoint(S,P);In->BookingId=0;In->OrderId=0;}
  }
 }
-bool FFoundrylineFactorySimulation::StationWelderReady(const FFoundrylineWeldingStationRecord& S)const{
- const FVector At=Layout::WorkPoint(S,0);return State.Walkers.ContainsByPredicate([&](const auto& W){return W.Station==S.Id&&FVector::Dist2D(W.Position,At)<=1;});
+int32 FFoundrylineFactorySimulation::StationWelders(const FFoundrylineWeldingStationRecord& S,bool AtWork)const{
+ int32 N=0;for(const auto& W:State.Walkers)if(W.Station==S.Id&&(!AtWork||FVector::Dist2D(W.Position,Layout::WorkPoint(S,W.StationSide))<=1))++N;return N;
 }
-// One unit at a time on the bench. The kit and the OUT cradle are claimed together when the unit starts; progress only
-// advances while Welder A is at the work point and the plant runs, and it is kept through pauses, staff changes and saves.
+float FFoundrylineFactorySimulation::StationRate(const FFoundrylineWeldingStationRecord& S,int32 AtWork)const{
+ FFoundrylineAssemblyRecipe R;if(!Catalog::Recipe(S.Stage?S.UnitRecipe:S.Recipe,R))Catalog::Recipe(1,R);const int32 N=AtWork<0?StationWelders(S,true):AtWork;return N>=2?R.TwoWelderRate:N==1?1.f:0.f;
+}
+// One unit at a time on the bench. The kit and the OUT cradle are claimed together when the unit starts; progress is shared
+// by the welders at their work points (100% for one, the recipe's two-welder rate for both) and only advances while the
+// plant runs. It is kept through pauses, staff changes and saves.
 void FFoundrylineFactorySimulation::AssembleWeldingStations(float Dt){
  for(auto& S:State.WeldingStations){S.bAdvancing=false;FFoundrylineAssemblyRecipe R;
   const bool OutFree=!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::StationOut;});
@@ -151,18 +157,18 @@ void FFoundrylineFactorySimulation::AssembleWeldingStations(float Dt){
   if(S.Stage==4){S.Work=FMath::Min(S.Work+Dt,Layout::StageSeconds(4));if(S.Work<Layout::StageSeconds(4)||!OutFree||State.Pallets.Num()>=64||!Catalog::Recipe(S.UnitRecipe,R))continue;
    AddPallet(R.Output,1,Place::StationOut,S.Id,Layout::CradleTransform(S).GetLocation(),S.ReservedLb);++S.UnitsCompleted;
    S.Reserved.Init(0,Catalog::PartCount);S.ReservedLb=0;S.UnitRecipe=0;S.Stage=0;S.Work=0;continue;}
-  if(!StationWelderReady(S))continue;
-  if(auto* W=State.Walkers.FindByPredicate([&](const auto& V){return V.Station==S.Id;}))W->Yaw=Layout::WorkYaw(S,0);
-  S.Work+=Dt;S.bAdvancing=true;if(S.Work<Layout::StageSeconds(S.Stage))continue;S.Work=0;++S.Stage;
+  const float Rate=StationRate(S);if(Rate<=0)continue;
+  for(auto& W:State.Walkers)if(W.Station==S.Id&&FVector::Dist2D(W.Position,Layout::WorkPoint(S,W.StationSide))<=1)W.Yaw=Layout::WorkYaw(S,W.StationSide);
+  S.Work=FMath::Min(S.Work+Dt*Rate,Layout::StageSeconds(S.Stage));S.bAdvancing=true;if(S.Work<Layout::StageSeconds(S.Stage))continue;S.Work=0;++S.Stage;
  }
 }
 FString FFoundrylineFactorySimulation::WeldingStationStatus(const FFoundrylineWeldingStationRecord& S)const{
  FFoundrylineAssemblyRecipe R;const bool HasWelder=State.Walkers.ContainsByPredicate([&](const auto& W){return W.Station==S.Id;});
  if(S.Stage&&Catalog::Recipe(S.UnitRecipe,R)){
   static const TCHAR* Stages[]={TEXT(""),TEXT("Fit-up"),TEXT("Welding"),TEXT("Installing lights"),TEXT("Moving to OUT")};const int Percent=FMath::FloorToInt(100*S.Work/Layout::StageSeconds(S.Stage));
-  if(S.Stage<4&&!HasWelder)return FString::Printf(TEXT("%s paused at %d%% / assign Welder A"),Stages[S.Stage],Percent);
-  if(S.Stage<4&&!StationWelderReady(S))return FString::Printf(TEXT("%s paused at %d%% / Welder A walking"),Stages[S.Stage],Percent);
-  return FString::Printf(TEXT("%s %s %d%%"),Stages[S.Stage],*FString(R.Name).ToLower(),Percent);}
+  if(S.Stage<4&&!HasWelder)return FString::Printf(TEXT("%s paused at %d%% / assign a welder"),Stages[S.Stage],Percent);
+  if(S.Stage<4&&!StationWelderReady(S))return FString::Printf(TEXT("%s paused at %d%% / welder walking"),Stages[S.Stage],Percent);
+  return FString::Printf(TEXT("%s %s %d%%%s"),Stages[S.Stage],*FString(R.Name).ToLower(),Percent,S.Stage<4&&StationWelders(S,true)>1?TEXT(" / 2 welders"):TEXT(""));}
  if(!Catalog::Recipe(S.Recipe,R)||S.BatchRemaining<=0)return State.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::StationOut;})?TEXT("Finished rack on OUT / awaiting collection"):TEXT("Choose a product and quantity");
  // A finished product waiting on OUT is what holds the next unit back, whatever the bins still need.
  if(State.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::StationOut;}))return TEXT("OUT cradle full / awaiting collection");
@@ -171,7 +177,7 @@ FString FFoundrylineFactorySimulation::WeldingStationStatus(const FFoundrylineWe
   return Catalog::Bought(P)?TEXT("Missing ")+Name+TEXT(" / buy parts"):TEXT("Missing ")+Name+TEXT(" / cut more on the plasma table");}
  for(Part P:Catalog::AssemblyParts())if(StationStock(S,P,false)<StationTarget(S,P))return TEXT("Receiving ")+FString(Catalog::AssemblyName(P)).ToLower();
  const int Kits=FMath::Min(S.BatchRemaining,2);const FString Ready=FString::Printf(TEXT("Supplies ready for %d %s%s"),Kits,*FString(R.Name).ToLower(),Kits==1?TEXT(""):TEXT("s"));
- return Ready+(!HasWelder?TEXT(" / assign Welder A"):!StationWelderReady(S)?TEXT(" / Welder A walking"):TEXT(""));
+ return Ready+(!HasWelder?TEXT(" / assign a welder"):!StationWelderReady(S)?TEXT(" / welder walking"):TEXT(""));
 }
 bool FFoundrylineFactorySimulation::WeldingStationsValid(FString& E)const{
  if(State.WeldingStations.Num()>Layout::MaxStations){E=TEXT("Too many welding stations in this plant");return false;}

@@ -55,7 +55,7 @@ bool AFoundrylineFactoryPlant::Execute(APlayerController* P,const FFoundrylineFa
  case FactoryAct::AddWelder:E=TEXT("Hire an employee and assign a product-zone welding job in the ERP");break;
  case FactoryAct::AssignSlot:Ok=Model.AssignSlot(C.Id,C.Part,E);break;
  case FactoryAct::HireEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee hiring belongs to another business");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.HireEmployee(EFoundrylineEmployeeRole(C.Count),C.RequestId,E);break;
- case FactoryAct::AssignEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee assignment belongs to another plant");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.AssignEmployee(C.Id,EFoundrylineEmployeeRole(C.Count),C.Other,E);break;
+ case FactoryAct::AssignEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee assignment belongs to another plant");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.AssignEmployee(C.Id,EFoundrylineEmployeeRole(C.Count),C.Other,E,C.QuarterTurns);break; // QuarterTurns carries the welding-station slot (0 A, 1 B).
  case FactoryAct::AddPresetZone:if(!Model.State.Running)Ok=Model.AddPresetZone(C.A,C.Id,C.QuarterTurns,C.SupplySide,C.Other,E);else E=TEXT("Pause before placing a work zone");break;
  case FactoryAct::AddWeldingStation:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("That welding station belongs to another plant");else Ok=Model.AddWeldingStation(C.A,C.QuarterTurns,C.SupplySide<0,E);break;
  case FactoryAct::RemoveWeldingStation:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("That welding station belongs to another plant");else Ok=Model.RemoveWeldingStation(C.Id,E);break;
