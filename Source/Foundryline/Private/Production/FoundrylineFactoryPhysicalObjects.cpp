@@ -1,6 +1,7 @@
 #include "Production/FoundrylineFactoryPlant.h"
 #include "Construction/FoundrylineEquipmentCollision.h"
 #include "Production/FoundrylineWorkZoneLayout.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 #include "Components/BoxComponent.h"
 #include "Components/SceneComponent.h"
 #include "Engine/StaticMesh.h"
@@ -15,11 +16,14 @@ void AFoundrylineFactoryPlant::UpdatePhysicalObjects(float Dt){
  for(int I=0;I<Forks.Num();++I){bool Active=Snapshot.Drivers.IsValidIndex(I);for(int J=I*8;J<(I+1)*8&&J<ForkPhysicalBodies.Num();++J)ForkPhysicalBodies[J]->SetCollisionEnabled(Active?ECollisionEnabled::QueryOnly:ECollisionEnabled::NoCollision);
   if(Active&&GetNetMode()==NM_DedicatedServer){const auto& D=Snapshot.Drivers[I];Forks[I]->SetRelativeLocationAndRotation(D.Position,FRotator(0,D.Yaw,0));float H=12;const auto* J=Snapshot.Jobs.FindByPredicate([&](const auto& V){return V.Id==D.Job;});if(J&&(J->Phase==2||J->Phase==4)){if(J->Phase==4)H=J->StoredAt.Z-20;else if(const auto* P=Snapshot.Pallets.FindByPredicate([&](const auto& V){return V.Id==J->SourcePallet;}))H=P->Position.Z-20;}Carriages[I]->SetRelativeLocation({28,0,16+H});}
  }
- const TCHAR* Names[]={TEXT("SteelSheet_60x120"),TEXT("BracketBlank"),TEXT("RailBlank"),TEXT("FrameRail"),TEXT("ShellBlank"),TEXT("ShellSection"),TEXT("TankHead_ASME_FD"),TEXT("RunningGearKit"),TEXT("FittingsKit"),TEXT("BentBracket"),TEXT("MountingPlate"),TEXT("GussetPlate"),TEXT("ReinforcementPlate"),TEXT("SupportChannel")};
  static TArray<FBox> Bounds;static FBox Wood(ForceInit);
- if(Bounds.IsEmpty()){auto Load=[](const FString& Folder,const FString& Name){auto* M=LoadObject<UStaticMesh>(nullptr,*(TEXT("/Game/Foundryline/")+Folder+TEXT("/SM_")+Name));return M?M->GetBoundingBox():FBox(FVector(-1),FVector(1));};Wood=Load(TEXT("Inventory/Storage/Pallets"),TEXT("Pallet_Wood"));for(int I=0;I<14;++I)Bounds.Add(Load(I==0?TEXT("Inventory/Materials/Steel"):I==6?TEXT("Products/Components/DishedHeads"):TEXT("Products/Components/Fabrication"),Names[I]));}
+ if(Bounds.IsEmpty()){auto Load=[](const FString& Path){auto* M=LoadObject<UStaticMesh>(nullptr,*Path);return M?M->GetBoundingBox():FBox(FVector(-1),FVector(1));};Wood=Load(TEXT("/Game/Foundryline/Inventory/Storage/Pallets/SM_Pallet_Wood"));for(int I=0;I<FFoundrylineFactoryCatalog::PartCount;++I)Bounds.Add(Load(FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart(I))));}
  TSet<int32> Live;
  for(const auto& P:Snapshot.Pallets){if(P.Quantity<=0||P.Place==EFoundrylinePalletPlace::Inbound||P.Place==EFoundrylinePalletPlace::Outbound||P.Place==EFoundrylinePalletPlace::InTransit)continue;int Part=int(P.Part);if(!Bounds.IsValidIndex(Part))continue;FVector Pos=P.Position;FRotator Rot=FRotator::ZeroRotator;bool Carried=P.Place==EFoundrylinePalletPlace::Forks;
+  // Station bins and the OUT cradle have their own fixed collision; only a pallet waiting on IN needs a body here.
+  const auto* Station=P.Place==EFoundrylinePalletPlace::Buffer||P.Place==EFoundrylinePalletPlace::StationIn||P.Place==EFoundrylinePalletPlace::StationOut?Snapshot.WeldingStations.FindByPredicate([&](const auto& S){return S.Id==P.Owner;}):nullptr;
+  if(Station&&P.Place!=EFoundrylinePalletPlace::StationIn)continue;if(Station)Rot=FFoundrylineWeldingStationLayout::Rotation(*Station);
+
   if(Carried){int DI=Snapshot.Drivers.IndexOfByPredicate([&](const auto& D){return D.Id==P.Owner;});if(!Forks.IsValidIndex(DI))continue;auto* R=Forks[DI].Get();Rot=R->GetRelativeRotation();Pos=R->GetRelativeLocation()+Rot.RotateVector({136,0,Carriages[DI]->GetRelativeLocation().Z-16});}
   else {if(P.Place==EFoundrylinePalletPlace::Rack&&(P.Owner==105||P.Owner==106))Rot.Yaw=90;if(P.Place==EFoundrylinePalletPlace::Buffer)if(const auto* Z=Snapshot.Zones.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))Rot=FFoundrylineWorkZoneLayout::Rotation(*Z);}
   FBox B(ForceInit);auto Union=[&](FBox Box,FVector Offset){B+=FBox(Box.Min+Offset,Box.Max+Offset);};if(!Carried&&(Part==0||Part==2||Part==3||Part==4||Part==5||Part==6)){Union(Wood,{0,-65,0});Union(Wood,{0,65,0});}else Union(Wood,FVector::ZeroVector);

@@ -399,6 +399,34 @@ Build one 16 ft x 12 ft station definition using the independent bench/fixture a
 
 Add the four-category mapping, purchased frame/light definitions and one rack recipe. Connect automatic deficits, single-type deliveries, internal unload, bounded buffers and one output cradle. Prove all four ingredients arrive through the single IN port without deadlock.
 
+Implemented 29 October 2026 (schema 11):
+
+- **Part mapping:**
+  - Steel Plates = `MountingPlate`.
+  - Steel Brackets = the `Bracket` blank.
+  - Frame Sections = new bought `FrameSection`: 16 lb and $24.00 each, 12 per bundle.
+  - Light Kits = new bought `LightKit`: 4.5 lb and $38.00 each, 8 per crate.
+  - `HeadacheRack` = the recipe output: 1 per OUT cradle, not yet produced or sold.
+- **Recipe:** `FFoundrylineFactoryCatalog::Recipe(1)` holds the 2 / 4 / 6 / 2 bill. The station stores only a recipe id and the batch quantity.
+- **Internal bins:** the station holds its stock in a parts bay in the free 4.5 x 2.5 ft corner beside IN, diagonal to the welding machines. Frame sections go in a low cradle; plate, bracket and light-kit bins sit on a shelf.
+  - Bin capacity is 4 / 8 / 12 / 4, which is two kits.
+  - The buffer target is two kits, or the remaining batch if smaller, capped by the bins.
+- **IN port:** IN is a transfer port. Only one delivery may claim it at a time: a pallet on IN, or a forklift job heading there.
+  - The planner picks the category with the largest relative shortfall and sends one single-type pallet.
+  - An 8 s unload empties the pallet into its bin; empty-pallet return is abstracted. Then the port clears for the next category.
+- **Where parts come from:**
+  - Plates and brackets come from the business's own racks. Accepted customer orders keep first claim on that rack stock.
+  - Frame sections and light kits are bought from the station panel through the normal paid supplier booking. Each purchase is limited to what the bins still lack (counting stock already booked), and the truck's pallet goes straight to that station's IN.
+- **OUT cradle:** a steel cradle in the OUT port takes at most one finished product.
+
+Test: `Foundryline.Factory.WeldingStation.Supplies` covers:
+
+- All four part types arrive through IN, never more than one pallet or one claim at a time.
+- Exact rack and bin quantities, paid parts and freight, and material mass conserved.
+- A mid-delivery save restores and completes the same supplies.
+- Order priority on rack stock, stopping the batch, invalid records, and migration from schema 10.
+
+
 ### Phase 3 — One-welder assembly
 
 Assign one employee, wait for attendance, reserve a kit, show fit-up/hologram-to-solid progress and complete one product exactly once. Prove pause/save/resume and missing parts behavior.

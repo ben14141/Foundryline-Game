@@ -194,7 +194,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
   TArray<const FFoundrylineFreightBooking*> Next;for(const auto& B:C.Bookings)if(B.Status!=EFoundrylineBookingState::Delivered)Next.Add(&B);Next.Sort([](const auto& A,const auto& B){return A.ArrivalAt<B.ArrivalAt;});
   const int Rows=FMath::Max(1,int((UH-56)/62));
   for(int I=0;I<FMath::Min(Rows,Next.Num());++I){const auto& B=*Next[I];const float RY=UTop+46+I*62;const float V=Hit(FString::Printf(TEXT("CalendarBooking%d"),B.Id),RX+10,RY,RW-20,56,true,TEXT("Open this truck in Stock & trucks."));if(V>.01f)Rect(RX+10,RY,RW-20,56,FMath::Lerp(Paper,Hex(TEXT("EEF4F8")),V));Hover(RX+10,RY,RW-20,56,V);
-   Chip(B.Inbound?TEXT("STEEL IN"):TEXT("PICKUP"),RX+20,RY+16,B.Inbound?Blue:Green,B.Inbound?SoftBlue:SoftGreen);Text(B.Inbound?FString::Printf(TEXT("%d sheet%s of steel"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s")):B.Customer,RX+118,RY+8,15,true,Ink,RW-150);Text(BookingStatus(B)+TEXT("  /  ")+FFoundrylineCommerceCatalog::Date(B.ArrivalAt),RX+118,RY+31,13,false,Muted,RW-150);}
+   Chip(B.Inbound?(B.Part?TEXT("PARTS IN"):TEXT("STEEL IN")):TEXT("PICKUP"),RX+20,RY+16,B.Inbound?Blue:Green,B.Inbound?SoftBlue:SoftGreen);Text(B.Inbound?FFoundrylineCommerceCatalog::InboundLabel(B):B.Customer,RX+118,RY+8,15,true,Ink,RW-150);Text(BookingStatus(B)+TEXT("  /  ")+FFoundrylineCommerceCatalog::Date(B.ArrivalAt),RX+118,RY+31,13,false,Muted,RW-150);}
   if(Next.IsEmpty())Wrap(TEXT("No trucks booked. Steel deliveries and customer pickups you book will show here."),RX+20,UTop+52,RW-40,14,false,Muted,3);
  }
  else if(Page==0||Page==2){
@@ -283,7 +283,8 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    Card(CX,Top,CW,CB-Top);const int Per=FMath::Max(1,int((CB-Top-110)/64)),F=First(Rows.Num(),Per);
    Text(TEXT("ORDER"),CX+24,Top+18,12,true,Muted);Text(TEXT("STEEL"),CX+CW*.2f,Top+18,12,true,Muted);Text(TEXT("ARRIVES"),CX+CW*.42f,Top+18,12,true,Muted);Text(TEXT("WHERE IT IS"),CX+CW*.66f,Top+18,12,true,Muted);Rect(CX+16,Top+44,CW-32,1,Line);
    for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& B=*Rows[I];const float RY=Top+52+(I-F)*64;const float V=Hit(FString::Printf(TEXT("CalendarBooking%d"),B.Id),CX+8,RY,CW-16,58,true,TEXT("Open this delivery in Stock & trucks."));if(V>.01f||(I-F)%2)Rect(CX+8,RY,CW-16,58,V>.01f?Hex(TEXT("EEF4F8")):Rail);Hover(CX+8,RY,CW-16,58,V);
-    Text(FString::Printf(TEXT("PO-%04d"),B.Id),CX+24,RY+18,15,true,Ink);Text(FString::Printf(TEXT("%d sheet%s  /  %s"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s"),*Lb(B.Sheets*SheetLb)),CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.ArrivalAt),CX+CW*.42f,RY+18,15,false,Ink,CW*.22f);
+    Text(FString::Printf(TEXT("PO-%04d"),B.Id),CX+24,RY+18,15,true,Ink);Text(B.Part?FFoundrylineCommerceCatalog::InboundLabel(B):FString::Printf(TEXT("%d sheet%s  /  %s"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s"),*Lb(B.Sheets*SheetLb)),
+CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.ArrivalAt),CX+CW*.42f,RY+18,15,false,Ink,CW*.22f);
     Chip(BookingStatus(B).ToUpper(),CX+CW*.66f,RY+17,B.Status==EFoundrylineBookingState::Delivered?Green:Blue,B.Status==EFoundrylineBookingState::Delivered?SoftGreen:SoftBlue);}
    if(Rows.IsEmpty()){Text(TEXT("No steel ordered yet"),CX+24,Top+70,20,true,Ink);Button(TEXT("Workspace0"),TEXT("Buy steel  >"),CX+24,Top+112,200,44,EStyle::Primary,true,TEXT("Order your first steel sheets."));}
    Pager(Rows.Num(),Per,CX+20,CB-52,CW-40);
@@ -342,8 +343,8 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    const int Per=FMath::Max(1,int((CB-LTop-50)/80)),F=First(Rows.Num(),Per);
    for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& B=*Rows[I];const float RY=LTop+(I-F)*80;const bool On=Booking&&B.Id==Booking->Id;const float V=Hit(FString::Printf(TEXT("Booking%d"),B.Id),CX,RY,LW,72,true);
     Rect(CX,RY,LW,72,On?SoftOrange:FMath::Lerp(Paper,Hex(TEXT("EEF4F8")),V));Border(CX,RY,LW,72,On?Orange:Line);if(On)Rect(CX,RY,4,72,Orange);else Hover(CX,RY,LW,72,V);
-    Chip(B.Inbound?TEXT("STEEL IN"):TEXT("PICKUP"),CX+18,RY+24,B.Inbound?Blue:Green,B.Inbound?SoftBlue:SoftGreen);int Qty=0;for(const auto& Item:B.Manifest)Qty+=Item.Quantity;
-    Text(B.Inbound?FString::Printf(TEXT("%d sheet%s of steel"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s")):FString::Printf(TEXT("%d parts to %s"),Qty,*B.Customer),CX+120,RY+14,16,true,Ink,LW-330);Text((B.Status==EFoundrylineBookingState::Delivered?TEXT("Arrived "):TEXT("Arrives "))+FFoundrylineCommerceCatalog::Date(B.ArrivalAt),CX+120,RY+40,13,false,Muted,LW-330);
+    Chip(B.Inbound?(B.Part?TEXT("PARTS IN"):TEXT("STEEL IN")):TEXT("PICKUP"),CX+18,RY+24,B.Inbound?Blue:Green,B.Inbound?SoftBlue:SoftGreen);int Qty=0;for(const auto& Item:B.Manifest)Qty+=Item.Quantity;
+    Text(B.Inbound?FFoundrylineCommerceCatalog::InboundLabel(B):FString::Printf(TEXT("%d parts to %s"),Qty,*B.Customer),CX+120,RY+14,16,true,Ink,LW-330);Text((B.Status==EFoundrylineBookingState::Delivered?TEXT("Arrived "):TEXT("Arrives "))+FFoundrylineCommerceCatalog::Date(B.ArrivalAt),CX+120,RY+40,13,false,Muted,LW-330);
     const FString St=BookingStatus(B).ToUpper();Chip(St,CX+LW-Width(St,12,true)-38,RY+24,B.Status==EFoundrylineBookingState::Delivered?Green:B.Status==EFoundrylineBookingState::Waiting?Amber:Blue,B.Status==EFoundrylineBookingState::Delivered?SoftGreen:B.Status==EFoundrylineBookingState::Waiting?SoftOrange:SoftBlue);}
    if(Rows.IsEmpty()){Card(CX,LTop,LW,150);Text(TEXT("No trucks booked yet"),CX+24,LTop+26,20,true,Ink);Wrap(TEXT("Buying steel books a delivery truck. Booking a pickup on the loading tablet books a customer truck."),CX+24,LTop+62,LW-48,14,false,Muted,3);}
    Pager(Rows.Num(),Per,CX,CB-38,LW);

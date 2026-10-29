@@ -95,7 +95,12 @@ void AFoundrylinePlayerController::FactoryAction(FName Name){auto* Plant=Factory
  if(A==TEXT("ZoneSide")){FactoryZoneSide=-FactoryZoneSide;return;}
  if(A==TEXT("StationRotate")){FactoryStationQuarter=(FactoryStationQuarter+1)%4;return;}
  if(A==TEXT("StationSide")){bFactoryStationSwap=!bFactoryStationSwap;return;}
- if(A==TEXT("StationRemove")){if(!S.WeldingStations.ContainsByPredicate([&](const auto& V){return V.Id==FactoryStation;}))return;C.Action=Act::RemoveWeldingStation;C.Id=FactoryStation;C.TargetPlantId=Plant->BusinessPlantId;FactoryStation=0;SendFactory(C);return;}
+ // Station supplies: the headache-rack batch is product data; bought parts use the normal paid supplier booking.
+ if(A==TEXT("StationSupply")){const auto* St=S.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==FactoryStation;});if(!St)return;C.Action=Act::ConfigureWeldingStation;C.Id=St->Id;C.Other=St->Recipe?0:1;C.Count=St->Recipe?0:10;C.TargetPlantId=Plant->BusinessPlantId;SendFactory(C);return;}
+ if(A.StartsWith(TEXT("StationBuy"))){const auto* St=S.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==FactoryStation;});const FString Value=A.RightChop(10);if(!St||!Value.IsNumeric())return;const int Part=FCString::Atoi(*Value);if(!FFoundrylineFactoryCatalog::Bought(EFoundrylinePart(FMath::Clamp(Part,0,255))))return;
+  FFoundrylineFactorySimulation View;View.State=S;FFoundrylineCommerceCommand Buy;Buy.Action=EFoundrylineCommerceAction::BuyParts;Buy.Id=St->Id;Buy.Choice=Part;Buy.Quantity=FMath::Min(View.StationShortfall(*St,EFoundrylinePart(Part)),FFoundrylineFactoryCatalog::Part(EFoundrylinePart(Part)).Capacity);if(Buy.Quantity>0)SendOperations(Buy);return;}
+ if(A==TEXT("StationRemove")){
+if(!S.WeldingStations.ContainsByPredicate([&](const auto& V){return V.Id==FactoryStation;}))return;C.Action=Act::RemoveWeldingStation;C.Id=FactoryStation;C.TargetPlantId=Plant->BusinessPlantId;FactoryStation=0;SendFactory(C);return;}
  if(A==TEXT("BatchValue")){FactoryEditField=Name;FactoryEditText.Reset();return;}
  if(A==TEXT("Toggle")){const bool Show=!bFactoryMenu;if(FactoryMachine)OpenFactoryComputer(0);bFactoryMenu=Show;bFactoryDragging=false;FactoryTool=NAME_None;BuildTool=NAME_None;for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)It->HidePreview();if(bLogisticsOverlay)ToggleLogisticsOverlay();return;}
  if(A==TEXT("ReturnOffice")){if(bPropertyViewAccess&&!IsWalking())ToggleWalk();return;}

@@ -66,7 +66,7 @@ bool FFoundrylineFactorySimulation::MakeJob(int Source,int Destination,Place Whe
  A->Reserved+=Count;State.Jobs.Add(J);return true;
 }
 void FFoundrylineFactorySimulation::Plan(){
- PlanCommerce();
+ PlanCommerce();PlanWeldingStations();
  // Demand is bounded to the next two assembly stages, and every incoming item is counted.
  const auto Steps=FFoundrylineFactoryCatalog::TankerSteps();
  for(const auto& Z:State.Zones)if(Z.Ordered){
@@ -161,7 +161,8 @@ void FFoundrylineFactorySimulation::Travel(float Dt){
    FVector Target=J->StoredAt;if(J->Phase==2)if(const auto* Source=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J->SourcePallet;}))Target=Source->Position;D.Yaw=FMath::FixedTurn(D.Yaw,(Target-D.Position).Rotation().Yaw,120*Dt);
    J->Handling-=Dt;if(J->Handling>0)continue;
    if(J->Phase==2){auto* A=State.Pallets.FindByPredicate([&](const auto& X){return X.Id==J->SourcePallet;});if(!A||A->Quantity<J->Quantity||A->Reserved<J->Quantity){State.Status=TEXT("Invalid pickup reservation");D.Waiting=true;continue;}float Lb=A->UnitLb;const int Booking=A->Place==Place::Inbound?0:A->BookingId;A->Reserved-=J->Quantity;if(A->Quantity==J->Quantity){J->CarryPallet=A->Id;A->BookingId=Booking;A->Place=Place::Forks;A->Owner=D.Id;A->Position=D.Position;if(J->OrderId)A->OrderId=J->OrderId;}else{A->Quantity-=J->Quantity;J->CarryPallet=AddPallet(J->Part,J->Quantity,Place::Forks,D.Id,D.Position,Lb);auto* New=State.Pallets.FindByPredicate([&](const auto& V){return V.Id==J->CarryPallet;});New->BookingId=Booking;New->OrderId=J->OrderId;}State.Pallets.RemoveAll([](const auto& X){return !X.Quantity&&!X.Reserved;});J->Phase=3;D.Path=Path(D.Position,J->Drop);D.Distance=0;
-   }else {auto* Cargo=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J->CarryPallet;});if(Cargo){auto* Existing=State.Pallets.FindByPredicate([&](const auto& A){return J->DestinationPlace!=Place::Outbound&&J->DestinationPlace!=Place::Pickup&&!A.BookingId&&A.Id!=Cargo->Id&&A.Part==Cargo->Part&&A.Place==J->DestinationPlace&&A.Owner==J->Destination&&FMath::IsNearlyEqual(A.UnitLb,Cargo->UnitLb,.01f);});if(Existing){Existing->Quantity+=Cargo->Quantity;int Id=Cargo->Id;State.Pallets.RemoveAll([&](const auto& A){return A.Id==Id;});}else {Cargo->Place=J->DestinationPlace;Cargo->Owner=J->Destination;Cargo->Position=J->StoredAt;if(J->DestinationPlace==Place::Rack||J->DestinationPlace==Place::MachineInput){Cargo->BookingId=0;Cargo->OrderId=0;}else{Cargo->OrderId=J->OrderId;Cargo->BookingId=J->BookingId;}}}Done.Add(J->Id);D.Job=0;}
+   }else {auto* Cargo=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J->CarryPallet;});if(Cargo){auto* Existing=State.Pallets.FindByPredicate([&](const auto& A){return J->DestinationPlace!=Place::Outbound&&J->DestinationPlace!=Place::Pickup&&!A.BookingId&&A.Id!=Cargo->Id&&A.Part==Cargo->Part&&A.Place==J->DestinationPlace&&A.Owner==J->Destination&&FMath::IsNearlyEqual(A.UnitLb,Cargo->UnitLb,.01f);});if(Existing){Existing->Quantity+=Cargo->Quantity;int Id=Cargo->Id;State.Pallets.RemoveAll([&](const auto& A){return A.Id==Id;});}else {Cargo->Place=J->DestinationPlace;Cargo->Owner=J->Destination;Cargo->Position=J->StoredAt;if(J->DestinationPlace==Place::Rack||J->DestinationPlace==Place::MachineInput||J->DestinationPlace==Place::StationIn){Cargo->BookingId=0;Cargo->OrderId=0;}
+else{Cargo->OrderId=J->OrderId;Cargo->BookingId=J->BookingId;}}}Done.Add(J->Id);D.Job=0;}
   }
  }
  State.Jobs.RemoveAll([&](const auto& J){return Done.Contains(J.Id);});

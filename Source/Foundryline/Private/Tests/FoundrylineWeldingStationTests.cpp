@@ -91,7 +91,7 @@ bool FWeldingStationPlacement::RunTest(const FString&){
  {auto T=M;T.State.WeldingStations[0].QuarterTurns=5;TestFalse(TEXT("Invalid saved rotation rejected"),T.Valid(E));}
  {auto T=M;FFoundrylineFactoryLane L;L.Id=T.State.NextId++;L.Kind=EFoundrylineFloorLane::Forklift;L.Min={-50,-50};L.Max={50,50};T.State.Lanes.Add(L);TestFalse(TEXT("Saved station overlapping a lane rejected"),T.Valid(E));}
  {auto T=M;auto Copy=T.State.WeldingStations[0];Copy.Id=T.State.NextId++;Copy.Center.X+=2000;T.State.WeldingStations.Add(Copy);TestFalse(TEXT("Duplicate station number rejected"),T.Valid(E));}
- {auto T=M;T.State.Version=9;T.State.WeldingStations.Reset();T.MigrateWeldingStations();TestEqual(TEXT("Schema 9 plant migrates to 10"),T.State.Version,10);TestTrue(TEXT("Migrated schema 9 plant validates: ")+E,T.Valid(E));}
+ {auto T=M;T.State.Version=9;T.State.WeldingStations.Reset();for(auto& Route:T.State.Routes)Route.Destinations.Remove(Id);T.MigrateWeldingStations();TestEqual(TEXT("Schema 9 plant migrates to 11"),T.State.Version,11);TestTrue(TEXT("Migrated schema 9 plant validates: ")+E,T.Valid(E));}
  // Removal is only for an empty station; real supplies keep it in place.
  AddStock(M,EFoundrylinePart::Bracket,4,EFoundrylinePalletPlace::Buffer,Id,Layout::PortCenter(M.State.WeldingStations[0],false));TestFalse(TEXT("Station holding supplies cannot be removed"),M.RemoveWeldingStation(Id,E));
  M.State.Pallets.RemoveAll([&](const auto& P){return P.Owner==Id;});TestTrue(TEXT("Empty station removes: ")+E,M.RemoveWeldingStation(Id,E));TestTrue(TEXT("No station remains"),M.State.WeldingStations.IsEmpty());TestFalse(TEXT("Unknown station removal rejected"),M.RemoveWeldingStation(Id,E));

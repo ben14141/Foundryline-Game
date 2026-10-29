@@ -9,7 +9,14 @@ FVector FFoundrylineWeldingStationLayout::Dock(const FFoundrylineWeldingStationR
 FVector FFoundrylineWeldingStationLayout::WorkPoint(const FFoundrylineWeldingStationRecord& S,int32 Side){return Side?Point(S,9.5,10):Point(S,7.5,3);}
 // The bench's torch holster end faces OUT, leaving the full IN port clear for pallets.
 FTransform FFoundrylineWeldingStationLayout::BenchTransform(const FFoundrylineWeldingStationRecord& S){return FTransform(FRotator(0,Rotation(S).Yaw+(S.bSwapSides?0:180),0),Point(S,8.5,6.5));}
-FTransform FFoundrylineWeldingStationLayout::ProductOnBench(){return FTransform(FRotator(0,0,90),FVector(0,-30.48,106.68));}
+int32 FFoundrylineWeldingStationLayout::BinCapacity(EFoundrylinePart P){switch(P){case EFoundrylinePart::MountingPlate:return 4;case EFoundrylinePart::Bracket:return 8;case EFoundrylinePart::FrameSection:return 12;case EFoundrylinePart::LightKit:return 4;default:return 0;}}
+// Frame sections lie in the low cradle along the station length; the three small-part bins share the shelf.
+FVector FFoundrylineWeldingStationLayout::BinPoint(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart P){
+ const double X=PortOnLeft(S,false)?2.25:14.75,Y=PortOnLeft(S,false)?11.75:1.25;
+ switch(P){case EFoundrylinePart::FrameSection:return Point(S,X,Y,12);case EFoundrylinePart::MountingPlate:return Point(S,X-1.4,Y,BinShelfCm);case EFoundrylinePart::Bracket:return Point(S,X,Y,BinShelfCm);default:return Point(S,X+1.4,Y,BinShelfCm);}
+}
+FTransform FFoundrylineWeldingStationLayout::ProductOnBench(){
+return FTransform(FRotator(0,0,90),FVector(0,-30.48,106.68));}
 FTransform FFoundrylineWeldingStationLayout::ProductTransform(const FFoundrylineWeldingStationRecord& S){return ProductOnBench()*BenchTransform(S);}
 bool FFoundrylineWeldingStationLayout::ProductFits(const FBox& P,FVector2D Carried,FString& E){
  const FVector2D Top(4*Foot,2*Foot);

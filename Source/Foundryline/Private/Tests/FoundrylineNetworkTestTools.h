@@ -69,6 +69,12 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueWeldingStation(APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bForeignPlant=false,bool bRemove=false,int32 StationId=0);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueFactoryLane(APlayerController* Player,int32 Kind,FVector A,FVector B,float Width);
  UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString WeldingStationReport(APlayerController* Player);
+ // Review fixture: cut plates and brackets in the finished racks (as the plasma table leaves them), plant running, station selected in the HUD.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetupWeldingSupplyReview(APlayerController* Host,int32 StationId);
+ // Selects a station in this player's HUD, as clicking it on the floor does.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SelectWeldingStation(APlayerController* Player,int32 StationId);
+
+
  // Places the player's placement hologram at a model-space point with a chosen rotation/swap and returns the check result.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString PreviewWeldingStation(APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bCommit=false);
 };
