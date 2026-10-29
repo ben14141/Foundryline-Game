@@ -69,7 +69,7 @@ void AFoundrylinePlayerController::TickFactory(float Dt){
  }
  for(AStaticMeshActor* A:FactoryStationPreview)if(A)A->SetActorHiddenInGame(!ShowStation);
  if(ShowStation){using Layout=FFoundrylineWeldingStationLayout;FFoundrylineWeldingStationRecord S;S.Center=FactoryPreviewA;S.QuarterTurns=FactoryStationQuarter;S.bSwapSides=bFactoryStationSwap;
-  const FLinearColor Glow=bFactoryPresetValid?FLinearColor(.025,.48,1):FLinearColor(1,.05,.015);const auto Yaw=Layout::Rotation(S);
+  const FLinearColor Glow=bFactoryPresetValid?FLinearColor(.025,.48,1):FLinearColor(2.4,.1,.04);const auto Yaw=Layout::Rotation(S);
   auto Pad=[&](const FBox2D& B,float Height){return FTransform(FRotator::ZeroRotator,FVector(B.GetCenter(),20+Height/2),FVector(B.GetSize().X/100,B.GetSize().Y/100,Height/100));};
   const FTransform Poses[]={Layout::BenchTransform(S),Layout::BenchTransform(S),Layout::ProductTransform(S),FTransform(Yaw,Layout::WorkPoint(S,0)+FVector(0,0,1),FVector(.6,.6,.02)),FTransform(Yaw,Layout::WorkPoint(S,1)+FVector(0,0,1),FVector(.6,.6,.02)),Pad(Layout::Port(S,false),2),Pad(Layout::Port(S,true),2),Pad(Layout::ForkApproach(S,false),.6),Pad(Layout::ForkApproach(S,true),.6),Pad(Layout::WorkerApproach(S,0),.6),Pad(Layout::WorkerApproach(S,1),.6),Layout::MachineTransform(S,0),Layout::MachineTransform(S,1)};
   for(int I=0;I<FactoryStationPreview.Num()&&I<13;++I)if(AStaticMeshActor* A=FactoryStationPreview[I]){A->SetActorTransform(Poses[I]);auto* C=A->GetStaticMeshComponent();for(int M=0;M<C->GetNumMaterials();++M)if(auto* D=Cast<UMaterialInstanceDynamic>(C->GetMaterial(M)))D->SetVectorParameterValue(TEXT("GlowColor"),Glow);}

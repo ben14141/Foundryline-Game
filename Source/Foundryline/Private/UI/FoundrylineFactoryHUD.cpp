@@ -14,6 +14,16 @@ bool AFoundrylineBuildHUD::DrawFactory(AFoundrylinePlayerController* PC){auto* P
  const FLinearColor Ink(FColor::FromHex(TEXT("1F2327"))),Paper(FColor::FromHex(TEXT("F7F5F1"))),Orange(FColor::FromHex(TEXT("F07A2F"))),Steel(FColor::FromHex(TEXT("5B6268"))),Muted(FColor::FromHex(TEXT("7A848A"))),Blue(.12,.65,1);
  auto Rect=[&](float X,float Y,float A,float B,FLinearColor C){DrawRect(C,X*S,Y*S,A*S,B*S);};
  auto Text=[&](const FString& T,float X,float Y,float Size=1.f,FLinearColor C=FLinearColor::White){DrawText(T,C,X*S,Y*S,GEngine->GetMediumFont(),Size*S);};
+ // Station placement outline drawn over the scene, so a blocked (red) preview stays readable even under equipment.
+ if(PC->FactoryTool==TEXT("Station")){using Layout=FFoundrylineWeldingStationLayout;int32 VW=0,VH=0;PC->GetViewportSize(VW,VH);
+  FFoundrylineWeldingStationRecord St;St.Center=PC->FactoryPreviewA;St.QuarterTurns=PC->FactoryStationQuarter;St.bSwapSides=PC->bFactoryStationSwap;
+  const FLinearColor Edge=PC->bFactoryPresetValid?FLinearColor(.05,.55,1):FLinearColor(1,.06,.02);
+  auto Project=[&](FVector P,FVector2D& Out){if(VW<=0||VH<=0||!PC->ProjectWorldLocationToScreen(P,Out,true))return false;Out.X*=Canvas->ClipX/VW;Out.Y*=Canvas->ClipY/VH;return true;};
+  auto Box=[&](const FBox2D& B,double Z,float Thick){const FVector C[]={{B.Min.X,B.Min.Y,Z},{B.Max.X,B.Min.Y,Z},{B.Max.X,B.Max.Y,Z},{B.Min.X,B.Max.Y,Z}};for(int I=0;I<4;++I){FVector2D A,B2;if(Project(C[I],A)&&Project(C[(I+1)%4],B2))DrawLine(A.X,A.Y,B2.X,B2.Y,Edge,Thick*S);}};
+  const FBox2D Foot=Layout::Bounds(St);const double Top=20+Layout::BenchHeightCm;
+  Box(Foot,22,6);Box(Foot,Top,3);for(const FVector2D& C:{Foot.Min,FVector2D(Foot.Max.X,Foot.Min.Y),Foot.Max,FVector2D(Foot.Min.X,Foot.Max.Y)}){FVector2D A,B;if(Project(FVector(C,22),A)&&Project(FVector(C,Top),B))DrawLine(A.X,A.Y,B.X,B.Y,Edge,3*S);}
+  Box(Layout::Bench(St),Top,3);Box(Layout::Port(St,false),22,3);Box(Layout::Port(St,true),22,3);}
+
  auto Button=[&](const FString& Key,const FString& Label,float X,float Y,float A=180,float B=42,bool Selected=false,bool Enabled=true){const FName Id(*(TEXT("Factory")+Key));float& V=HoverAmounts.FindOrAdd(Id);V=FMath::FInterpTo(V,Enabled&&HoveredBox==Id?1.f:0.f,Dt,14);Rect(X+V*3,Y,A-V*3,B,!Enabled?FLinearColor(.28,.30,.32):Selected?Orange:FMath::Lerp(PC->FactoryMachine>0?FLinearColor(.78,.80,.79):Ink,Steel,V*.7f));if(V>.01)Rect(X+3,Y+B-2,A-6,2,Orange);Text(Label,X+12,Y+12,1.05,!Enabled?Steel:Selected?Ink:PC->FactoryMachine>0?Ink:Paper);if(Enabled)AddHitBox({X*S,Y*S},{A*S,B*S},Id,true);};
  auto Clip=[](const FString& V,int32 Max){if(V.Len()<=Max)return V;int32 Cut=Max-3;const int32 Space=V.Left(Cut+1).Find(TEXT(" "),ESearchCase::CaseSensitive,ESearchDir::FromEnd);if(Space>Max/2)Cut=Space;return V.Left(Cut).TrimEnd()+TEXT("...");};
  DrawFactoryMap(PC);
