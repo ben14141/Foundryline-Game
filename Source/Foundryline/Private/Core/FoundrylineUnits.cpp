@@ -1,6 +1,9 @@
 #include "Core/FoundrylineUnits.h"
 #include "Internationalization/Regex.h"
-FString FFoundrylineUnits::Length(double Cm){if(!FMath::IsFinite(Cm))return TEXT("--");int64 Eighths=FMath::RoundToInt64(FMath::Abs(Cm)/2.54*8);const int64 Feet=Eighths/96;Eighths%=96;const int Inches=Eighths/8,Rest=Eighths%8;FString V=Cm<0?TEXT("-"):TEXT("");if(Feet)V+=FString::Printf(TEXT("%lld' "),Feet);if(Inches||!Rest)V+=FString::FromInt(Inches);if(Rest){int Top=Rest,Bottom=8;while(Top%2==0){Top/=2;Bottom/=2;}if(Inches)V+=TEXT(" ");V+=FString::Printf(TEXT("%d/%d"),Top,Bottom);}return V+TEXT("\"");}
+FString FFoundrylineUnits::Length(double Cm){if(!FMath::IsFinite(Cm))return TEXT("--");int64 Eighths=FMath::RoundToInt64(FMath::Abs(Cm)/2.54*8);
+ // Lengths of 10 ft or more read to the nearest inch; metric-grid sizes otherwise show noisy fractions.
+ if(Eighths>=960)Eighths=(Eighths+4)/8*8;
+ const int64 Feet=Eighths/96;Eighths%=96;const int Inches=Eighths/8,Rest=Eighths%8;FString V=Cm<0?TEXT("-"):TEXT("");if(Feet)V+=FString::Printf(TEXT("%lld' "),Feet);if(Inches||!Rest)V+=FString::FromInt(Inches);if(Rest){int Top=Rest,Bottom=8;while(Top%2==0){Top/=2;Bottom/=2;}if(Inches)V+=TEXT(" ");V+=FString::Printf(TEXT("%d/%d"),Top,Bottom);}return V+TEXT("\"");}
 FString FFoundrylineUnits::Display(const FString& Text){
  if(!Text.Contains(TEXT("m")))return Text;
  static const FRegexPattern Measurements(TEXT("(\\d+(?:\\.\\d+)?(?:\\s*(?:[xX,/-]|or|and)\\s*\\d+(?:\\.\\d+)?)*)\\s*(km/h|m/s|cm|mm|m2|m²|m)\\b"));

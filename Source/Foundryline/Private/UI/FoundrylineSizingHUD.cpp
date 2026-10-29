@@ -75,3 +75,23 @@ void AFoundrylineBuildHUD::DrawPlacementGuide(AFoundrylinePlayerController* PC) 
  const float X=FMath::Clamp(float(P.X)+18*S,420*S,Canvas->ClipX-430*S),Y=FMath::Clamp(float(P.Y)+18*S,20*S,Canvas->ClipY-40*S);
  DrawRect(FLinearColor(.03f,.04f,.05f,.94f),X,Y,280*S,32*S);DrawText(Label,FLinearColor::White,X+10*S,Y+8*S,GEngine->GetMediumFont(),1.3f*S);
 }
+
+void AFoundrylineBuildHUD::DrawSelectionOutlines(AFoundrylinePlayerController* PC)
+{
+ // Canvas lines replace the old DrawDebug outline, which Shipping builds strip out.
+ const float S=FMath::Min(1.5f,Canvas->ClipY/1320.f);
+ int32 VW=0,VH=0;PC->GetViewportSize(VW,VH);if(VW<=0||VH<=0) return;
+ auto Project=[&](FVector P,FVector2D& Out){if(!PC->ProjectWorldLocationToScreen(P,Out,true)) return false;Out.X*=Canvas->ClipX/VW;Out.Y*=Canvas->ClipY/VH;return true;};
+ const FLinearColor Orange(FColor::FromHex(TEXT("F07A2F"))),Sky(.39f,.71f,.86f);
+ for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)
+  for(const auto& O:It->SelectionOutlines)
+  {
+   const FVector Corners[]={{O.Min.X,O.Min.Y,O.Z},{O.Min.X,O.Max.Y,O.Z},{O.Max.X,O.Max.Y,O.Z},{O.Max.X,O.Min.Y,O.Z}};
+   FVector2D P[4];bool Visible=true;
+   for(int32 I=0;I<4&&Visible;++I) Visible=Project(Corners[I],P[I]);
+   if(!Visible) continue;
+   const auto Color=O.Hover?Sky:Orange;
+   for(int32 I=0;I<4;++I) DrawLine(P[I].X,P[I].Y,P[(I+1)%4].X,P[(I+1)%4].Y,Color,(O.Hover?2:4)*S);
+   if(!O.Hover) for(const auto& C:P) DrawRect(Color,C.X-5*S,C.Y-5*S,10*S,10*S);
+  }
+}

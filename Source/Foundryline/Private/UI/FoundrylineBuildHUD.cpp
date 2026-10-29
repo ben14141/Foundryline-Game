@@ -20,13 +20,13 @@ namespace {const TCHAR* PaintHex[]={TEXT("F7F5F1"),TEXT("1F2327"),TEXT("F07A2F")
 void AFoundrylineBuildHUD::DrawHUD()
 {
 	Super::DrawHUD();auto* PC=Cast<AFoundrylinePlayerController>(GetOwningPlayerController());if(!Canvas || !PC) return;
- PC->BuildHUDCanvasSize={Canvas->ClipX,Canvas->ClipY};if(DrawOperations(PC))return;if(DrawFactory(PC))return;
- if(PC->LocalMaterialCell) {DrawMaterialHandling(PC);return;}
- DrawMaterialHandling(PC);
- if(PC->LocalFreightRig) {DrawFreightControls(PC);return;}
- DrawFreightControls(PC);
  PC->BuildHUDCanvasSize={Canvas->ClipX,Canvas->ClipY};
- if(!PC->IsWalking()) DrawPlacementGuide(PC);
+ // The brand mark is shared by every screen, so load it before the first-person card can draw.
+ if(!Logo) Logo=LoadObject<UTexture2D>(nullptr,TEXT("/Game/Foundryline/UI/Brand/T_FoundrylineLogo.T_FoundrylineLogo"));
+ if(DrawOperations(PC))return;if(DrawFactory(PC))return;
+ DrawMaterialHandling(PC);if(PC->LocalMaterialCell) return;
+ DrawFreightControls(PC);if(PC->LocalFreightRig) return;
+ if(!PC->IsWalking()) {DrawSelectionOutlines(PC);DrawPlacementGuide(PC);}
  if(PC->IsLogisticsOverlayVisible() && !PC->IsWalking()) DrawLogisticsMap(PC);
 	const float S=FMath::Min(1.5f,Canvas->ClipY/1320.f),Dt=FMath::Min(GetWorld()->GetDeltaSeconds(),.1f);
 	const auto Ink=Brand(TEXT("1F2327")),Graphite=Brand(TEXT("4B5258")),Steel=Brand(TEXT("9AA0A6")),Paper=Brand(TEXT("F7F5F1")),Orange=Brand(TEXT("F07A2F")),Muted=Brand(TEXT("E8E7E2"));
@@ -93,7 +93,6 @@ void AFoundrylineBuildHUD::DrawHUD()
     const int32 Step=FFoundrylineGrid::SnapStep(PC->GetPlacementSnap());
     Text(bConfirmLoad?TEXT("Click load again to replace current changes"):FString::Printf(TEXT("%s SNAP  /  Right-click cancels  /  1:1 SCALE"),Step==100?TEXT("1 m"):*FString::Printf(TEXT("%d cm"),Step)),24,Bottom-30,1.12f,Steel);
  }
-	if(!Logo) Logo=LoadObject<UTexture2D>(nullptr,TEXT("/Game/Foundryline/UI/Brand/T_FoundrylineLogo.T_FoundrylineLogo"));
 	if(Logo) DrawTexture(Logo,24*S,22*S,352*S,128.3f*S,0,0,1,1,FLinearColor::White);
 	else Text(TEXT("FOUNDRYLINE"),24,72,2.8f,Ink);
 	Line(24,169,91,169,Orange,4);Line(101,169,376,169,Steel,1);
@@ -143,12 +142,12 @@ void AFoundrylineBuildHUD::DrawHUD()
  }
  if(!bEditTab && !bOfficeTab && !bPaintTab && FFoundrylineSizing::Surface(PC->BuildTool)) DrawSurfaceSizing(PC);
  const FLinearColor FeedbackColor=Site && Site->IsConstructionFeedbackError()?FLinearColor(0.85f,0.08f,0.06f):FLinearColor(0.03f,0.4f,0.85f);
- Rect(24,254,352,82,Muted);Rect(24,254,3,82,FeedbackColor);
+ Rect(24,254,352,92,Muted);Rect(24,254,3,92,FeedbackColor);
  Text(Site?Site->GetConstructionFeedbackTitle():TEXT("CONSTRUCTION"),38,263,1.3f,FeedbackColor);
  FString Status=Site?Site->GetConstructionFeedbackText():TEXT("Choose a tool to start building.");
  TArray<FString> Words;Status.ParseIntoArrayWS(Words);FString Row;int32 RowIndex=0;
- for(const auto& Word:Words) {if(Row.Len()+Word.Len()>41 && !Row.IsEmpty()){Text(Row,38,285+RowIndex*16,1.35f,Ink);Row.Empty();if(++RowIndex==3) break;}if(!Row.IsEmpty()) Row+=TEXT(" ");Row+=Word;}
- if(RowIndex<3 && !Row.IsEmpty()) Text(Row,38,285+RowIndex*16,1.35f,Ink);
+ for(const auto& Word:Words) {if(Row.Len()+Word.Len()>41 && !Row.IsEmpty()){Text(Row,38,285+RowIndex*20,1.35f,Ink);Row.Empty();if(++RowIndex==3) break;}if(!Row.IsEmpty()) Row+=TEXT(" ");Row+=Word;}
+ if(RowIndex<3 && !Row.IsEmpty()) Text(Row,38,285+RowIndex*20,1.35f,Ink);
 	const TCHAR* Tabs[]={TEXT("BuildTab"),TEXT("EditTab"),TEXT("OfficeTab"),TEXT("PaintTab")};const TCHAR* TabLabels[]={TEXT("BUILD"),TEXT("EDIT"),TEXT("OFFICE"),TEXT("PAINT")};
 	for(int32 I=0;I<4;++I){const bool Active=I==3?bPaintTab:I==2?bOfficeTab:I==1?bEditTab:!bEditTab&&!bOfficeTab&&!bPaintTab;const float X=24+I*90;const FName Key(Tabs[I]);Rect(X,354,82,46,Active?Muted:Paper);Text(TabLabels[I],X+10,368,1.35f,Ink);if(Active) Line(X,400,X+82,400,Orange,3);AddHitBox({X*S,354*S},{82*S,46*S},Key,true);}
  if(bEditTab)

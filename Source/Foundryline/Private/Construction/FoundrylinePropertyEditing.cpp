@@ -3,7 +3,6 @@
 #include "SaveSystem/FoundrylineSaveSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
-#include "DrawDebugHelpers.h"
 
 void AFoundrylineBuildSite::RecordUndo(const FFoundrylinePlacementRequest& R)
 {
@@ -27,17 +26,13 @@ void AFoundrylineBuildSite::ReplayHistory(bool Redo)
  if(!GetSelectedObject()) SelectedObject.Invalidate();
  Status=Redo?TEXT("Construction redone"):TEXT("Construction undone");
 }
-void AFoundrylineBuildSite::DrawSelection(FIntVector Cursor,bool Hover)
+void AFoundrylineBuildSite::RecordSelection(FIntVector Cursor,bool Hover)
 {
  const auto* Selected=GetSelectedObject();const auto* O=Hover?Pick(Cursor):Selected;
  if(!O || (Hover && Selected && O->ObjectId==Selected->ObjectId)) return;
  const auto* D=Placement->FindDefinition(O->DefinitionId);if(!D) return;
  const auto B=FFoundrylineGrid::RotateBounds(D->Footprint,O->Anchor,O->QuarterTurns);
- const FColor Color=Hover?FColor(100,180,220):FColor(240,122,47);
- const FVector Min(B.Min.X-35,B.Min.Y-35,SlabHeightCm+8),Max(B.Max.X+35,B.Max.Y+35,SlabHeightCm+8);
- const FVector A(Min.X,Max.Y,Min.Z),C(Max.X,Min.Y,Min.Z);
- for(const auto Pair:{TPair<FVector,FVector>(Min,A),{A,Max},{Max,C},{C,Min}}) DrawDebugLine(GetWorld(),Pair.Key,Pair.Value,Color,false,0,0,Hover?2:4);
- if(!Hover) for(const auto P:{Min,A,Max,C}) DrawDebugBox(GetWorld(),P,FVector(20,20,5),Color,false,0,0,3);
+ SelectionOutlines.Add({FVector2D(B.Min.X-35,B.Min.Y-35),FVector2D(B.Max.X+35,B.Max.Y+35),SlabHeightCm+8.f,Hover});
 }
 bool AFoundrylineBuildSite::IsPropertyBusy() const
 {

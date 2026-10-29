@@ -1,12 +1,17 @@
 #include "UI/FoundrylineBuildHUD.h"
 #include "UI/FoundrylinePlayerController.h"
 #include "Logistics/FoundrylineMaterialHandlingCell.h"
+#include "EngineUtils.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/PlayerState.h"
 void AFoundrylineBuildHUD::DrawMaterialHandling(AFoundrylinePlayerController* PC){
  if(PC->IsWalking())return;const float S=FMath::Min(1.5f,Canvas->ClipY/1320.f);const float X=440*S;
- if(!PC->LocalMaterialCell){if(PC->LocalFreightRig)return;const float B=Canvas->ClipY-60*S;DrawRect(FLinearColor(.1f,.12f,.14f,.95f),700*S,B,250*S,42*S);DrawText(TEXT("MATERIALS  [K]"),FLinearColor::White,714*S,B+12*S,GEngine->GetMediumFont(),1.4*S);AddHitBox({700*S,B},{250*S,42*S},TEXT("MaterialHandling"),true);return;}
+ if(!PC->LocalMaterialCell){
+  // The forklift test only has a button when a cell actually exists in the level.
+  if(PC->LocalFreightRig||!TActorIterator<AFoundrylineMaterialHandlingCell>(GetWorld()))return;
+  const float B=Canvas->ClipY-62*S;DrawRect(FLinearColor(FColor::FromHex(TEXT("F7F5F1"))),700*S,B,250*S,42*S);DrawRect(FLinearColor(FColor::FromHex(TEXT("F07A2F"))),700*S,B,4*S,42*S);
+  DrawText(TEXT("MATERIALS  [K]"),FLinearColor(FColor::FromHex(TEXT("1F2327"))),716*S,B+13*S,GEngine->GetMediumFont(),1.25*S);AddHitBox({700*S,B},{250*S,42*S},TEXT("MaterialHandling"),true);return;}
  PC->BuildHUDCanvasSize={Canvas->ClipX,Canvas->ClipY};const auto* C=PC->LocalMaterialCell.Get();const float Y=Canvas->ClipY-326*S,W=820*S;
  DrawRect(FLinearColor(.055f,.065f,.08f,.97f),X,Y,W,308*S);DrawRect(FLinearColor(1,.4f,.1f,1),X,Y,4*S,308*S);
  auto Text=[&](FString V,float R,FLinearColor Color=FLinearColor::White){DrawText(V,Color,X+18*S,Y+R*S,GEngine->GetMediumFont(),1.25*S);};
