@@ -1,6 +1,5 @@
 #include "Pathing/FoundrylineVehiclePathSubsystem.h"
 #include "Construction/FoundrylinePlacementSubsystem.h"
-#include "DrawDebugHelpers.h"
 #include "Engine/World.h"
 namespace {
  FFoundrylineDriveRect RelativeBounds(const FFoundrylinePlacedObject& A,const UFoundrylinePlaceableDefinition& AD,const FFoundrylinePlacedObject& B,const UFoundrylinePlaceableDefinition& BD) {
@@ -71,32 +70,3 @@ FString UFoundrylineVehiclePathSubsystem::GetDrivingDigest() {const auto M=GetMa
 bool UFoundrylineVehiclePathSubsystem::ReserveTarget(FGuid Target,FGuid Vehicle) {if(GetWorld()->GetNetMode()==NM_Client || !Vehicle.IsValid() || !GetMap()->Targets.ContainsByPredicate([&](const auto& T){return T.Id==Target;})) return false;const auto* Owner=OccupiedTargets.Find(Target);if(Owner && *Owner!=Vehicle) return false;OccupiedTargets.Add(Target,Vehicle);return true;}
 void UFoundrylineVehiclePathSubsystem::ReleaseTarget(FGuid Target,FGuid Vehicle) {if(GetWorld()->GetNetMode()==NM_Client) return;if(const auto* Owner=OccupiedTargets.Find(Target);Owner && *Owner==Vehicle) OccupiedTargets.Remove(Target);}
 bool UFoundrylineVehiclePathSubsystem::IsTargetAvailable(FGuid Target) const {return !OccupiedTargets.Contains(Target);}
-void UFoundrylineVehiclePathSubsystem::DrawOverlay(FVector View,const FFoundrylineVehicleRoute* Route,bool Semi) const
-{
- if(!Cached) return;auto* W=GetWorld();
- auto Rect=[&](const FFoundrylineDriveSurface& S,const FFoundrylineDriveRect& R,FColor C,float Thickness) {
-  const FVector2D Points[]={R.Min,{R.Max.X,R.Min.Y},R.Max,{R.Min.X,R.Max.Y}};
-  for(int32 I=0;I<4;++I) DrawDebugLine(W,FVector(S.World(Points[I]),30),FVector(S.World(Points[(I+1)%4]),30),C,false,0,1,Thickness);
- };
- for(const auto& S:Cached->Surfaces) {
-  if(FVector::DistSquared(View,FVector(S.World(S.Size/2),0))>FMath::Square(30000.f)) continue;
-  Rect(S,{{0,0},S.Size},S.Public?FColor(200,200,200):FColor(30,160,220),2);
-  for(const auto& Island:S.Islands) Rect(S,Island,FColor(200,60,60),3);
-  for(const auto& Entrance:S.Entrances) {Rect(S,Entrance,FColor::White,2);DrawDebugString(W,FVector(S.World((Entrance.Min+Entrance.Max)/2),65),TEXT("ENTRY"),nullptr,FColor::White,0,false,.8f);}
-  if(S.Function==TEXT("Road2") || S.Function==TEXT("Road4")) for(float Y=400;Y<S.Size.Y-300;Y+=1200) for(int32 Side=0;Side<(S.Function==TEXT("Road4")?4:2);++Side) {const int32 Lanes=S.Function==TEXT("Road4")?4:2;const bool Positive=Side>=Lanes/2;const float X=S.Size.X*(Side+.5f)/Lanes;DrawDebugDirectionalArrow(W,FVector(S.World({X,Y}),35),FVector(S.World({X,Y+(Positive?250:-250)}),35),70,FColor(180,180,180),false,0,1,2);}
-  for(const auto& Zone:S.TruckZones) {Rect(S,Zone,FColor(70,230,160),4);for(float Y=Zone.Min.Y+100;Y<Zone.Max.Y;Y+=300) DrawDebugLine(W,FVector(S.World({Zone.Min.X,Y}),29),FVector(S.World({Zone.Max.X,Y}),29),FColor(70,210,145),false,0,1,2);}
- }
- for(const auto& T:Cached->Targets) {
-  if(FVector::DistSquared(View,FVector(T.Pose.Position,0))>FMath::Square(20000.f)) continue;
-  const FColor C=!T.LayoutClear?FColor::Red:T.Semi?FColor(240,150,40):FColor(40,190,245);
-  DrawDebugDirectionalArrow(W,FVector(T.Pose.Position,35),FVector(T.Pose.Position+FVector2D(FMath::Cos(T.Pose.Yaw),FMath::Sin(T.Pose.Yaw))*150,35),60,C,false,0,1,3);
-  if(!T.Loading) if(const auto* S=Cached->Surfaces.FindByPredicate([&](const auto& S){return S.Id==T.SurfaceId;})) Rect(*S,T.Bay,C,1);
-  if(T.Loading) DrawDebugString(W,FVector(T.Pose.Position,80),TEXT("LOADING"),nullptr,C,0,false,1);
- }
- if(Route && Route->Success) {
-  for(int32 I=1;I<Route->Poses.Num();++I) DrawDebugLine(W,FVector(Route->Poses[I-1].Position,42),FVector(Route->Poses[I].Position,42),FColor::Green,false,0,1,4);
-  const auto& P=Route->Poses[int32(W->GetTimeSeconds()*4)%Route->Poses.Num()];const auto V=Semi?FFoundrylineVehicleProfile::Truck():FFoundrylineVehicleProfile::Car();
-  const FVector2D F(FMath::Cos(P.Yaw),FMath::Sin(P.Yaw));DrawDebugBox(W,FVector(P.Position+F*((V.Front-V.Rear)/2),100),{(V.Front+V.Rear)/2,V.Width/2,70},FQuat(FVector::UpVector,P.Yaw),FColor::Green,false,0,1,3);
-  if(Semi) {const FVector2D D(FMath::Cos(P.TrailerYaw),FMath::Sin(P.TrailerYaw));DrawDebugBox(W,FVector(P.Position-F*V.Hitch+D*((V.TrailerFront-V.TrailerRear)/2),140),{(V.TrailerFront+V.TrailerRear)/2,V.TrailerWidth/2,110},FQuat(FVector::UpVector,P.TrailerYaw),FColor(255,180,40),false,0,1,3);}
- }
-}

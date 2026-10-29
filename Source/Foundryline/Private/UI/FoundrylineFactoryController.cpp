@@ -4,7 +4,6 @@
 #include "Construction/FoundrylineBuildSite.h"
 #include "InputKeyEventArgs.h"
 #include "EngineUtils.h"
-#include "DrawDebugHelpers.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/StaticMesh.h"

@@ -1,6 +1,7 @@
 #include "UI/FoundrylineBuildHUD.h"
 #include "UI/FoundrylinePlayerController.h"
 #include "Logistics/FoundrylineFreightRig.h"
+#include "EngineUtils.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/PlayerState.h"
@@ -9,9 +10,12 @@ void AFoundrylineBuildHUD::DrawFreightControls(AFoundrylinePlayerController* PC)
  const float S=FMath::Min(1.5f,Canvas->ClipY/1320.f);
  const float X=440*S,Y=Canvas->ClipY-190*S,W=700*S;
  if(!PC->LocalFreightRig) {
-  DrawRect(FLinearColor(.1,.12,.14,.95),X,Canvas->ClipY-60*S,230*S,42*S);
-  DrawText(TEXT("TRUCK TEST  [V]"),FLinearColor::White,X+14*S,Canvas->ClipY-48*S,GEngine->GetMediumFont(),1.4*S);
-  AddHitBox({X,Canvas->ClipY-60*S},{230*S,42*S},TEXT("FreightDrive"),true);return;
+  // The tractor test only has a button when a rig actually exists in the level.
+  if(!TActorIterator<AFoundrylineFreightRig>(GetWorld())) return;
+  const float B=Canvas->ClipY-62*S;
+  DrawRect(FLinearColor(FColor::FromHex(TEXT("F7F5F1"))),X,B,230*S,42*S);DrawRect(FLinearColor(FColor::FromHex(TEXT("F07A2F"))),X,B,4*S,42*S);
+  DrawText(TEXT("TRUCK TEST  [V]"),FLinearColor(FColor::FromHex(TEXT("1F2327"))),X+16*S,B+13*S,GEngine->GetMediumFont(),1.25*S);
+  AddHitBox({X,B},{230*S,42*S},TEXT("FreightDrive"),true);return;
  }
  const auto* R=PC->LocalFreightRig.Get();
  DrawRect(FLinearColor(.06,.07,.09,.96),X,Y,W,172*S);
