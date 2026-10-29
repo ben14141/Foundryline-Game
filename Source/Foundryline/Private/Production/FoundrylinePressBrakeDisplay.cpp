@@ -16,9 +16,9 @@ void AFoundrylinePressBrakeDisplay::BeginPlay(){Super::BeginPlay();const FString
 }
 void AFoundrylinePressBrakeDisplay::SetFactoryPresentation(float Phase,bool Active,bool HasWork,EFoundrylinePart Part){
  const float P=HasWork?FMath::Clamp(Phase,0.f,1.f):0,Z=FFoundrylineMachineMotion::BrakeStroke(P);for(auto C:Moving)C->SetRelativeLocation({0,0,Z});
- if(Gauge)Gauge->SetRelativeLocation({P<.12f?FMath::Lerp(-12.f,0.f,P/.12f):P<.85f?0.f:FMath::Lerp(0.f,-12.f,(P-.85f)/.15f),0,0});
- if(!FlatPart||!BentPart)return;if(Part!=ShownPart){ShownPart=Part;const bool Rail=Part==EFoundrylinePart::FrameRail;const FString Root=TEXT("/Game/Foundryline/Products/Components/Fabrication/SM_");FlatPart->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*(Root+(Rail?TEXT("RailBlank"):TEXT("BracketBlank")))));BentPart->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*(Root+(Rail?TEXT("FrameRail"):TEXT("BentBracket")))));}
- FlatPart->SetVisibility(HasWork&&P<.45f);BentPart->SetVisibility(HasWork&&P>=.45f);const float Feed=FMath::Clamp(P/.12f,0.f,1.f);FlatPart->SetRelativeLocation({FMath::Lerp(80.f,52.f,Feed),0,104.1});
+ if(Gauge)Gauge->SetRelativeLocation({P<.12f?FMath::Lerp(-12.f,0.f,FFoundrylineMachineMotion::Ease(P/.12f)):P<.85f?0.f:FMath::Lerp(0.f,-12.f,FFoundrylineMachineMotion::Ease((P-.85f)/.15f)),0,0});
+ if(!FlatPart||!BentPart)return;if(Part!=ShownPart){ShownPart=Part;const bool Rail=Part==EFoundrylinePart::FrameRail,Channel=Part==EFoundrylinePart::SupportChannel;const FString Root=TEXT("/Game/Foundryline/Products/Components/Fabrication/SM_");FlatPart->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*(Root+(Rail?TEXT("RailBlank"):Channel?TEXT("ReinforcementPlate"):TEXT("BracketBlank")))));BentPart->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*(Root+(Rail?TEXT("FrameRail"):Channel?TEXT("SupportChannel"):TEXT("BentBracket")))));}
+ FlatPart->SetVisibility(HasWork&&P<.45f);BentPart->SetVisibility(HasWork&&P>=.45f);const float Feed=FFoundrylineMachineMotion::Ease(P/.12f);FlatPart->SetRelativeLocation({FMath::Lerp(80.f,52.f,Feed),0,104.1});
 }
 
 void AFoundrylinePressBrakeDisplay::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const{Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AFoundrylinePressBrakeDisplay,BusinessCompanyId);DOREPLIFETIME(AFoundrylinePressBrakeDisplay,BusinessPlantId);}

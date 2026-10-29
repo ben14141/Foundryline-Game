@@ -1,4 +1,5 @@
 #include "Logistics/FoundrylineMaterialHandlingCell.h"
+#include "Production/FoundrylineMachineMotion.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "Construction/FoundrylineEquipmentFootprintComponent.h"
 #include "Construction/FoundrylineEquipmentCollision.h"
@@ -43,9 +44,11 @@ void AFoundrylineMaterialHandlingCell::BeginPlay(){
  Wheels.Add(Mesh(TEXT("Forklift_Wheel_FR"),TEXT("/Game/Foundryline/Vehicles/Forklift/FL01/SM_Forklift_Wheel_FR.SM_Forklift_Wheel_FR"),ForkRoot,{0.04091f,-59.59131f,41.7871f}));Radius.Add(41.0622f);Steers.Add(false);
  Wheels.Add(Mesh(TEXT("Forklift_Wheel_RR"),TEXT("/Game/Foundryline/Vehicles/Forklift/FL01/SM_Forklift_Wheel_RR.SM_Forklift_Wheel_RR"),ForkRoot,{-197.33359f,-58.44237f,34.75395f}));Radius.Add(34.7429f);Steers.Add(true);
  auto* RollerBody=Mesh(TEXT("SheetRoller_Body"),TEXT("/Game/Foundryline/Production/Equipment/SheetRoller/SM_SheetRoller_Body.SM_SheetRoller_Body"),RootComponent,RollerCenter+FVector(0.0f,0.0f,0.0f));FFoundrylineEquipmentCollision::AddPawnBody(RollerBody);
+ auto* Console=Mesh(TEXT("SheetRoller_OperatorConsole"),TEXT("/Game/Foundryline/Production/Equipment/SheetRoller/SM_SheetRoller_OperatorConsole.SM_SheetRoller_OperatorConsole"),RootComponent,RollerCenter);FFoundrylineEquipmentCollision::AddPawnBody(Console);
+ UpperCarriers=Mesh(TEXT("SheetRoller_UpperCarriers"),TEXT("/Game/Foundryline/Production/Equipment/SheetRoller/SM_SheetRoller_UpperCarriers.SM_SheetRoller_UpperCarriers"),RootComponent,RollerCenter+FVector(0,0,127.4));
  Rollers.Add(Mesh(TEXT("SheetRoller_LowerFront"),TEXT("/Game/Foundryline/Production/Equipment/SheetRoller/SM_SheetRoller_LowerFront.SM_SheetRoller_LowerFront"),RootComponent,RollerCenter+FVector(-22.0f,0.0f,92.0f)));
  Rollers.Add(Mesh(TEXT("SheetRoller_LowerRear"),TEXT("/Game/Foundryline/Production/Equipment/SheetRoller/SM_SheetRoller_LowerRear.SM_SheetRoller_LowerRear"),RootComponent,RollerCenter+FVector(22.0f,0.0f,92.0f)));
- Rollers.Add(Mesh(TEXT("SheetRoller_Upper"),TEXT("/Game/Foundryline/Production/Equipment/SheetRoller/SM_SheetRoller_Upper.SM_SheetRoller_Upper"),RootComponent,RollerCenter+FVector(0.0f,0.0f,112.0f)));
+ Rollers.Add(Mesh(TEXT("SheetRoller_Upper"),TEXT("/Game/Foundryline/Production/Equipment/SheetRoller/SM_SheetRoller_Upper.SM_SheetRoller_Upper"),RootComponent,RollerCenter+FVector(0.0f,0.0f,127.4f)));
  if(!bFactoryAutomation){for(int32 End:{-1,1})Mesh(*FString::Printf(TEXT("RackUpright%d"),End),TEXT("/Game/Foundryline/Inventory/Storage/SheetRacking/SM_Rack_Upright.SM_Rack_Upright"),RootComponent,GetRackCenter()+FVector(0,End*201.735,0));
  for(int32 Level=0;Level<3;++Level){
   const FVector P=GetRackPosition(Level)-FVector(0,0,20);
@@ -202,16 +205,16 @@ void AFoundrylineMaterialHandlingCell::UpdateVisuals(float Dt){
 void AFoundrylineMaterialHandlingCell::Tick(float Dt){Super::Tick(Dt);if(bFactoryAutomation){ForkRoot->SetVisibility(false,true);TArray<UPrimitiveComponent*> ForkComponents;GetComponents(ForkComponents);for(auto* C:ForkComponents)if(C->IsAttachedTo(ForkRoot))C->SetCollisionEnabled(ECollisionEnabled::NoCollision);for(auto R:StockRoots)R->SetVisibility(false,true);return;}if(HasAuthority()){Accumulator+=FMath::Min(Dt,.1f);for(int32 I=0;I<4 && Accumulator>=1.f/30;++I){PreviousPose=Pose;Step(1.f/30);Accumulator-=1.f/30;}}UpdateVisuals(Dt);}
 void AFoundrylineMaterialHandlingCell::SetFactoryRoller(float Phase,bool Active,bool HasWork){
  if(!bFactoryAutomation)return;const float P=FMath::Clamp(Phase,0.f,1.f);if(FMath::IsNearlyEqual(P,LastFactoryPhase,.00001f)&&LastFactoryWork==HasWork)return;LastFactoryPhase=P;LastFactoryWork=HasWork;FeedSheet->SetVisibility(false);CurvedOutput->SetVisibility(false);
- const float Feed=150*P;for(int I=0;I<Rollers.Num();++I)Rollers[I]->SetRelativeRotation(FRotator(FMath::RadiansToDegrees(Feed/(I==2?-17.4f:12.f)),0,0));
- if(!FormingSheet)return;FormingSheet->SetVisibility(HasWork);if(!HasWork)return;
+ const float Feed=150*FFoundrylineMachineMotion::Ease(P);for(int I=0;I<Rollers.Num();++I)Rollers[I]->SetRelativeRotation(FRotator(FMath::RadiansToDegrees(Feed/(I==2?-17.4f:12.f)),0,0));
+ if(!FormingSheet)return;FormingSheet->SetVisibility(HasWork);if(!HasWork){if(Rollers.IsValidIndex(2))Rollers[2]->SetRelativeLocation(RollerCenter+FVector(0,0,127.4));if(UpperCarriers)UpperCarriers->SetRelativeLocation(RollerCenter+FVector(0,0,127.4));return;}
  // One real shell blank, represented by bounded thin strips while it bends. No inventory is spawned here.
- const double Length=117.5*PI/3,Width=138.95375,Thickness=.3175,Angle=FMath::Clamp((P-.15)/.65,0.,1.)*PI/3,BendRadius=Angle>.0001?Length/Angle:1.e9;
+ const double Length=117.5*PI/3,Width=138.95375,Thickness=.3175,Angle=FFoundrylineMachineMotion::Ease((P-.15)/.65)*PI/3,BendRadius=Angle>.0001?Length/Angle:1.e9;
  const double Sag=BendRadius-FMath::Sqrt(FMath::Max(0.,BendRadius*BendRadius-22*22)),Height=104-Sag;
  const FVector Center=RollerCenter+FVector(-85+Feed,0,Height);
  for(int I=0;I<32;++I){const double U=(I+.5)/32.-.5,A=U*Angle;const FVector Position=Center+FVector(Angle>.0001?BendRadius*FMath::Sin(A):U*Length,0,Angle>.0001?BendRadius*(1-FMath::Cos(A)):0);
   const double Chord=Angle>.0001?2*BendRadius*FMath::Sin(Angle/64):Length/32;
   FormingSheet->UpdateInstanceTransform(I,FTransform(FRotator(FMath::RadiansToDegrees(A),0,0),Position,FVector(Chord/100,Width/100,Thickness/100)),false,I==31,true);
  }
- const double LoadLift=6*(1-FMath::Min(FMath::Clamp((P-.05)/.15,0.,1.),FMath::Clamp((1-P)/.15,0.,1.)));
- if(Rollers.IsValidIndex(2))Rollers[2]->SetRelativeLocation(RollerCenter+FVector(0,0,Height+17.4+Thickness/2+LoadLift));
+ const double LoadLift=6*(1-FMath::Min(FFoundrylineMachineMotion::Ease((P-.05)/.15),FFoundrylineMachineMotion::Ease((1-P)/.15)));
+ const FVector UpperPosition=RollerCenter+FVector(0,0,Height+17.4+Thickness/2+LoadLift);if(Rollers.IsValidIndex(2))Rollers[2]->SetRelativeLocation(UpperPosition);if(UpperCarriers)UpperCarriers->SetRelativeLocation(UpperPosition);
 }

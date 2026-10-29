@@ -1,0 +1,118 @@
+{
+  "shaft_length_cm": 352,
+  "assets": [
+    {
+      "name": "SheetRoller_Body",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        156.5,
+        467.8598327636719,
+        154.0
+      ],
+      "domain": "Production/Equipment/SheetRoller"
+    },
+    {
+      "name": "SheetRoller_LowerFront",
+      "position_cm": [
+        -22.0,
+        0.0,
+        92.0
+      ],
+      "dimensions_cm": [
+        24.0,
+        363.3999938964844,
+        24.000015258789062
+      ],
+      "domain": "Production/Equipment/SheetRoller"
+    },
+    {
+      "name": "SheetRoller_LowerRear",
+      "position_cm": [
+        22.0,
+        0.0,
+        92.0
+      ],
+      "dimensions_cm": [
+        24.0,
+        363.3999938964844,
+        24.000015258789062
+      ],
+      "domain": "Production/Equipment/SheetRoller"
+    },
+    {
+      "name": "SheetRoller_Upper",
+      "position_cm": [
+        0.0,
+        0.0,
+        112.0
+      ],
+      "dimensions_cm": [
+        34.79999923706055,
+        363.3999938964844,
+        34.80001449584961
+      ],
+      "domain": "Production/Equipment/SheetRoller"
+    },
+    {
+      "name": "SteelSheet_RolledBlank",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        114.9736557006836,
+        152.40000915527344,
+        216.40553283691406
+      ],
+      "domain": "Products/Components/Steel"
+    },
+    {
+      "name": "SheetRoller_OperatorConsole",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        95.36258697509766,
+        150.5968017578125,
+        169.18067932128906
+      ],
+      "domain": "Production/Equipment/SheetRoller"
+    },
+    {
+      "name": "SheetRoller_UpperCarriers",
+      "position_cm": [
+        0.0,
+        0.0,
+        112.0
+      ],
+      "dimensions_cm": [
+        33.0,
+        397.5,
+        47.499996185302734
+      ],
+      "domain": "Production/Equipment/SheetRoller"
+    },
+    {
+      "name": "SheetRoller_Complete",
+      "position_cm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions_cm": [
+        211.5,
+        535.4999389648438,
+        169.18067932128906
+      ],
+      "domain": "Production/Equipment/SheetRoller"
+    }
+  ],
+  "status": "Independent upper bearing carriers follow pressure roll; reachable separate operator console; actual rotating drive hubs and service detail"
+}

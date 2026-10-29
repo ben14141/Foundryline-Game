@@ -6,7 +6,7 @@ The current starter loop buys steel sheets, cuts brackets and plates on a plasma
 
 ## Repository scope
 
-**This is a public source-only repository.** Licensed Fab assets, all Unreal content and local source art are excluded. A fresh clone is not playable until its authorized content is restored. See [repository content and dependencies](Docs/REPOSITORY_CONTENT.md). Existing local content is preserved.
+**This is a public source repository with a reviewed original-equipment asset subset.** Licensed Fab assets and most Unreal content/local source art are excluded. Original plasma, brake and roller geometry/CNC assets are included; see [equipment asset publication](Docs/Architecture/EQUIPMENT_ASSET_PUBLICATION.md). A fresh clone is not playable until its authorized content is restored. See [repository content and dependencies](Docs/REPOSITORY_CONTENT.md). Existing local content is preserved.
 
 ## Build and play
 

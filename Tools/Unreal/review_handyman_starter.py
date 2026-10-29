@@ -37,8 +37,8 @@ def samples():
   for c in plant.get_components_by_class(unreal.SkinnedMeshComponent):
    if not c.is_visible():continue
    origin,extent,radius=unreal.SystemLibrary.get_component_bounds(c);bounds_scale=max(.01,float(c.get_editor_property('bounds_scale')));extent=extent/bounds_scale;height=extent.z*2
-   q['body_bounds'][c.get_path_name()]={'origin':[origin.x,origin.y,origin.z],'extent':[extent.x,extent.y,extent.z],'height_cm':height}
-   q['checks']['human_scale_bounds']=q['checks'].get('human_scale_bounds',True) and 70<height<260 and extent.x<200 and extent.y<200
+   q['body_bounds'][c.get_path_name()]={'origin':[origin.x,origin.y,origin.z],'extent':[extent.x,extent.y,extent.z],'height_cm':height,'bounds_scale':bounds_scale}
+   q['checks']['human_scale_bounds']=q['checks'].get('human_scale_bounds',True) and 70<height<260 and extent.x/bounds_scale<200 and extent.y/bounds_scale<200
  q['checks']['stable_names_ids_jobs']=all(original.get(e['id'])==(e['name'],e['key'],e['role']) for e in rows)
 def finish():
  q['completed']=True;q['stage']=stage

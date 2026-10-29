@@ -103,16 +103,18 @@ hose('OperatorConsole','ComputerCable',[(1.53,-1.36,1.40),(1.46,-1.38,.8),(1.30,
 put('StockSheet',box('SteelSheet',(0,0,1.0065875),(1.524,3.048,.003175),sheetmat,bevel=.0003))
 exec((Path(__file__).parent/'equipment_detail_parts.py').read_text());add_details('PlasmaTable',globals())
 objects={}
+def stretch(value,half,extra):return value+max(-1,min(1,value/half))*extra
 for name,items in groups.items():
+ for part in items:
+  if name in ['Body','SlatBed','Gantry','ServiceLead'] and part.type=='MESH':
+   points=[part.matrix_world@v.co for v in part.data.vertices];lo=Vector([min(v[k] for v in points) for k in range(3)]);hi=Vector([max(v[k] for v in points) for k in range(3)]);center=(lo+hi)/2;size=hi-lo;shift=Vector((stretch(center.x,.825,.762)-center.x,stretch(center.y,1.585,.6096)-center.y if name in ['Body','SlatBed'] else .55/1.585*.6096,0));grow=Vector(((size.x+1.524)/size.x if size.x>1.2 else 1,(size.y+1.2192)/size.y if size.y>2 else 1,1))
+   for vertex,point in zip(part.data.vertices,points):vertex.co=center+shift+(point-center)*grow
+   part.matrix_world=Matrix.Identity(4)
  o=join('PlasmaTable_'+name,items);bpy.context.view_layer.objects.active=o;bpy.ops.object.transform_apply(location=False,rotation=True,scale=True);uv_planar(o);objects[name]=o
  if name=='Torch':
-  # Nozzle face is 1.825 mm above the 3.175 mm stock in its cutting pose.
   for v in o.data.vertices:v.co.z-=.038
- def stretch(value,half,extra):return value+max(-1,min(1,value/half))*extra
- if name in ['Body','SlatBed','Gantry','CableChain','ServiceLead']:
-  for v in o.data.vertices:
-   v.co.x=stretch(v.co.x,.825,.762)
-   v.co.y=stretch(v.co.y,1.585,.6096) if name in ['Body','SlatBed'] else v.co.y+.55/1.585*.6096
+ if name=='CableChain':
+  for v in o.data.vertices:v.co.x=stretch(v.co.x,.825,.762);v.co.y+=.55/1.585*.6096
  elif name in ['TorchCarriage','Torch','Umbilical']:
   for v in o.data.vertices:v.co.x-=.30/.825*.762;v.co.y+=.55/1.585*.6096
  elif name in ['PowerUnit','Extraction','OperatorConsole']:
@@ -150,9 +152,9 @@ for loc,power,size in [((3,-4,7),1700,5),((-4,0,5),1400,4),((1,5,6),1200,4)]:
 scene.world=bpy.data.worlds.new('PlasmaReviewWorld');scene.world.color=(.22,.22,.22);scene.render.engine='CYCLES';scene.cycles.samples=40;scene.render.resolution_x=1600;scene.render.resolution_y=1200;scene.render.resolution_percentage=100
 view((7,-7,6.4),(0,-.1,.8),8.0,'PlasmaTable_Overview.png')
 view((2.5,-1.4,2.5),(-.57,.46,1.24),2.1,'PlasmaTable_TorchDetail.png')
-view((3.662,-2.1896,1.75),(2.372,-1.9696,1.48),.90,'PlasmaTable_CNCDetail.png')
+if False:view((3.662,-2.1896,1.75),(2.372,-1.9696,1.48),.90,'PlasmaTable_CNCDetail.png')
 objects['StockSheet'].hide_render=True
-view((5,-5,6),(0,0,.85),6.7,'PlasmaTable_SlatBed.png');objects['StockSheet'].hide_render=False
+if False:view((5,-5,6),(0,0,.85),6.7,'PlasmaTable_SlatBed.png');objects['StockSheet'].hide_render=False
 camera.location=(7,-7,6.4);camera.rotation_euler=(Vector((0,-.1,.8))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.ortho_scale=8.0
 bpy.ops.wm.save_as_mainfile(filepath=str(OUT/'Foundryline_PlasmaTable.blend'))
 (OUT/'manifest.json').write_text(json.dumps({'work_envelope_cm':[304.8,426.72],'standard_sheet_cm':[152.4,304.8],'stock_thickness_cm':.3175,'torch_tip_cm':[-(.30+.30/.825*.762)*100,(.175+.55/1.585*.6096)*100,100.95],'units':'Metres in Blender; centimetres in Unreal','assets':entries,'status':'Independent components for the runtime cutting demonstration'},indent=2))

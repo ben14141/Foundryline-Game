@@ -13,7 +13,7 @@
 #include "GameFramework/GameStateBase.h"
 void AFoundrylineFactoryPlant::PublishCommerce(){if(HasAuthority()&&OperationsState){OperationsState->Data=Snapshot.Commerce;OperationsState->ForceNetUpdate();}}
 FVector AFoundrylineFactoryPlant::MachineWorldPosition(int32 Id)const{const auto* M=Snapshot.Machines.FindByPredicate([&](const auto& V){return V.Id==Id;});return GetActorTransform().TransformPosition(M&&!M->Origin.IsNearlyZero()?M->Origin:MachinePosition(Id));}
-FVector AFoundrylineFactoryPlant::ScreenWorldPosition(int32 Id)const{return MachineWorldPosition(Id)+(Id==1?FVector(269,197,148):Id==2?FVector(180,215,152):FVector(115,157.6,152));}
+FVector AFoundrylineFactoryPlant::ScreenWorldPosition(int32 Id)const{return MachineWorldPosition(Id)+(Id==1?FVector(269,197,148):Id==2?FVector(180,215,152):FVector(115,277.6,152));}
 bool AFoundrylineFactoryPlant::ExecuteCommerce(APlayerController* P,const FFoundrylineCommerceCommand& C,FString& E){
  auto* R=AFoundrylineBusinessRegistry::Find(GetWorld());if(!HasAuthority()||!P||P->GetWorld()!=GetWorld()||!P->PlayerState||P->PlayerState->IsOnlyASpectator()||!GetWorld()->GetGameState()||!GetWorld()->GetGameState()->PlayerArray.Contains(P->PlayerState)||C.PlantId!=BusinessPlantId||!R||!R->CanOperate(P,BusinessCompanyId,BusinessPlantId)){E=TEXT("Join this company before changing its operations");return false;}
  const auto* Company=R->GetLedger().Company(BusinessCompanyId);if(!Company){E=TEXT("Company account unavailable");return false;}const int64 Cash=Company->BalanceCents;auto Candidate=Model;Candidate.State.Commerce.CashCents=Cash;if(!Candidate.CommerceCommand(C,E)||!Candidate.Valid(E))return false;

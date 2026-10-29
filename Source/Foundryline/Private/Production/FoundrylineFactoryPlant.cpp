@@ -20,7 +20,7 @@ void AFoundrylineFactoryPlant::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 void AFoundrylineFactoryPlant::RefreshSnapshot(){Snapshot=Model.State;auto* GS=GetWorld()->GetGameState();PresentationEpoch=GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();PublishCommerce();}
 void AFoundrylineFactoryPlant::OnRep_State(){bRebuild=true;}
 FVector AFoundrylineFactoryPlant::MachinePosition(int32 Id){return FFoundrylineWorkshopLayout::Machine(Id);}
-FVector AFoundrylineFactoryPlant::ScreenPosition(int32 Id){return MachinePosition(Id)+(Id==1?FVector(269,197,148):Id==2?FVector(180,215,152):FVector(115,157.6,152));}
+FVector AFoundrylineFactoryPlant::ScreenPosition(int32 Id){return MachinePosition(Id)+(Id==1?FVector(269,197,148):Id==2?FVector(180,215,152):FVector(115,277.6,152));}
 void AFoundrylineFactoryPlant::Tick(float Dt){Super::Tick(Dt);if(HasAuthority()){
  auto* BusinessRegistry=AFoundrylineBusinessRegistry::Find(GetWorld());int64 BeforeCash=Model.State.Commerce.CashCents;if(Model.State.Commerce.Enabled&&BusinessRegistry){if(const auto* C=BusinessRegistry->GetLedger().Company(BusinessCompanyId))Model.State.Commerce.CashCents=BeforeCash=C->BalanceCents;}
  SimClock+=FMath::Min(Dt,.25f);while(SimClock>=.1f){Model.Step(.1f);SimClock-=.1f;}
