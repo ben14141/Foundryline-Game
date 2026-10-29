@@ -71,6 +71,8 @@ public:
  UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString WeldingStationReport(APlayerController* Player);
  // Review fixture: cut plates and brackets in the finished racks (as the plasma table leaves them), plant running, station selected in the HUD.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetupWeldingSupplyReview(APlayerController* Host,int32 StationId);
+ // Review fixture for Phase 3: two complete kits already unloaded into the station bins (as Phase 2 leaves them), plant running.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SetupWeldingAssemblyReview(APlayerController* Host,int32 StationId);
  // Selects a station in this player's HUD, as clicking it on the floor does.
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool SelectWeldingStation(APlayerController* Player,int32 StationId);
 

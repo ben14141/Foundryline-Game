@@ -53,8 +53,22 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  // Rack fixtured flat: its upright datum turned onto its back on the risers (from Foundryline_RackWeldingSetup).
  static FTransform ProductTransform(const FFoundrylineWeldingStationRecord& S);
  static FTransform ProductOnBench();
- // Headache rack fixtured flat on the bench, relative to the bench floor datum (from the source asset QA).
- static FBox RackOnBenchCm(){return FBox(FVector(-99.06,-40.64,92.71),FVector(99.06,40.64,120.65));}
+ // Rack jig, from the fixture kit's own parts (SM_WeldingFixtureRiser / SM_WeldingFixtureHoldDown, split from Codex's kit).
+ // The rack lies on its back with its 2 in frame tubes on four 4.92 in risers: two under the uprights, two under the upper
+ // crossmember. Its bed-rail plates and saddles hang 4.5 in below the tubes and clear the worktop by about 3/8 in. Each
+ // hold-down clamp stands beside a riser with its bridge over the tube. Poses are bench-local (floor datum, X along the bench).
+ static constexpr double JigRiserCm=12.497;
+ static constexpr double RackTubeHalfCm=2.54;
+ static TArray<FTransform> JigRisers(){return {FTransform(FVector(-91.44,1.5,BenchHeightCm)),FTransform(FVector(91.44,1.5,BenchHeightCm)),FTransform(FVector(-75,37.5,BenchHeightCm)),FTransform(FVector(75,37.5,BenchHeightCm))};}
+ static TArray<FTransform> JigHoldDowns(){return {FTransform(FVector(-100,1.5,BenchHeightCm)),FTransform(FVector(100,1.5,BenchHeightCm)),FTransform(FRotator(0,90,0),FVector(-75,44,BenchHeightCm)),FTransform(FRotator(0,90,0),FVector(75,44,BenchHeightCm))};}
+ // Rack centre (bed-rail datum) on the jig: tube undersides on the riser tops.
+ static double RackDatumZ(){return BenchHeightCm+JigRiserCm+RackTubeHalfCm;}
+ // Headache rack fixtured on the jig, relative to the bench floor datum (bounds of SM_HeadacheRack lying on its back).
+ static FBox RackOnBenchCm(){const double Z=RackDatumZ()-13.97;return FBox(FVector(-99.06,-40.64,Z),FVector(99.06,40.71,Z+27.94));}
+ // Assembly stage times at the 100% (one welder) rate, in plant seconds.
+ static float StageSeconds(int32 Stage){return Stage==1?30.f:Stage==2?90.f:Stage==3?20.f:Stage==4?6.f:0.f;}
+ // Finished product resting on the OUT cradle, relative to the cradle transform.
+ static FTransform ProductOnCradle(){return FTransform(FRotator(0,0,90),FVector(0,-30.48,CradleSizeCm().Z+13.97));}
  static FVector RackSizeCm(){return {198.12,81.28,27.94};}
  static bool ProductFits(const FBox& OnBench,FVector2D CarriedSize,FString& Error);
  static FString Name(int32 Number){return FString::Printf(TEXT("Welding Station %02d"),Number);}

@@ -1,5 +1,6 @@
 #include "FoundrylineNetworkTestTools.h"
 #include "Production/FoundrylineFactoryPlant.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -95,10 +96,24 @@ FString UFoundrylineNetworkTestTools::WeldingStationReport(APlayerController* Pl
  FString Items;for(const auto& S:View.State.WeldingStations){FString Bins;for(auto P:FFoundrylineFactoryCatalog::AssemblyParts())Bins+=FString::Printf(TEXT("%s\"%d\":[%d,%d,%d]"),Bins.IsEmpty()?TEXT(""):TEXT(","),int(P),View.StationStock(S,P,false),View.StationStock(S,P),View.StationTarget(S,P));
   const auto* In=View.State.Pallets.FindByPredicate(
 [&](const auto& A){return A.Place==EFoundrylinePalletPlace::StationIn&&A.Owner==S.Id;});
-  Items+=FString::Printf(TEXT("%s{\"id\":%d,\"number\":%d,\"x\":%.2f,\"y\":%.2f,\"quarter\":%d,\"swap\":%s,\"recipe\":%d,\"batch\":%d,\"in_part\":%d,\"bins\":{%s},\"supply\":\"%s\"}"),Items.IsEmpty()?TEXT(""):TEXT(","),S.Id,S.Number,S.Center.X,S.Center.Y,S.QuarterTurns,S.bSwapSides?TEXT("true"):TEXT("false"),S.Recipe,S.BatchRemaining,In?int(In->Part):-1,*Bins,*View.WeldingStationStatus(S));}
+  Items+=FString::Printf(TEXT("%s{\"id\":%d,\"number\":%d,\"x\":%.2f,\"y\":%.2f,\"quarter\":%d,\"swap\":%s,\"recipe\":%d,\"batch\":%d,\"in_part\":%d,\"bins\":{%s},\"supply\":\"%s\",\"stage\":%d,\"work\":%.2f,\"advancing\":%s,\"welder_ready\":%s,\"units\":%d,\"out\":%d}"),Items.IsEmpty()?TEXT(""):TEXT(","),S.Id,S.Number,S.Center.X,S.Center.Y,S.QuarterTurns,S.bSwapSides?TEXT("true"):TEXT("false"),S.Recipe,S.BatchRemaining,In?int(In->Part):-1,*Bins,*View.WeldingStationStatus(S),
+   S.Stage,S.Work,S.bAdvancing?TEXT("true"):TEXT("false"),View.StationWelderReady(S)?TEXT("true"):TEXT("false"),S.UnitsCompleted,View.State.Pallets.FilterByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==EFoundrylinePalletPlace::StationOut;}).Num());}
  return FString::Printf(TEXT("{\"authority\":%s,\"lanes\":%d,\"revision\":%d,\"status\":\"%s\",\"stations\":[%s]}"),Plant->HasAuthority()?TEXT("true"):TEXT("false"),Plant->Snapshot.Lanes.Num(),Plant->Snapshot.Revision,*PC->FactoryStatus.Replace(TEXT("\""),TEXT("'")),*Items);
 #else
  return TEXT("{}");
+#endif
+}
+bool UFoundrylineNetworkTestTools::SetupWeldingAssemblyReview(APlayerController* Host,int32 StationId){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Host);if(!PC||!PC->HasAuthority()||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;auto* Plant=PC->FactoryPlant();if(!Plant)return false;
+ auto& M=Plant->Model;const auto* S=M.State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==StationId;});if(!S)return false;
+ for(auto [P,Q,Lb]:{TTuple<EFoundrylinePart,int,float>{EFoundrylinePart::MountingPlate,4,2},{EFoundrylinePart::Bracket,8,5},{EFoundrylinePart::FrameSection,12,16},{EFoundrylinePart::LightKit,4,4.5f}}){
+  // Top up only what the bins can still take, counting deliveries already booked for them.
+  const int Room=FMath::Min(Q,FFoundrylineWeldingStationLayout::BinCapacity(P)-M.StationStock(*S,P));if(Room<=0)continue;
+  FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Room;A.Place=EFoundrylinePalletPlace::Buffer;A.Owner=StationId;A.Position=FFoundrylineWeldingStationLayout::BinPoint(*S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}
+ M.State.Running=true;++M.State.Revision;PC->FactoryStation=StationId;return true;
+#else
+ return false;
 #endif
 }
 bool UFoundrylineNetworkTestTools::SetupWeldingSupplyReview(APlayerController* Host,int32 StationId){

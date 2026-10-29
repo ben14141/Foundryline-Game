@@ -66,6 +66,10 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  // Free stock a forklift could bring from this business's racks.
  int32 StationRackSupply(EFoundrylinePart Part)const;
  FString WeldingStationStatus(const FFoundrylineWeldingStationRecord& Station)const;
+ // Welder A standing at their work point beside the bench.
+ bool StationWelderReady(const FFoundrylineWeldingStationRecord& Station)const;
+ // The station wants its welder: a unit is on the bench, or a batch is set.
+ static bool StationNeedsWelder(const FFoundrylineWeldingStationRecord& Station){return Station.Stage>0&&Station.Stage<4||Station.Recipe&&Station.BatchRemaining>0;}
  bool IsStationStock(const FFoundrylineFactoryPallet& Pallet)const;
  bool AssignSlot(int32 Slot,EFoundrylinePart Part,FString& Error);
  bool Order(int32 Zone,FString& Error);
@@ -92,6 +96,7 @@ private:
  void Plan();
  void PlanWeldingStations();
  void UnloadWeldingStations(float Dt);
+ void AssembleWeldingStations(float Dt);
  bool StationPortBusy(const FFoundrylineWeldingStationRecord& Station)const;
 
  void Machines(float Dt);

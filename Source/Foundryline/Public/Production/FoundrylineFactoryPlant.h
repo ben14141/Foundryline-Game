@@ -119,4 +119,23 @@ private:
  UPROPERTY() TArray<TObjectPtr<class UBoxComponent>> StationCollision;
  // Lead from each machine to its holstered gun, three segments per machine (station index * 2 + side).
  UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> StationIdleLeads;
+ // The unit on each station's bench, by snapshot station index: fixture kit stored on the shelf or set out as a jig on
+ // the worktop, the rack as hologram, as weld progress and as the finished product, and Welder A's gun, lead and sparks.
+ UPROPERTY() TArray<TObjectPtr<class USceneComponent>> StationUnitParts;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationStoredFixtures;
+ // Eight jig parts per station (four risers, four hold-downs), in JigRisers/JigHoldDowns order.
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationJigParts;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRackGhosts;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRackBuilds;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRacks;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationHolsteredGuns;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationGuns;
+ UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> StationLeads;
+ UPROPERTY() TArray<TObjectPtr<class UFoundrylineWeldingEffectComponent>> StationWeldEffects;
+ TArray<int32> StationShownStage;
+ void AnimateWeldingStations(float Dt,double Age);
+ void AddStationFitUpParts();
+ static FString RackBuildSuffix(const class UMaterialInterface* Material);
+ static bool IsRackLight(const class UMaterialInterface* Material);
+ class UMaterialInstanceDynamic* RackProgressMaterial(class UMaterialInterface* Base,const FTransform& On);
 };

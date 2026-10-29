@@ -27,7 +27,9 @@ void OpenFloor(FFoundrylineFactorySimulation& M,int Q,bool WalkwayB=true,bool Ri
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeldingStationLayout,"Foundryline.Factory.WeldingStation.Layout",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FWeldingStationLayout::RunTest(const FString&){
  // Same light-bezel point in the upright rack source and in the assembled bench setup (Blender Y is mirrored by FBX import).
- TestTrue(TEXT("Rack lies on the fixture exactly as in the reviewed bench setup"),Layout::ProductOnBench().TransformPosition(FVector(-61,-8.44,67.8)).Equals(FVector(-61,37.32,115.12),.05));
+ TestTrue(TEXT("Rack lies on its back on the jig: tube undersides on the riser tops"),FMath::IsNearlyEqual(Layout::ProductOnBench().TransformPosition(FVector(0,Layout::RackTubeHalfCm,40)).Z,Layout::BenchHeightCm+Layout::JigRiserCm,.01));
+ TestTrue(TEXT("Bed-rail plates clear the worktop and the rack stays over it"),Layout::RackOnBenchCm().Min.Z>Layout::BenchHeightCm&&Layout::RackOnBenchCm().Min.Z<Layout::BenchHeightCm+2&&FMath::Abs(Layout::RackOnBenchCm().Min.Y)<2*Layout::Foot&&Layout::RackOnBenchCm().Max.Y<2*Layout::Foot);
+ for(const auto& R:Layout::JigRisers())TestTrue(TEXT("Every riser stands on the worktop under the rack"),FMath::IsNearlyEqual(R.GetLocation().Z,Layout::BenchHeightCm)&&FMath::Abs(R.GetLocation().X)<4*Layout::Foot-5.08&&FMath::Abs(R.GetLocation().Y)<2*Layout::Foot-5.08);
  FString E;TestTrue(TEXT("Full-size rack fits the bench fixture, clear height and OUT cradle: ")+E,Layout::ProductFits(Layout::RackOnBenchCm(),FVector2D(Layout::RackSizeCm()),E));
  TestFalse(TEXT("A product longer than the bench is rejected, not scaled"),Layout::ProductFits(FBox(FVector(-150,-40,95),FVector(150,40,120)),{300,80},E));
  TestFalse(TEXT("Mounts resting on the worktop are rejected"),Layout::ProductFits(FBox(FVector(-99,-40,Layout::BenchHeightCm),FVector(99,40,120)),{198,81},E));
@@ -91,7 +93,7 @@ bool FWeldingStationPlacement::RunTest(const FString&){
  {auto T=M;T.State.WeldingStations[0].QuarterTurns=5;TestFalse(TEXT("Invalid saved rotation rejected"),T.Valid(E));}
  {auto T=M;FFoundrylineFactoryLane L;L.Id=T.State.NextId++;L.Kind=EFoundrylineFloorLane::Forklift;L.Min={-50,-50};L.Max={50,50};T.State.Lanes.Add(L);TestFalse(TEXT("Saved station overlapping a lane rejected"),T.Valid(E));}
  {auto T=M;auto Copy=T.State.WeldingStations[0];Copy.Id=T.State.NextId++;Copy.Center.X+=2000;T.State.WeldingStations.Add(Copy);TestFalse(TEXT("Duplicate station number rejected"),T.Valid(E));}
- {auto T=M;T.State.Version=9;T.State.WeldingStations.Reset();for(auto& Route:T.State.Routes)Route.Destinations.Remove(Id);T.MigrateWeldingStations();TestEqual(TEXT("Schema 9 plant migrates to 11"),T.State.Version,11);TestTrue(TEXT("Migrated schema 9 plant validates: ")+E,T.Valid(E));}
+ {auto T=M;T.State.Version=9;T.State.WeldingStations.Reset();for(auto& Route:T.State.Routes)Route.Destinations.Remove(Id);T.MigrateWeldingStations();TestEqual(TEXT("Schema 9 plant migrates to 12"),T.State.Version,12);TestTrue(TEXT("Migrated schema 9 plant validates: ")+E,T.Valid(E));}
  // Removal is only for an empty station; real supplies keep it in place.
  AddStock(M,EFoundrylinePart::Bracket,4,EFoundrylinePalletPlace::Buffer,Id,Layout::PortCenter(M.State.WeldingStations[0],false));TestFalse(TEXT("Station holding supplies cannot be removed"),M.RemoveWeldingStation(Id,E));
  M.State.Pallets.RemoveAll([&](const auto& P){return P.Owner==Id;});TestTrue(TEXT("Empty station removes: ")+E,M.RemoveWeldingStation(Id,E));TestTrue(TEXT("No station remains"),M.State.WeldingStations.IsEmpty());TestFalse(TEXT("Unknown station removal rejected"),M.RemoveWeldingStation(Id,E));
