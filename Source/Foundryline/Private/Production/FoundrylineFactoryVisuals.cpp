@@ -76,10 +76,10 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
  for(const auto& P:Snapshot.Pallets){const auto* S=StationOf(P);if(!S||P.Place==EFoundrylinePalletPlace::StationIn||!PartMeshes.IsValidIndex(int(P.Part)))continue;auto* Ism=PartMeshes[int(P.Part)].Get();if(!Ism||!Ism->GetStaticMesh())continue;
   const FBox B=Ism->GetStaticMesh()->GetBoundingBox();const FRotator Yaw=StationLayout::Rotation(*S);
   if(P.Place==EFoundrylinePalletPlace::StationOut){const int Slot=StationLayout::OutSlot(*S,P.Position);if(Slot>=0)for(int Level=0;Level<P.Quantity;++Level)Ism->AddInstance(StationLayout::RackOnOut(*S,Slot,Level));continue;}
-  const bool Frames=P.Part==EFoundrylinePart::FrameSection,Plates=P.Part==EFoundrylinePart::MountingPlate;const FVector BinCell=Frames?FVector(120,10,10):Plates?FVector(36,56,4):FVector(16,26,13);
+  const bool Frames=P.Part==EFoundrylinePart::FrameSection,Plates=P.Part==EFoundrylinePart::MountingPlate;const FVector BinCell=Frames?FVector(120,10,10):Plates?FVector(36,30,4):FVector(16,14,13);
   const bool Turn=B.GetSize().Y>B.GetSize().X;const FVector Size=Turn?FVector(B.GetSize().Y,B.GetSize().X,B.GetSize().Z):B.GetSize();
   const float Scale=FMath::Min(1.f,float(FMath::Min3(BinCell.X/FMath::Max(1.,Size.X),BinCell.Y/FMath::Max(1.,Size.Y),BinCell.Z/FMath::Max(1.,Size.Z))));const FRotator ItemYaw(0,Yaw.Yaw+(Turn?90:0),0);
-  for(int I=0;I<P.Quantity;++I){FVector Offset=Frames?FVector(0,(I%6-2.5)*11,(I/6)*10):Plates?FVector(0,0,I*BinCell.Z):FVector((I%2-.5)*18,(I/2%2-.5)*28,(I/4)*BinCell.Z);
+  for(int I=0;I<P.Quantity;++I){FVector Offset=Frames?FVector(0,(I%4-1.5)*11,(I/4)*Size.Z*Scale):Plates?FVector(0,0,I*BinCell.Z):FVector((I%2-.5)*18,(I/2%2-.5)*15,(I/4)*BinCell.Z);
    const FVector At=P.Position+Yaw.RotateVector(Offset)-FVector(0,0,B.Min.Z*Scale);Ism->AddInstance(FTransform(ItemYaw,At,FVector(Scale)));}
  }
 

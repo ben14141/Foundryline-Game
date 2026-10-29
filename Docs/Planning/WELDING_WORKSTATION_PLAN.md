@@ -414,7 +414,7 @@ Implemented 29 October 2026 (schema 11):
   - Light Kits = new bought `LightKit`: 4.5 lb and $38.00 each, 8 per crate.
   - `HeadacheRack` = the recipe output: 1 per OUT cradle, not yet produced or sold.
 - **Recipe:** `FFoundrylineFactoryCatalog::Recipe(1)` holds the 2 / 4 / 6 / 2 bill. The station stores only a recipe id and the batch quantity.
-- **Internal bins:** the station holds its stock in a parts bay in the free 4.5 x 2.5 ft corner beside IN, diagonal to the welding machines. Frame sections go in a low cradle; plate, bracket and light-kit bins sit on a shelf.
+- **Internal bins:** the station holds its stock in a parts bay in the free 4.5 x 2.5 ft corner beside IN, diagonal to the welding machines. Revised 29 October 2026 at Ben's request: there is no table in the corner, and the main bench is the station's only bench. Frame sections lie in a tight bundle on the floor along the bay's outer half; plates, brackets and light kits sit on the floor along its inner half.
   - Bin capacity is 4 / 8 / 12 / 4, which is two kits.
   - The buffer target is two kits, or the remaining batch if smaller, capped by the bins.
 - **IN port:** IN is a transfer port. Only one delivery may claim it at a time: a pallet on IN, or a forklift job heading there.

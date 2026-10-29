@@ -91,13 +91,13 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static FVector RackSizeCm(){return {198.12,81.28,27.94};}
  static bool ProductFits(const FBox& OnBench,FVector2D CarriedSize,FString& Error);
  static FString Name(int32 Number){return FString::Printf(TEXT("Welding Station %02d"),Number);}
- // Station parts bay: the free 4.5 x 2.5 ft corner beside IN (diagonal to the welding machines), holding a two-level
- // rack: a frame-section cradle below and plate, bracket and light-kit bins on the shelf. IN is only a transfer port.
+ // Station parts bay: the free 4.5 x 2.5 ft corner beside IN (diagonal to the welding machines). Kit stock sits on the floor
+ // there, with no table: the frame-section bundle along the outer half, plates, brackets and light
+ // kits side by side along the inner half. The main bench is the station's only bench. IN is only a transfer port.
  static FBox2D PartsBay(const FFoundrylineWeldingStationRecord& S){return PortOnLeft(S,false)?CoreRect(S,0,10.5,4.5,13):CoreRect(S,12.5,0,17,2.5);}
  // Bin capacity per assembly category: two full headache-rack kits, so one kit can be in work while the next waits.
  static int32 BinCapacity(EFoundrylinePart Part);
  static FVector BinPoint(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart Part);
- static constexpr double BinShelfCm=76;
  // Short unload interaction: the delivered pallet on IN is emptied into the bins and the port clears.
  static constexpr float UnloadSeconds=8;
  // OUT: two wood pallets (SM_Pallet_Wood, 3 ft 9.6 in x 3 ft 10.4 in) side by side across the port's 8 ft, each centred in its
