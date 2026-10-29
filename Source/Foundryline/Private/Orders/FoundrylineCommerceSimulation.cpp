@@ -1,5 +1,6 @@
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Inventory/FoundrylineSheetStock.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 namespace {using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using BS=EFoundrylineBookingState;}
 void FFoundrylineFactorySimulation::TickCommerce(float Dt){
  auto& C=State.Commerce;if(!C.Enabled)return;C.Clock+=Dt;
@@ -17,7 +18,7 @@ void FFoundrylineFactorySimulation::TickCommerce(float Dt){
  }
  if(!C.ActiveBooking){FFoundrylineFreightBooking* First=nullptr;for(auto& B:C.Bookings)if(B.Status==BS::Waiting&&(!First||B.ArrivalAt<First->ArrivalAt||B.ArrivalAt==First->ArrivalAt&&B.Id<First->Id))First=&B;if(First){C.ActiveBooking=First->Id;First->Status=BS::Loading;First->BerthAt=C.Clock;First->DockedAt=C.Clock+12;}}
  if(auto* B=C.Bookings.FindByPredicate([&](const auto& V){return V.Id==C.ActiveBooking;})){if(B->Status==BS::Loading&&C.Clock>=B->DockedAt){
-  if(B->Inbound&&!B->SpawnedCargo&&State.Pallets.Num()<63){const int Id=AddPallet(Part::Sheet,B->Sheets,Place::Inbound,10,CarrierPalletPosition(0),FFoundrylineSteelSheet::PoundsEach());auto* P=State.Pallets.FindByPredicate([&](const auto& V){return V.Id==Id;});P->BookingId=B->Id;B->Manifest.Add({Id,0,B->Sheets,P->UnitLb});State.ReceivedSteelLb+=B->Sheets*P->UnitLb;B->SpawnedCargo=true;}
+  if(B->Inbound&&!B->SpawnedCargo&&State.Pallets.Num()<63){FFoundrylineBoughtPart Bought;const bool Parts=B->Part&&FFoundrylineFactoryCatalog::Bought(Part(B->Part),&Bought);const int Id=AddPallet(Parts?Part(B->Part):Part::Sheet,B->Sheets,Place::Inbound,10,CarrierPalletPosition(0),Parts?Bought.UnitLb:FFoundrylineSteelSheet::PoundsEach());auto* P=State.Pallets.FindByPredicate([&](const auto& V){return V.Id==Id;});P->BookingId=B->Id;B->Manifest.Add({Id,uint8(P->Part),B->Sheets,P->UnitLb});State.ReceivedSteelLb+=B->Sheets*P->UnitLb;B->SpawnedCargo=true;}
   const bool InboundDone=B->Inbound&&B->SpawnedCargo&&!State.Pallets.ContainsByPredicate([&](const auto& P){return P.BookingId==B->Id&&P.Place==Place::Inbound;});
   int Loaded=0;for(const auto& P:State.Pallets)if(P.Place==Place::Outbound&&P.Owner==B->Id)++Loaded;
   if(InboundDone||!B->Inbound&&Loaded==B->Manifest.Num()&&Loaded>0){B->Status=BS::Departing;B->DepartedAt=C.Clock;}
@@ -30,7 +31,10 @@ void FFoundrylineFactorySimulation::TickCommerce(float Dt){
 void FFoundrylineFactorySimulation::PlanCommerce(){
  auto& C=State.Commerce;if(!C.Enabled)return;
  auto* B=C.Bookings.FindByPredicate([&](const auto& V){return V.Id==C.ActiveBooking&&V.Status==BS::Loading&&C.Clock>=V.DockedAt;});
- if(B&&B->Inbound){for(const auto& P:State.Pallets)if(P.Place==Place::Inbound&&P.BookingId==B->Id&&P.Quantity>P.Reserved){for(const auto& S:State.Slots)if(S.Part==Part::Sheet){const int Room=10-Available(Part::Sheet,Place::Rack,S.Id)-Incoming(Part::Sheet,S.Id);if(Room>0&&MakeJob(P.Id,S.Id,Place::Rack,FMath::Min(Room,P.Quantity-P.Reserved),S.Dock,S.Position,100)){State.Jobs.Last().Task=EFoundrylineForkTask::Truck;State.Jobs.Last().BookingId=B->Id;break;}}}}
+ // Bought assembly parts go from the truck straight to the ordering station's IN port, once that port is free.
+ if(B&&B->Inbound&&B->StationId){const auto* Station=State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==B->StationId;});
+  for(const auto& P:State.Pallets)if(Station&&!StationPortBusy(*Station)&&P.Place==Place::Inbound&&P.BookingId==B->Id&&P.Quantity>P.Reserved&&MakeJob(P.Id,Station->Id,Place::StationIn,P.Quantity-P.Reserved,FFoundrylineWeldingStationLayout::Dock(*Station,false),FFoundrylineWeldingStationLayout::PortDrop(*Station,false),100)){State.Jobs.Last().Task=EFoundrylineForkTask::Truck;State.Jobs.Last().BookingId=B->Id;break;}}
+ else if(B&&B->Inbound){for(const auto& P:State.Pallets)if(P.Place==Place::Inbound&&P.BookingId==B->Id&&P.Quantity>P.Reserved){for(const auto& S:State.Slots)if(S.Part==Part::Sheet){const int Room=10-Available(Part::Sheet,Place::Rack,S.Id)-Incoming(Part::Sheet,S.Id);if(Room>0&&MakeJob(P.Id,S.Id,Place::Rack,FMath::Min(Room,P.Quantity-P.Reserved),S.Dock,S.Position,100)){State.Jobs.Last().Task=EFoundrylineForkTask::Truck;State.Jobs.Last().BookingId=B->Id;break;}}}}
  if(B&&!B->Inbound){for(int I=0;I<B->Manifest.Num();++I){const auto& Item=B->Manifest[I];const auto* P=State.Pallets.FindByPredicate([&](const auto& V){return V.Id==Item.PalletId&&V.Place==Place::Pickup&&V.BookingId==B->Id;});if(P&&MakeJob(P->Id,B->Id,Place::Outbound,P->Quantity,CarrierDock(I),CarrierPalletPosition(I),100)){auto& J=State.Jobs.Last();J.Task=EFoundrylineForkTask::Truck;J.OrderId=B->OrderId;J.BookingId=B->Id;}}}
  auto* O=C.Orders.FindByPredicate([&](const auto& V){return V.Id==C.PickupOrder&&V.Status==EFoundrylineOrderState::Accepted;});if(!O)return;
  int Need=O->Quantity-O->Delivered;for(const auto& Book:C.Bookings)if(!Book.Inbound&&Book.OrderId==O->Id&&Book.Status!=BS::Delivered)for(const auto& I:Book.Manifest)Need-=I.Quantity;for(const auto& P:State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==O->Id&&!P.BookingId)Need-=P.Quantity;for(const auto& J:State.Jobs)if(J.DestinationPlace==Place::Pickup&&J.OrderId==O->Id)Need-=J.Quantity;
@@ -55,11 +59,12 @@ bool FFoundrylineFactorySimulation::CommerceValid(FString& E)const{
   if(B.Id<1||B.Id>=State.NextId||Ids.Contains(B.Id)||B.Carrier<0||B.Carrier>3||int(B.Status)>6||B.OriginalFeeCents<0||B.OriginalFeeCents>100000||B.Manifest.Num()>20||B.Customer.Len()>80||!FMath::IsFinite(B.ArrivalAt)||!FMath::IsFinite(B.DispatchAt)||!FMath::IsFinite(B.BerthAt)||!FMath::IsFinite(B.DockedAt)||B.BerthAt<0||B.DockedAt<B.BerthAt||!FMath::IsFinite(B.DepartedAt)||!FMath::IsFinite(B.DeliveredAt)||B.ArrivalAt<0||B.DispatchAt<0||B.DepartedAt<0||B.DeliveredAt<0||B.DispatchAt>B.ArrivalAt)return Fail();
   Ids.Add(B.Id);if(B.Status==BS::Loading||B.Status==BS::Departing){++Occupying;if(C.ActiveBooking!=B.Id)return Fail();}
   const auto* O=C.Orders.FindByPredicate([&](const auto& V){return V.Id==B.OrderId;});
-  if(B.Inbound){if(B.Sheets<1||B.Sheets>10||B.OrderId||B.Status==BS::InTransit||B.Manifest.Num()>1||B.SpawnedCargo!=!B.Manifest.IsEmpty())return Fail();}
+  if(B.Inbound){const bool Steel=!B.Part;if(Steel?B.Sheets>10||B.StationId:int(B.Part)>=FFoundrylineFactoryCatalog::PartCount||!FFoundrylineFactoryCatalog::Bought(Part(B.Part))||B.Sheets>FFoundrylineFactoryCatalog::Part(Part(B.Part)).Capacity||B.Status!=BS::Delivered&&!State.WeldingStations.ContainsByPredicate([&](const auto& S){return S.Id==B.StationId;}))return Fail();
+   if(B.Sheets<1||B.OrderId||B.Status==BS::InTransit||B.Manifest.Num()>1||B.SpawnedCargo!=!B.Manifest.IsEmpty())return Fail();}
   else if(B.Manifest.IsEmpty()||!O&&B.Status!=BS::Delivered||O&&O->Status==EFoundrylineOrderState::Offered)return Fail();
   int Spaces=0;double Weight=0;TSet<int> Pallets;
   for(const auto& I:B.Manifest){
-   if(I.PalletId<1||I.PalletId>=State.NextId||int(I.Part)>=FFoundrylineFactoryCatalog::PartCount||I.Quantity<1||I.Quantity>FFoundrylineFactoryCatalog::Part(Part(I.Part)).Capacity||!FMath::IsFinite(I.UnitLb)||I.UnitLb<0||Pallets.Contains(I.PalletId)||B.Inbound&&(I.Part!=0||I.Quantity!=B.Sheets)||!B.Inbound&&O&&I.Part!=O->Part)return Fail();
+   if(I.PalletId<1||I.PalletId>=State.NextId||int(I.Part)>=FFoundrylineFactoryCatalog::PartCount||I.Quantity<1||I.Quantity>FFoundrylineFactoryCatalog::Part(Part(I.Part)).Capacity||!FMath::IsFinite(I.UnitLb)||I.UnitLb<0||Pallets.Contains(I.PalletId)||B.Inbound&&(I.Part!=B.Part||I.Quantity!=B.Sheets)||!B.Inbound&&O&&I.Part!=O->Part)return Fail();
    Pallets.Add(I.PalletId);Spaces+=FFoundrylineCommerceCatalog::PalletSpaces(I.Part);Weight+=FFoundrylineCommerceCatalog::PalletWeight(I.Part,I.Quantity,I.UnitLb);
    if(!B.Inbound&&B.Status!=BS::Delivered&&!State.Pallets.ContainsByPredicate([&](const auto& P){return P.Id==I.PalletId&&P.BookingId==B.Id&&P.OrderId==B.OrderId&&P.Quantity==I.Quantity&&uint8(P.Part)==I.Part&&FMath::IsNearlyEqual(P.UnitLb,I.UnitLb,.001f);}))return Fail();
   }
@@ -69,7 +74,8 @@ bool FFoundrylineFactorySimulation::CommerceValid(FString& E)const{
  if(C.PickupOrder&&!C.Orders.ContainsByPredicate([&](const auto& O){return O.Id==C.PickupOrder&&O.Status!=EFoundrylineOrderState::Offered;}))return Fail();
  for(const auto& O:C.Orders){int Committed=O.Delivered;for(const auto& B:C.Bookings)if(!B.Inbound&&B.OrderId==O.Id&&B.Status!=BS::Delivered)for(const auto& I:B.Manifest)Committed+=I.Quantity;if(Committed>O.Quantity)return Fail();}
  for(const auto& D:State.Drivers){if(D.Priorities.Num()!=3||D.Priorities[0]<0||D.Priorities[0]>2||D.Priorities[1]<0||D.Priorities[1]>2||D.Priorities[2]<0||D.Priorities[2]>2||D.Priorities[0]==D.Priorities[1]||D.Priorities[0]==D.Priorities[2]||D.Priorities[1]==D.Priorities[2])return Fail();}
- for(const auto& P:State.Pallets){if(int(P.Place)>int(Place::InTransit)||P.BookingId&&!C.Bookings.ContainsByPredicate([&](const auto& B){return B.Id==P.BookingId&&B.Status!=BS::Delivered;}))return Fail();if(P.Place==Place::Pickup&&(!P.OrderId||!C.Orders.ContainsByPredicate([&](const auto& O){return O.Id==P.OrderId&&O.Part==uint8(P.Part)&&O.Status==EFoundrylineOrderState::Accepted;})))return Fail();}
+ for(const auto& P:State.Pallets){if(int(P.Place)>int(Place::StationOut)||
+P.BookingId&&!C.Bookings.ContainsByPredicate([&](const auto& B){return B.Id==P.BookingId&&B.Status!=BS::Delivered;}))return Fail();if(P.Place==Place::Pickup&&(!P.OrderId||!C.Orders.ContainsByPredicate([&](const auto& O){return O.Id==P.OrderId&&O.Part==uint8(P.Part)&&O.Status==EFoundrylineOrderState::Accepted;})))return Fail();}
  for(const auto& J:State.Jobs)if(int(J.Task)>2)return Fail();
  for(const auto& M:C.Money)if(!FMath::IsFinite(M.At)||M.At<0||M.At>C.Clock||M.Label.Len()>160)return Fail();
  if(!State.Machines.ContainsByPredicate([](const auto& M){return M.Id==1;})||C.BrakeOwned!=State.Machines.ContainsByPredicate([](const auto& M){return M.Id==2;}))return Fail();

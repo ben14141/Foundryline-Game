@@ -65,8 +65,22 @@ bool AFoundrylineBuildHUD::DrawFactory(AFoundrylinePlayerController* PC){auto* P
   Text(TEXT("WELDING STATION"),22,Y,1.15,Ink);Text(FFoundrylineUnits::Length(Layout::LengthFt*Layout::Foot)+TEXT(" x ")+FFoundrylineUnits::Length(Layout::WidthFt*Layout::Foot),236,Y+3,.95,Steel);
   Button(TEXT("ToolStation"),Placing?TEXT("PLACING / CLICK THE FLOOR"):TEXT("PLACE WELDING STATION"),18,Y+32,378,44,Placing);
   if(Placing){Button(TEXT("StationRotate"),FString::Printf(TEXT("ROTATE [R] %d"),PC->FactoryStationQuarter*90),18,Y+84,182,40);Button(TEXT("StationSide"),PC->bFactoryStationSwap?TEXT("IN RIGHT [V]"):TEXT("IN LEFT [V]"),214,Y+84,182,40,PC->bFactoryStationSwap);}
-  else {Button(TEXT("ToolPedestrian"),TEXT("PAINT WALKWAY"),18,Y+84,182,40,PC->FactoryTool==TEXT("Pedestrian"));Button(TEXT("ToolForklift"),TEXT("PAINT FORK LANE"),214,Y+84,182,40,PC->FactoryTool==TEXT("Forklift"));}
   const auto* Selected=Data.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==PC->FactoryStation;});
+  // A selected station shows its supplies: product + quantity, the four part categories and Buy buttons for bought parts.
+  if(Selected&&!Placing&&PC->FactoryTool.IsNone()){
+   Button(TEXT("StationSupply"),Selected->Recipe?FString::Printf(TEXT("STOP / %d RACKS LEFT"),Selected->BatchRemaining):FString(TEXT("MAKE 10 HEADACHE RACKS")),18,Y+84,182,40,Selected->Recipe!=0);Button(TEXT("StationRemove"),FString::Printf(TEXT("REMOVE WS %02d"),Selected->Number),214,Y+84,182,40);
+   for(int I=0;I<2;++I){const auto P=I?EFoundrylinePart::LightKit:EFoundrylinePart::FrameSection;const int N=FMath::Min(View.StationShortfall(*Selected,P),FFoundrylineFactoryCatalog::Part(P).Capacity);
+    Button(FString::Printf(TEXT("StationBuy%d"),int(P)),N?FString::Printf(TEXT("BUY %d %s"),N,I?TEXT("LIGHT KITS"):TEXT("FRAMES")):FString(I?TEXT("LIGHTS COVERED"):TEXT("FRAMES COVERED")),18+I*196,Y+132,182,40,false,N>0&&!PC->bOperationsPending);}
+   const auto Parts=FFoundrylineFactoryCatalog::AssemblyParts();
+   for(int I=0;I<Parts.Num();++I){const int Ready=View.StationStock(*Selected,Parts[I],false),Coming=View.StationStock(*Selected,Parts[I])-Ready,Target=View.StationTarget(*Selected,Parts[I]);
+    Text(FString::Printf(TEXT("%s %d/%d%s"),FFoundrylineFactoryCatalog::AssemblyName(Parts[I]),Ready,Target,Coming?*FString::Printf(TEXT(" +%d"),Coming):TEXT("")),22+(I%2)*196,Y+184+(I/2)*26,.82,Ready>=Target?Steel:Ink);}
+   // Station name, then the whole status sentence on its own line (wrapped at a word if it is ever longer).
+   Text(Layout::Name(Selected->Number),22,Y+238,.88,Steel);const FString Status=View.WeldingStationStatus(*Selected);int32 Cut=Status.Len();
+   if(Status.Len()>46){Cut=46;while(Cut>0&&Status[Cut]!=' ')--Cut;if(!Cut)Cut=46;}
+   Text(Status.Left(Cut),22,Y+262,.92,Ink);if(Cut<Status.Len())Text(Status.Mid(Cut).TrimStart(),22,Y+286,.92,Ink);
+   return Y+(Cut<Status.Len()?320:296);}
+  if(!Placing){Button(TEXT("ToolPedestrian"),TEXT("PAINT WALKWAY"),18,Y+84,182,40,PC->FactoryTool==TEXT("Pedestrian"));Button(TEXT("ToolForklift"),TEXT("PAINT FORK LANE"),214,Y+84,182,40,PC->FactoryTool==TEXT("Forklift"));}
+
   Button(TEXT("ToolErase"),TEXT("REMOVE PAINT"),18,Y+132,182,40,PC->FactoryTool==TEXT("Erase"));Button(TEXT("StationRemove"),Selected?FString::Printf(TEXT("REMOVE WS %02d"),Selected->Number):TEXT("SELECT STATION"),214,Y+132,182,40,false,Selected!=nullptr);
   if(!PC->FactoryTool.IsNone()&&PC->FactoryTool!=TEXT("Erase"))Text(Clip(PC->FactoryBrushDimensions+TEXT(" / ")+PC->FactoryPlacementHint,54),22,Y+184,.88,PC->bFactoryPresetValid?FLinearColor(.05,.5,.15):FLinearColor(.78,.14,.05));
   else if(Selected)Text(Layout::Name(Selected->Number)+(Selected->bSwapSides?TEXT(" / IN right, OUT left"):TEXT(" / IN left, OUT right")),22,Y+184,.88,Ink);

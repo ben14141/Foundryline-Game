@@ -5,9 +5,9 @@
 #include "FoundrylineFactoryTypes.generated.h"
 
 UENUM(BlueprintType)
-enum class EFoundrylinePart:uint8 {Sheet,Bracket,RailBlank,FrameRail,ShellBlank,ShellSection,EndCap,RunningGear,Fittings,BentBracket,MountingPlate,GussetPlate,ReinforcementPlate,SupportChannel,Count};
+enum class EFoundrylinePart:uint8 {Sheet,Bracket,RailBlank,FrameRail,ShellBlank,ShellSection,EndCap,RunningGear,Fittings,BentBracket,MountingPlate,GussetPlate,ReinforcementPlate,SupportChannel,FrameSection,LightKit,HeadacheRack,Count};
 UENUM()
-enum class EFoundrylinePalletPlace:uint8 {Receiving,Rack,MachineInput,MachineOutput,Buffer,Forks,Pickup,Inbound,Outbound,InTransit};
+enum class EFoundrylinePalletPlace:uint8 {Receiving,Rack,MachineInput,MachineOutput,Buffer,Forks,Pickup,Inbound,Outbound,InTransit,StationIn,StationOut};
 UENUM()
 enum class EFoundrylineFloorLane:uint8 {Forklift,Pedestrian,Crossing};
 
@@ -174,11 +174,17 @@ struct FFoundrylineWeldingStationRecord {
  // so a station beside an aisle is reachable without leaving the reserved approach.
  UPROPERTY(SaveGame) int32 InDockOffsetFt=0;
  UPROPERTY(SaveGame) int32 OutDockOffsetFt=0;
+ // Schema 11: assembly recipe (FFoundrylineFactoryCatalog::Recipe id, 0 = none) and units still to make.
+ // Supplies are only requested while both are set.
+ UPROPERTY(SaveGame) int32 Recipe=0;
+ UPROPERTY(SaveGame) int32 BatchRemaining=0;
+ // Time spent transferring the single pallet on the IN port into the station's own bins.
+ UPROPERTY(SaveGame) float UnloadSeconds=0;
 };
 USTRUCT()
 struct FFoundrylineFactoryState {
  GENERATED_BODY()
- UPROPERTY(SaveGame) int32 Version=10;
+ UPROPERTY(SaveGame) int32 Version=11;
  UPROPERTY(SaveGame,NotReplicated) FFoundrylineCommerceState Commerce;
  UPROPERTY(SaveGame) bool bCutPartsStarter=false;
  UPROPERTY(SaveGame) FGuid CompanyId=FGuid(0xF001,1,1,1);
@@ -209,16 +215,28 @@ struct FFoundrylineFactoryState {
  UPROPERTY(SaveGame) TArray<FFoundrylineStandbyDriver> UnassignedEmployees;
  UPROPERTY(SaveGame) TArray<FGuid> HireRequests;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryProgram> Programs;
- // Schema 10: welding stations. Schema 9 saves load with none.
+ // Schema 10: welding stations. Schema 9 saves load with none. Schema 11 adds station recipes and supply buffers.
  UPROPERTY(SaveGame) TArray<FFoundrylineWeldingStationRecord> WeldingStations;
  UPROPERTY(SaveGame) FString Status;
 };
 
 struct FFoundrylinePartSpec {const TCHAR* Name;int32 Capacity;};
 struct FFoundrylineAssemblyStep {const TCHAR* Name;int32 Prerequisites;float Seconds;TArray<int32> Parts;};
+// Parts bought ready-made: fixed unit weight and supplier price. A delivered bundle or crate holds the part's Capacity.
+struct FFoundrylineBoughtPart {float UnitLb=0;int64 PriceCents=0;};
+// Welding-station product data: the finished part and its per-unit bill (indexed by EFoundrylinePart).
+struct FFoundrylineAssemblyRecipe {int32 Id=0;const TCHAR* Name=TEXT("");EFoundrylinePart Output=EFoundrylinePart::Count;TArray<int32> Bill;};
 struct FOUNDRYLINE_API FFoundrylineFactoryCatalog {
- static constexpr int32 PartCount=14;
+ static constexpr int32 PartCount=17;
  static FFoundrylinePartSpec Part(EFoundrylinePart Id);
+ // Static mesh object path used to show a part on pallets, racks and trucks.
+ static FString PartMesh(EFoundrylinePart Id);
+ static bool Bought(EFoundrylinePart Id,FFoundrylineBoughtPart* Out=nullptr);
+ // The four shared assembly categories, in display order: Steel Plates, Steel Brackets, Frame Sections, Light Kits.
+ static TArray<EFoundrylinePart> AssemblyParts(){return {EFoundrylinePart::MountingPlate,EFoundrylinePart::Bracket,EFoundrylinePart::FrameSection,EFoundrylinePart::LightKit};}
+ static const TCHAR* AssemblyName(EFoundrylinePart Id);
+ static constexpr int32 RecipeCount=1;
+ static bool Recipe(int32 Id,FFoundrylineAssemblyRecipe& Out);
  static TArray<FFoundrylineAssemblyStep> TankerSteps();
  static TArray<int32> TankerBill();
  static TArray<FFoundrylineFactoryProgram> DefaultPrograms();

@@ -5,7 +5,7 @@ UENUM() enum class EFoundrylinePayment:uint8 {PerDelivery,OnCompletion,Upfront};
 UENUM() enum class EFoundrylineOrderState:uint8 {Offered,Accepted,Completed};
 UENUM() enum class EFoundrylineBookingState:uint8 {Booked,Approaching,Waiting,Loading,Departing,InTransit,Delivered};
 UENUM() enum class EFoundrylineForkTask:uint8 {Truck,Machine,Storage};
-UENUM() enum class EFoundrylineCommerceAction:uint8 {AcceptOrder,BuySteel,AssignPickup,BookPickup,Reschedule,DriverPriority,BuyBrake,BuyForklift};
+UENUM() enum class EFoundrylineCommerceAction:uint8 {AcceptOrder,BuySteel,AssignPickup,BookPickup,Reschedule,DriverPriority,BuyBrake,BuyForklift,BuyParts};
 USTRUCT() struct FFoundrylineCustomerOrder {
  GENERATED_BODY()
  UPROPERTY(SaveGame) int32 Id=0;
@@ -37,7 +37,11 @@ USTRUCT() struct FFoundrylineFreightBooking {
  UPROPERTY(SaveGame) int32 Id=0;
  UPROPERTY(SaveGame) int32 OrderId=0;
  UPROPERTY(SaveGame) bool Inbound=false;
+ // Inbound quantity: steel sheets, or units of Part for a bought-parts delivery.
  UPROPERTY(SaveGame) int32 Sheets=0;
+ // Schema 11: inbound part (0 = steel sheet). Bought assembly parts go straight to StationId's IN port.
+ UPROPERTY(SaveGame) uint8 Part=0;
+ UPROPERTY(SaveGame) int32 StationId=0;
  UPROPERTY(SaveGame) int32 Carrier=1;
  UPROPERTY(SaveGame) int64 OriginalFeeCents=4000;
  UPROPERTY(SaveGame) double ArrivalAt=0;
@@ -96,4 +100,8 @@ struct FOUNDRYLINE_API FFoundrylineCommerceCatalog {
  static int32 PalletSpaces(uint8 Part);
  static double PalletWeight(uint8 Part,int32 Quantity,double UnitLb);
  static bool Saleable(uint8 Part);
+ // "4 sheets of steel" / "6 frame sections" for an inbound delivery.
+ static FString InboundLabel(const FFoundrylineFreightBooking& Booking);
+ static constexpr int64 SupplierFreightCents=2500;
+
 };

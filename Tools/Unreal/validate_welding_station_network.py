@@ -14,7 +14,7 @@ def tick(dt):
  global stage,last
  try:
   t=time.monotonic()-start
-  if t>170:raise RuntimeError('Welding network timeout at stage '+str(stage))
+  if t>220:raise RuntimeError('Welding network timeout at stage '+str(stage))
   if stage==0 and t>3:stage=1;last=t;unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_request_begin_play()
   elif stage==1 and t-last>12:
    ps=players();q['checks']['four_players']=len(ps)==4;c=next(p for p in ps if not p.has_authority())
@@ -48,9 +48,19 @@ def tick(dt):
   elif stage==7 and t-last>2:
    q['checks']['foreign_remove_rejected']=all(len(x['stations'])==1 for x in reports())
    c=next(p for p in players() if not p.has_authority());r=reports();sid=r[0]['stations'][0]['id'] if r[0]['stations'] else 0
-   T.queue_welding_station(c,CENTER,0,False,False,True,sid);stage=8;last=t
+   # Phase 2: a client picks headache racks x10 from the station panel and buys frame sections through the paid supplier flow.
+   T.select_welding_station(c,sid);T.queue_factory_action(c,'StationSupply');stage=8;last=t
   elif stage==8 and t-last>2:
-   q['checks']['client_removes_empty_station_everywhere']=all(len(x['stations'])==0 for x in reports());finish();return
+   c=next(p for p in players() if not p.has_authority());T.queue_factory_action(c,'StationBuy14');stage=9;last=t
+  elif stage==9 and t-last>3:
+   r=reports();s=[x['stations'][0] for x in r if x['stations']];q['notes']['supply']=s[0] if s else None
+   q['checks']['client_recipe_replicates']=len(s)==len(r) and all(x['recipe']==1 and x['batch']==10 for x in s)
+   q['checks']['host_books_client_frames']=bool(s) and s[0]['bins']['14'][1]==12
+   q['checks']['member_client_sees_booked_frames']=len(s)>1 and all(x['bins']['14'][1]==12 for x in s[1:])
+   c=next(p for p in players() if not p.has_authority());T.queue_welding_station(c,CENTER,0,False,False,True,s[0]['id'] if s else 0);stage=10;last=t
+  elif stage==10 and t-last>2:
+   q['checks']['station_with_booked_parts_not_removed']=all(len(x['stations'])==1 for x in reports());finish();return
+
   q['stage']=stage;out.write_text(json.dumps(q,indent=2))
  except Exception:q['errors'].append(traceback.format_exc());finish()
 handle=unreal.register_slate_post_tick_callback(tick)

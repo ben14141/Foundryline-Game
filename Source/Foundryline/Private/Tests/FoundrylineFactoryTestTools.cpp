@@ -90,13 +90,36 @@ bool UFoundrylineNetworkTestTools::QueueFactoryLane(APlayerController* Player,in
 FString UFoundrylineNetworkTestTools::WeldingStationReport(APlayerController* Player){
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC)return TEXT("{}");auto* Plant=PC->FactoryPlant();if(!Plant)return TEXT("{}");
- FString Items;for(const auto& S:Plant->Snapshot.WeldingStations)Items+=FString::Printf(TEXT("%s{\"id\":%d,\"number\":%d,\"x\":%.2f,\"y\":%.2f,\"quarter\":%d,\"swap\":%s}"),Items.IsEmpty()?TEXT(""):TEXT(","),S.Id,S.Number,S.Center.X,S.Center.Y,S.QuarterTurns,S.bSwapSides?TEXT("true"):TEXT("false"));
+ // The host reads its authoritative model, so short events such as a pallet on IN are not missed between snapshots.
+ FFoundrylineFactorySimulation View;View.State=Plant->HasAuthority()?Plant->Model.State:Plant->Snapshot;
+ FString Items;for(const auto& S:View.State.WeldingStations){FString Bins;for(auto P:FFoundrylineFactoryCatalog::AssemblyParts())Bins+=FString::Printf(TEXT("%s\"%d\":[%d,%d,%d]"),Bins.IsEmpty()?TEXT(""):TEXT(","),int(P),View.StationStock(S,P,false),View.StationStock(S,P),View.StationTarget(S,P));
+  const auto* In=View.State.Pallets.FindByPredicate(
+[&](const auto& A){return A.Place==EFoundrylinePalletPlace::StationIn&&A.Owner==S.Id;});
+  Items+=FString::Printf(TEXT("%s{\"id\":%d,\"number\":%d,\"x\":%.2f,\"y\":%.2f,\"quarter\":%d,\"swap\":%s,\"recipe\":%d,\"batch\":%d,\"in_part\":%d,\"bins\":{%s},\"supply\":\"%s\"}"),Items.IsEmpty()?TEXT(""):TEXT(","),S.Id,S.Number,S.Center.X,S.Center.Y,S.QuarterTurns,S.bSwapSides?TEXT("true"):TEXT("false"),S.Recipe,S.BatchRemaining,In?int(In->Part):-1,*Bins,*View.WeldingStationStatus(S));}
  return FString::Printf(TEXT("{\"authority\":%s,\"lanes\":%d,\"revision\":%d,\"status\":\"%s\",\"stations\":[%s]}"),Plant->HasAuthority()?TEXT("true"):TEXT("false"),Plant->Snapshot.Lanes.Num(),Plant->Snapshot.Revision,*PC->FactoryStatus.Replace(TEXT("\""),TEXT("'")),*Items);
 #else
  return TEXT("{}");
 #endif
 }
-FString UFoundrylineNetworkTestTools::PreviewWeldingStation(APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bCommit){
+bool UFoundrylineNetworkTestTools::SetupWeldingSupplyReview(APlayerController* Host,int32 StationId){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Host);if(!PC||!PC->HasAuthority()||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;auto* Plant=PC->FactoryPlant();if(!Plant)return false;
+ auto& M=Plant->Model;auto Stock=[&](EFoundrylinePart P,int Slot,int Q,float Lb){auto* S=M.State.Slots.FindByPredicate([&](const auto& V){return V.Id==Slot;});if(!S)return;S->Part=P;FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Q;A.Place=EFoundrylinePalletPlace::Rack;A.Owner=Slot;A.Position=S->Position;A.UnitLb=Lb;M.State.Pallets.Add(A);};
+ Stock(EFoundrylinePart::Bracket,107,20,5);Stock(EFoundrylinePart::MountingPlate,108,10,2);M.State.Running=true;++M.State.Revision;PC->FactoryStation=StationId;return true;
+#else
+ return false;
+#endif
+}
+bool UFoundrylineNetworkTestTools::SelectWeldingStation(APlayerController* Player,int32 StationId){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController())return false;PC->FactoryStation=StationId;PC->FactoryTool=NAME_None;return true;
+#else
+ return false;
+#endif
+}
+FString UFoundrylineNetworkTestTools::PreviewWeldingStation(
+
+APlayerController* Player,FVector Center,int32 Quarter,bool bSwap,bool bCommit){
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController())return TEXT("{}");
  PC->bFactoryMenu=true;PC->FactoryTool=TEXT("Station");PC->FactoryStationQuarter=Quarter;PC->bFactoryStationSwap=bSwap;PC->FactoryStationCheckKey.Reset();PC->bFactoryEdgeSnap=false;

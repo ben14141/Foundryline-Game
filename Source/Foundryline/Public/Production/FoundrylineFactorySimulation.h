@@ -13,7 +13,8 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void MigrateEmployees();
  void MigrateEmployeeNames();
  void MigrateGenericEmployees();
- void MigrateWeldingStations(){if(State.Version==9)State.Version=10;}
+ // Schema 9 gains welding stations; schema 10 gains bought assembly parts (zone part arrays grow) and station supplies.
+ void MigrateWeldingStations();
  static constexpr int32 HireLimitTotal=12;
  static constexpr int32 HireLimitPerRole=4;
  int32 EmployeeHireCapacity(EFoundrylineEmployeeRole Role)const;
@@ -55,6 +56,17 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  bool RemoveWeldingStation(int32 Id,FString& Error);
  bool WeldingStationsValid(FString& Error)const;
  bool OverlapsWeldingStation(const FBox2D& Box,bool IncludeApproaches)const;
+ // Recipe 0 or batch 0 stops new supply requests; parts already in the bins stay there.
+ bool ConfigureWeldingStation(int32 Id,int32 Recipe,int32 Batch,FString& Error);
+ // Units of a part committed to a station: in its bins, on its IN port, on a forklift heading there or still on a booked supplier truck.
+ int32 StationStock(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part,bool IncludeIncoming=true)const;
+ // Bounded buffer: two kits of the recipe, capped by the station's bins. Zero when the station needs no more parts.
+ int32 StationTarget(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part)const;
+ int32 StationShortfall(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part)const{return FMath::Max(0,StationTarget(Station,Part)-StationStock(Station,Part));}
+ // Free stock a forklift could bring from this business's racks.
+ int32 StationRackSupply(EFoundrylinePart Part)const;
+ FString WeldingStationStatus(const FFoundrylineWeldingStationRecord& Station)const;
+ bool IsStationStock(const FFoundrylineFactoryPallet& Pallet)const;
  bool AssignSlot(int32 Slot,EFoundrylinePart Part,FString& Error);
  bool Order(int32 Zone,FString& Error);
  bool Collect(int32 Zone,FString& Error);
@@ -78,6 +90,10 @@ private:
  mutable uint32 CrossingHash=0;
  mutable TArray<FFoundrylineFloorCrossing> CachedCrossings;
  void Plan();
+ void PlanWeldingStations();
+ void UnloadWeldingStations(float Dt);
+ bool StationPortBusy(const FFoundrylineWeldingStationRecord& Station)const;
+
  void Machines(float Dt);
  void Assembly(float Dt);
  void Dispatch();
