@@ -52,7 +52,7 @@ FString UFoundrylineNetworkTestTools::SessionReport(APlayerController* Player){
  if(W->GetNetMode()!=NM_Client){int32 Players=0,Walking=0,Unpossessed=0;for(TActorIterator<AFoundrylinePlayerController> It(W);It;++It){++Players;if(It->IsWalking())++Walking;}
   for(TActorIterator<APawn> It(W);It;++It)if((It->IsA<AFoundrylineCameraPawn>()||It->IsA<AFoundrylineWalkCharacter>())&&!It->GetController())++Unpossessed;
   // Each walking player parks exactly one top-down camera; anything beyond that is a leaked pawn.
-  J->SetNumberField(TEXT("players"),Players);J->SetNumberField(TEXT("walking"),Walking);J->SetNumberField(TEXT("unpossessed_pawns"),Unpossessed);}
+  J->SetNumberField(TEXT("players"),Players);J->SetNumberField(TEXT("walking_players"),Walking);J->SetNumberField(TEXT("unpossessed_pawns"),Unpossessed);}
  for(TActorIterator<AFoundrylineFreightRig> It(W);It;++It){J->SetBoolField(TEXT("rig"),true);J->SetStringField(TEXT("rig_driver"),IsValid(It->Driver)?FString::FromInt(It->Driver->GetPlayerId()):FString());break;}
  J->SetStringField(TEXT("player_id"),Player->PlayerState?FString::FromInt(Player->PlayerState->GetPlayerId()):FString());J->SetBoolField(TEXT("walking"),Cast<AFoundrylinePlayerController>(Player)&&Cast<AFoundrylinePlayerController>(Player)->IsWalking());
  FString Out;auto Writer=TJsonWriterFactory<>::Create(&Out);FJsonSerializer::Serialize(J,Writer);return Out;
