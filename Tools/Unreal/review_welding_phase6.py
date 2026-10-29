@@ -73,7 +73,10 @@ def plan_parts(p):
  o=order(commerce(p),oid);n=o['quantity'];c=commerce(p)
  have={part:sum(a['quantity']-a['reserved'] for a in c['pallets'] if a['part']==part and a['place']==1) for part in (PLATE,BRACKET)}
  want[PLATE]=queued[PLATE]+max(0,2*n-have[PLATE]);want[BRACKET]=queued[BRACKET]+max(0,4*n-have[BRACKET]);q['notes'].setdefault('wanted',[]).append(dict(want))
- action(p,'BuySheets2');action(p,'BuySteel')
+ # One sheet (about 510 lb) cuts dozens of plates and brackets; buy one only when the shop has no steel left to cut.
+ steel=sum(a['quantity']*a['unit_lb'] for a in c['pallets'] if a['part']==0)+sum(m['sheet_lb'] for m in c['machines'])
+ q['notes'].setdefault('steel_before_order',[]).append(round(steel,1))
+ if steel<(want[PLATE]-queued[PLATE]+want[BRACKET]-queued[BRACKET])*6:action(p,'BuySheets1');action(p,'BuySteel')
 def tick(dt):
  global stage,last,sid,plant,run,pending_shot
  try:
@@ -114,14 +117,14 @@ def tick(dt):
    q['notes']['welder_a']=max(people,key=lambda e:e['id'])['id'];T.queue_employee_assignment(p,q['notes']['welder_a'],1,sid,make_guid(plant),0);go('set',t)
   elif stage=='set' and t-last>2.5:p=player();action(p,'StationOrder'+str(oid));go('parts',t)
   elif stage=='parts' and t-last>2.5:
-   p=player();s=station(p);q['checks']['station_set_from_first_order']=s['recipe']==1 and s['batch']>=1;plan_parts(p);action(p,'Close');T.select_welding_station(p,sid)
+   p=player();s=station(p);q['checks']['station_set_from_first_order']=s['recipe']==1 and s['batch']>=1;plan_parts(p);action(p,'Close');T.queue_property_view(p);T.select_welding_station(p,sid)
    look(p,at(s,620,-650,430),at(s,0,0,40),70);go('panel',t)
   elif stage=='panel' and t-last>3:p=player();T.queue_factory_action(p,'Speed8');run=1;q['notes']['run1_start']=t;go('run',t);shot('Phase6_StationPanel_BuyFramesAndLights')
   elif stage=='run':
    p=player();s=station(p);c=commerce(p);o=order(c,oid);operate(p,t)
    m=next((m for m in c['machines'] if m['id']==1),None)
    if m and m['remaining']>0 and m['part']==PLATE:q['notes']['return_to']='run';queue_shot('Phase6_PlasmaCuttingPlates',(unreal.Vector(-1300+420,800-520,420),unreal.Vector(-1300,800,80),60),t)
-   if any(a['place']==STATION_IN for a in c['pallets']):q['notes']['return_to']='run';queue_shot('Phase6_SuppliesOnIN',(at(s,-470,-430,300),at(s,-200,0,60),60),t)
+   if any(a['place']==STATION_IN for a in c['pallets']):q['notes']['return_to']='run';queue_shot('Phase6_SuppliesOnIN',(at(s,-60,30,230),at(s,-230,90,40),62),t)
    if s['stage']==2 and s['advancing'] and s['work']>40 and (run==1 or s['at_work']==2):q['notes']['return_to']='run';queue_shot('Phase6_Welder%s_Welding'%('A' if run==1 else 'sAB'),(at(s,250,-430,240),at(s,-60,-40,100),55),t)
    if s['racks']>=1 and s['out']>=1:q['notes']['return_to']='run';queue_shot('Phase6_Run%d_RackOnOUT'%run,(at(s,560,-360,270),at(s,205,-20,60),55),t)
    if o['status']==2:
@@ -131,7 +134,7 @@ def tick(dt):
   elif stage=='paid_shot' and t-last>2.5:go('after_paid',t);shot('Phase6_Run%d_OrderPaid'%run)
   elif stage=='after_paid' and t-last>1:
    p=player()
-   if run==2:action(p,'Page9');go('final',t)
+   if run==2:action(p,'Office');action(p,'Page9');go('final',t)
    else:
     action(p,'Close');T.queue_employee_hire(p,1,make_guid('484952450000000600000002'+format(2,'08x')),make_guid(plant));go('assign_b',t)
   elif stage=='assign_b' and t-last>2.5:
