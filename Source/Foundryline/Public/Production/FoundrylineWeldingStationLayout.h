@@ -5,7 +5,7 @@
 // lower-left corner (X along the 19 ft 6 in length); every result is world centimetres.
 // Side 0 is Welder A (local Y 0-4.5 ft), side 1 is Welder B (local Y 8.5-13 ft). Each side has its own
 // welding machine in a 4.5 x 2.5 ft corner bay at the outer end of that welder's strip.
-// The core (bench, welder strips, machines, parts bay and IN) keeps a 17 ft plan; OUT is 6 ft 6 in wide instead of 4 ft so a
+// The core (bench, welder strips, machines and IN) keeps a 17 ft plan; OUT is 6 ft 6 in wide instead of 4 ft so a
 // 6 ft 6 in rack lies along it, and the core shifts 2 ft 6 in when OUT is on the left. Core* helpers take core plan feet.
 struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static constexpr double Foot=30.48;
@@ -100,10 +100,10 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static FVector InPalletDock(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,false)+(PortOnLeft(S,false)?-1:1)*DockReachCm/Foot,Slot?8.5:4.5);}
  // Where a delivery is set down: on the pallet deck, above the stock already there.
  static FVector InDrop(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart Part,bool OnStock){return InPalletPoint(S,InSlot(Part))+FVector(0,0,OnStock?PalletTopCm+22:0);}
- // Bin capacity per assembly category: two full headache-rack kits, so one kit can be in work while the next waits.
+ // IN stock capacity per assembly category (BinCapacity): two full headache-rack kits, so one kit can be in work while the next waits.
  static int32 BinCapacity(EFoundrylinePart Part);
  static FVector BinPoint(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart Part);
- // Short unload interaction: the delivered pallet on IN is emptied into the bins and the port clears.
+ // Short unload interaction: the delivered pallet is emptied onto its IN supply pallet and the port clears.
  static float UnloadSeconds();
  // OUT: two wood pallets (SM_Pallet_Wood, 3 ft 9.6 in x 3 ft 10.4 in) side by side across the port's 8 ft, each centred in its
  // 4 ft half and on the 2 ft fork line, so a forklift takes either one straight out of the port end from the same stop as IN.
