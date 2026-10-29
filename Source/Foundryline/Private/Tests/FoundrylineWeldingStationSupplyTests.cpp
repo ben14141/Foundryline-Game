@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Economy/FoundrylineEconomyTuning.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "SaveSystem/FoundrylineFactorySave.h"
@@ -42,7 +43,7 @@ bool FWeldingStationSupplies::RunTest(const FString&){
  const int64 Cash=M.State.Commerce.CashCents;
  TestFalse(TEXT("Cannot buy more than the bins lack"),Buy(M,Id,Part::FrameSection,13,E));
  TestTrue(TEXT("Buy 12 frame sections: ")+E,Buy(M,Id,Part::FrameSection,12,E));TestTrue(TEXT("Buy 4 light kits: ")+E,Buy(M,Id,Part::LightKit,4,E));
- TestEqual(TEXT("Paid parts plus two supplier freight bookings"),Cash-M.State.Commerce.CashCents,12*Frame.PriceCents+4*Light.PriceCents+2*FFoundrylineCommerceCatalog::SupplierFreightCents);
+ TestEqual(TEXT("Paid parts plus two supplier freight bookings"),Cash-M.State.Commerce.CashCents,12*Frame.PriceCents+4*Light.PriceCents+2*FFoundrylineEconomyTuning::SupplierFreightCents);
  TestFalse(TEXT("Booked parts count; a second purchase is refused"),Buy(M,Id,Part::LightKit,1,E));
  TestTrue(TEXT("Configured station with bookings validates: ")+E,M.Valid(E));
  TestFalse(TEXT("A station expecting deliveries cannot be removed"),M.RemoveWeldingStation(Id,E));

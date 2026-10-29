@@ -173,7 +173,7 @@ void FFoundrylineFactorySimulation::PlanWeldingStations(){
 void FFoundrylineFactorySimulation::UnloadWeldingStations(float Dt){
  for(auto& S:State.WeldingStations){auto* In=State.Pallets.FindByPredicate([&](const auto& A){return A.Place==Place::StationIn&&A.Owner==S.Id;});
   if(!In||In->Reserved){S.UnloadSeconds=0;continue;}
-  S.UnloadSeconds+=Dt;if(S.UnloadSeconds<Layout::UnloadSeconds)continue;S.UnloadSeconds=0;
+  S.UnloadSeconds+=Dt;if(S.UnloadSeconds<Layout::UnloadSeconds())continue;S.UnloadSeconds=0;
   // The empty pallet's return is abstracted into the unload; only the parts remain, in their bin.
   const int InId=In->Id;const Part P=In->Part;const float Lb=In->UnitLb;
   if(auto* Bin=State.Pallets.FindByPredicate([&](const auto& A){return A.Place==Place::Buffer&&A.Owner==S.Id&&A.Part==P&&FMath::IsNearlyEqual(A.UnitLb,Lb,.01f);})){Bin->Quantity+=In->Quantity;State.Pallets.RemoveAll([&](const auto& A){return A.Id==InId;});}
@@ -254,7 +254,7 @@ bool FFoundrylineFactorySimulation::WeldingStationsValid(FString& E)const{
   for(const auto& L:State.Lanes)if(Overlap(B,FBox2D(L.Min,L.Max))){E=TEXT("Saved welding station overlaps a lane; layout was not loaded");return false;}
   for(const auto& Z:State.Zones)if(Overlap(B,FFoundrylineWorkZoneLayout::Bounds(Z))){E=TEXT("Saved welding station overlaps a work zone");return false;}
   FFoundrylineAssemblyRecipe R;
-  if(S.Recipe<0||S.Recipe>Catalog::RecipeCount||S.Recipe&&!Catalog::Recipe(S.Recipe,R)||S.BatchRemaining<0||S.BatchRemaining>100||!S.Recipe&&S.BatchRemaining||!FMath::IsFinite(S.UnloadSeconds)||S.UnloadSeconds<0||S.UnloadSeconds>Layout::UnloadSeconds){E=TEXT("Invalid welding station recipe or unload state");return false;}
+  if(S.Recipe<0||S.Recipe>Catalog::RecipeCount||S.Recipe&&!Catalog::Recipe(S.Recipe,R)||S.BatchRemaining<0||S.BatchRemaining>100||!S.Recipe&&S.BatchRemaining||!FMath::IsFinite(S.UnloadSeconds)||S.UnloadSeconds<0||S.UnloadSeconds>Layout::UnloadSeconds()){E=TEXT("Invalid welding station recipe or unload state");return false;}
   // Station stock: at most one pallet on IN, bins within their physical capacity, one stack per OUT pallet within its height.
   int OnIn=0,OnOut=0,OutSlots=0;TArray<int> Bins;Bins.Init(0,Catalog::PartCount);
   for(const auto& P:State.Pallets){if(P.Owner!=S.Id)continue;

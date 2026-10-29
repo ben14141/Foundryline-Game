@@ -1,4 +1,5 @@
 #include "Production/FoundrylineFactorySimulation.h"
+#include "Economy/FoundrylineEconomyTuning.h"
 #include "Production/FoundrylineWorkZoneLayout.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "Inventory/FoundrylineSheetStock.h"
@@ -31,8 +32,8 @@ void FFoundrylineFactorySimulation::Machines(float Dt){
   const auto* Program=State.Programs.FindByPredicate([&](const auto& A){return A.Machine==M.Id&&A.Part==P;});if(!Program)continue;
   float Lb=0;
   if(M.Id==1){
-   // Loading a new sheet onto the bed takes SheetLoadMinutes before the first cut from it.
-   if(M.BedLb+.0001f<Program->SteelLb){if(!Available(Part::Sheet,Place::MachineInput,1))continue;M.SheetLoad+=Dt;if(M.SheetLoad<FFoundrylineFactoryCatalog::SheetLoadMinutes)continue;M.SheetLoad=0;float SheetLb=0;Consume(Part::Sheet,1,Place::MachineInput,1,&SheetLb);M.BedLb+=SheetLb;++State.RawConsumed;}
+   // Loading a new sheet onto the bed takes its process time before the first cut from it.
+   if(M.BedLb+.0001f<Program->SteelLb){if(!Available(Part::Sheet,Place::MachineInput,1))continue;M.SheetLoad+=Dt;if(M.SheetLoad<FFoundrylineEconomyTuning::SheetLoadMinutes)continue;M.SheetLoad=0;float SheetLb=0;Consume(Part::Sheet,1,Place::MachineInput,1,&SheetLb);M.BedLb+=SheetLb;++State.RawConsumed;}
    if(M.BedLb+.0001f<Program->SteelLb)continue;M.BedLb-=Program->SteelLb;Lb=Program->SteelLb;
   }else if(!Consume(Input(P),1,Place::MachineInput,M.Id,&Lb))continue;
   M.Making=P;M.ReservedLb=Lb;M.Duration=Program->Seconds;M.Remaining=M.Duration;if(!M.Auto)--M.BatchRemaining;
@@ -165,7 +166,7 @@ void FFoundrylineFactorySimulation::Travel(float Dt){
    if(PeopleBlock(D.Position,P))D.Waiting=true;
    for(const auto& Other:State.Drivers)if(Other.Id!=D.Id&&FMath::PointDistToSegment(Other.Position,D.Position,P)<200&&((Other.Position-D.Position).Dot((P-D.Position).GetSafeNormal())>0||Other.Id<D.Id))D.Waiting=true;
    if(D.Waiting){D.WaitFor+=Dt;if(D.WaitFor>3)ReplanYield(D,J->Phase==1?J->Pickup:J->Drop);continue;}D.WaitFor=0;D.Distance=Next;D.Position=P;D.Yaw=FMath::FixedTurn(D.Yaw,Yaw,120*Dt);
-   if(D.Distance>=Length(D.Path)-.1){D.Path.Reset();D.Distance=0;J->Phase=J->Phase==1?2:4;J->Handling=2;}
+   if(D.Distance>=Length(D.Path)-.1){D.Path.Reset();D.Distance=0;J->Phase=J->Phase==1?2:4;J->Handling=FFoundrylineEconomyTuning::ForkHandlingMinutes;}
   }else {
    FVector Target=J->StoredAt;if(J->Phase==2)if(const auto* Source=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J->SourcePallet;}))Target=Source->Position;D.Yaw=FMath::FixedTurn(D.Yaw,(Target-D.Position).Rotation().Yaw,120*Dt);
    J->Handling-=Dt;if(J->Handling>0)continue;

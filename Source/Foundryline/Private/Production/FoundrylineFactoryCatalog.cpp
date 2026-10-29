@@ -1,4 +1,5 @@
 #include "Production/FoundrylineFactoryTypes.h"
+#include "Economy/FoundrylineEconomyTuning.h"
 FFoundrylinePartSpec FFoundrylineFactoryCatalog::Part(EFoundrylinePart Id){
  static const FFoundrylinePartSpec Specs[]={{TEXT("Steel sheets"),10},{TEXT("Bracket blanks"),50},{TEXT("Rail blanks"),12},{TEXT("Frame rails"),12},{TEXT("Shell blanks"),3},{TEXT("Rolled shells"),3},{TEXT("Dished tank heads"),2},{TEXT("Running gear kits"),2},{TEXT("Fittings kits"),10},{TEXT("Bent brackets"),50},{TEXT("Mounting plates"),100},{TEXT("Gusset plates"),75},{TEXT("Reinforcement plates"),30},{TEXT("Support channels"),20},{TEXT("Frame sections"),12},{TEXT("Light kits"),8},{TEXT("Headache racks"),5}};
  return Specs[FMath::Clamp(int32(Id),0,PartCount-1)];
@@ -13,8 +14,8 @@ FString FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart Id){
 bool FFoundrylineFactoryCatalog::Bought(EFoundrylinePart Id,FFoundrylineBoughtPart* Out){
  FFoundrylineBoughtPart P;
  // Frame section: one ready-cut 2 in square tube member (~4 ft average). Light kit: one lamp with its wiring and hardware.
- if(Id==EFoundrylinePart::FrameSection){P.UnitLb=16;P.PriceCents=1800;}
- else if(Id==EFoundrylinePart::LightKit){P.UnitLb=4.5f;P.PriceCents=2500;}
+ if(Id==EFoundrylinePart::FrameSection){P.UnitLb=16;P.PriceCents=FFoundrylineEconomyTuning::FrameSectionCents;}
+ else if(Id==EFoundrylinePart::LightKit){P.UnitLb=4.5f;P.PriceCents=FFoundrylineEconomyTuning::LightKitCents;}
  else return false;
  if(Out)*Out=P;return true;
 }
@@ -25,7 +26,7 @@ bool FFoundrylineFactoryCatalog::Recipe(int32 Id,FFoundrylineAssemblyRecipe& Out
  Out.Id=1;Out.Name=TEXT("Headache rack");Out.Output=EFoundrylinePart::HeadacheRack;Out.Bill.Init(0,PartCount);
  Out.Bill[int32(EFoundrylinePart::MountingPlate)]=2;Out.Bill[int32(EFoundrylinePart::Bracket)]=4;Out.Bill[int32(EFoundrylinePart::FrameSection)]=6;Out.Bill[int32(EFoundrylinePart::LightKit)]=2;
  // Two welders share one rack: 170% together, less than double because they work around each other at one fixture.
- Out.TwoWelderRate=1.7f;
+ Out.TwoWelderRate=FFoundrylineEconomyTuning::TwoWelderRate;
  return true;
 }
 
@@ -39,9 +40,5 @@ TArray<FFoundrylineAssemblyStep> FFoundrylineFactoryCatalog::TankerSteps(){
  {TEXT("Final inspection"),31,10,Need({})}};
 }
 TArray<int32> FFoundrylineFactoryCatalog::TankerBill(){TArray<int32> N;N.Init(0,PartCount);for(const auto& S:TankerSteps())for(int I=0;I<PartCount;++I)N[I]+=S.Parts[I];return N;}
-TArray<FFoundrylineFactoryProgram> FFoundrylineFactoryCatalog::DefaultPrograms(){TArray<FFoundrylineFactoryProgram> Rows;
- auto Add=[&](int Machine,EFoundrylinePart Part,float Seconds,float Lb){FFoundrylineFactoryProgram R;R.Machine=Machine;R.Part=Part;R.Seconds=Seconds;R.SteelLb=Lb;Rows.Add(R);};
- Add(1,EFoundrylinePart::Bracket,8,5);Add(1,EFoundrylinePart::RailBlank,15,52);Add(1,EFoundrylinePart::ShellBlank,12,96);
- Add(2,EFoundrylinePart::BentBracket,8,0);Add(2,EFoundrylinePart::FrameRail,16,0);Add(3,EFoundrylinePart::ShellSection,18,0);Add(1,EFoundrylinePart::MountingPlate,4,2);Add(1,EFoundrylinePart::GussetPlate,6,3);Add(1,EFoundrylinePart::ReinforcementPlate,12,8);Add(2,EFoundrylinePart::SupportChannel,12,0);return Rows;
-}
+TArray<FFoundrylineFactoryProgram> FFoundrylineFactoryCatalog::DefaultPrograms(){return FFoundrylineEconomyTuning::MachinePrograms();}
 FVector2D FFoundrylineFactoryCatalog::DropSizeCm(EFoundrylinePart P){switch(P){case EFoundrylinePart::BentBracket:return {180,180};case EFoundrylinePart::FrameRail:return {180,360};case EFoundrylinePart::ShellSection:return {180,210};case EFoundrylinePart::EndCap:return {285,285};case EFoundrylinePart::RunningGear:return {160,160};case EFoundrylinePart::Fittings:return {140,140};default:return {180,360};}}

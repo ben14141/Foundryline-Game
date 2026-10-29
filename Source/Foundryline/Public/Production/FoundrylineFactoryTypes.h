@@ -243,8 +243,6 @@ struct FFoundrylineBoughtPart {float UnitLb=0;int64 PriceCents=0;};
 // TwoWelderRate: balance value for the shared work rate with both station welders at work (one welder is 1.0).
 struct FFoundrylineAssemblyRecipe {int32 Id=0;const TCHAR* Name=TEXT("");EFoundrylinePart Output=EFoundrylinePart::Count;TArray<int32> Bill;float TwoWelderRate=1.7f;};
 struct FOUNDRYLINE_API FFoundrylineFactoryCatalog {
- // Process time to load a sheet onto the plasma bed, in game minutes (plant seconds).
- static constexpr float SheetLoadMinutes=5;
  static constexpr int32 PartCount=17;
  static FFoundrylinePartSpec Part(EFoundrylinePart Id);
  // Static mesh object path used to show a part on pallets, racks and trucks.

@@ -1,20 +1,15 @@
 #include "Production/FoundrylineFactorySimulation.h"
+#include "Economy/FoundrylineEconomyTuning.h"
+#include "Economy/FoundrylinePayroll.h"
 #include "Inventory/FoundrylineSheetStock.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 namespace {using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using BS=EFoundrylineBookingState;}
-int64 FFoundrylineFactorySimulation::PayrollCentsPerHour()const{
- using Cat=FFoundrylineCommerceCatalog;int64 Cents=0;
- for(const auto& O:State.Operators)if(O.Machine)Cents+=Cat::OperatorWageCentsPerHour;
- for(const auto& W:State.Walkers)if(W.Station||W.Zone)Cents+=Cat::WelderWageCentsPerHour;
- for(const auto& D:State.Drivers)if(D.EmployeeId)Cents+=Cat::DriverWageCentsPerHour;
- return Cents;
-}
 void FFoundrylineFactorySimulation::TickCommerce(float Dt){
  auto& C=State.Commerce;if(!C.Enabled)return;C.Clock+=Dt;
- int Working=0;for(const auto& M:State.Machines)if(M.Enabled&&M.Remaining>0&&MachineStaffReady(M.Id))++Working;for(const auto& D:State.Drivers)if(D.Job)Working+=3;
- C.ExpenseFraction+=Dt*Working;const int64 Cost=int64(C.ExpenseFraction);if(Cost){C.ExpenseFraction-=Cost;CommerceExpense(Cost,TEXT("Equipment operating costs"));}
+ int Working=0;for(const auto& M:State.Machines)if(M.Enabled&&M.Remaining>0&&MachineStaffReady(M.Id))++Working;for(const auto& D:State.Drivers)if(D.Job)Working+=FFoundrylineEconomyTuning::ForkliftJobCentsPerMinute;
+ C.ExpenseFraction+=Dt*Working*FFoundrylineEconomyTuning::MachineRunningCentsPerMinute;const int64 Cost=int64(C.ExpenseFraction);if(Cost){C.ExpenseFraction-=Cost;CommerceExpense(Cost,TEXT("Equipment operating costs"));}
  // Wages: every person holding a job is paid by this plant's company for each game minute (Dt is game minutes).
- C.WageFraction+=Dt*PayrollCentsPerHour()/60.0;const int64 Wages=int64(C.WageFraction);if(Wages){C.WageFraction-=Wages;C.WagesPaidCents+=Wages;CommerceExpense(Wages,TEXT("Wages"));}
+ if(const int64 Wages=FFoundrylinePayroll::Accrue(State,Dt))CommerceExpense(Wages,TEXT("Wages"));
  C.BrakeInstallMinutes=FMath::Max(0.f,C.BrakeInstallMinutes-Dt);C.ForkliftInstallMinutes=FMath::Max(0.f,C.ForkliftInstallMinutes-Dt);if(C.ForkliftInstallMinutes<=0)C.ForkliftInstallDriver=0;
  for(auto& O:C.Orders)if(O.Status==EFoundrylineOrderState::Accepted&&O.Deadline>0&&C.Clock>O.Deadline)O.Late=true;
  for(auto& B:C.Bookings){
@@ -58,7 +53,7 @@ bool FFoundrylineFactorySimulation::CommerceValid(FString& E)const{
  const auto& C=State.Commerce;if(!C.Enabled)return true;
  auto Fail=[&](){E=TEXT("Invalid order, booking or money snapshot");return false;};
  if(!State.bCutPartsStarter||!FMath::IsFinite(C.Clock)||C.Clock<0||C.Clock>1.e12||C.CashCents<0||C.CashCents>1000000000000LL||C.UnpaidCents<0||C.CostCents<0||C.EarnedRevenueCents<0||C.OfferSerial<0||!FMath::IsFinite(C.ExpenseFraction)||C.ExpenseFraction<0||C.ExpenseFraction>=1.001||!FMath::IsFinite(C.WageFraction)||C.WageFraction<0||C.WageFraction>=1.001||C.WagesPaidCents<0||C.WagesPaidCents>C.CostCents
-  ||!FMath::IsFinite(C.BrakeInstallMinutes)||C.BrakeInstallMinutes<0||C.BrakeInstallMinutes>FFoundrylineCommerceCatalog::BrakeInstallMinutes||!FMath::IsFinite(C.ForkliftInstallMinutes)||C.ForkliftInstallMinutes<0||C.ForkliftInstallMinutes>FFoundrylineCommerceCatalog::ForkliftInstallMinutes||C.Orders.Num()>48||C.Bookings.Num()>96||C.Money.Num()>32)return Fail();
+  ||!FMath::IsFinite(C.BrakeInstallMinutes)||C.BrakeInstallMinutes<0||C.BrakeInstallMinutes>FFoundrylineEconomyTuning::BrakeInstallMinutes||!FMath::IsFinite(C.ForkliftInstallMinutes)||C.ForkliftInstallMinutes<0||C.ForkliftInstallMinutes>FFoundrylineEconomyTuning::ForkliftInstallMinutes||C.Orders.Num()>48||C.Bookings.Num()>96||C.Money.Num()>32)return Fail();
  TSet<int> Ids;for(const auto& P:State.Pallets)Ids.Add(P.Id);for(const auto& Z:State.Zones)Ids.Add(Z.Id);for(const auto& D:State.Drivers)Ids.Add(D.Id);for(const auto& J:State.Jobs)Ids.Add(J.Id);for(const auto& L:State.Lanes)Ids.Add(L.Id);for(const auto& W:State.Walkers)Ids.Add(W.Id);for(const auto& O:State.Operators)Ids.Add(O.Id);for(const auto& D:State.UnassignedEmployees)Ids.Add(D.Id);for(const auto& D:State.Drivers)if(D.EmployeeId)Ids.Add(D.EmployeeId);
  for(const auto& O:C.Orders){
   if(O.Id<1||O.Id>=State.NextId||Ids.Contains(O.Id)||!FFoundrylineCommerceCatalog::Saleable(O.Part)||O.Quantity<1||O.Quantity>1000||O.Delivered<0||O.Delivered>O.Quantity||O.UnitPriceCents<1||O.UnitPriceCents>100000||O.PaidCents<0||O.PaidCents>O.Quantity*O.UnitPriceCents||int(O.Status)>2||int(O.Payment)>2||O.Customer.Len()>80||O.Reference.Len()>40||!FMath::IsFinite(O.Deadline)||!FMath::IsFinite(O.AllowedMinutes)||O.AllowedMinutes<0||O.AllowedMinutes>10080||!FMath::IsFinite(O.AcceptedAt)||O.AcceptedAt<0||O.AcceptedAt>C.Clock)return Fail();

@@ -87,7 +87,7 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  // Headache rack fixtured on the jig, relative to the bench floor datum (bounds of SM_HeadacheRack lying on its back).
  static FBox RackOnBenchCm(){const double Z=RackDatumZ()-13.97;return FBox(FVector(-99.06,-40.64,Z),FVector(99.06,40.71,Z+27.94));}
  // Assembly stage times at the 100% (one welder) rate, in plant seconds.
- static float StageSeconds(int32 Stage){return Stage==1?30.f:Stage==2?90.f:Stage==3?20.f:Stage==4?6.f:0.f;}
+ static float StageSeconds(int32 Stage);
  static FVector RackSizeCm(){return {198.12,81.28,27.94};}
  static bool ProductFits(const FBox& OnBench,FVector2D CarriedSize,FString& Error);
  static FString Name(int32 Number){return FString::Printf(TEXT("Welding Station %02d"),Number);}
@@ -104,7 +104,7 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static int32 BinCapacity(EFoundrylinePart Part);
  static FVector BinPoint(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart Part);
  // Short unload interaction: the delivered pallet on IN is emptied into the bins and the port clears.
- static constexpr float UnloadSeconds=8;
+ static float UnloadSeconds();
  // OUT: two wood pallets (SM_Pallet_Wood, 3 ft 9.6 in x 3 ft 10.4 in) side by side across the port's 8 ft, each centred in its
  // 4 ft half and on the 2 ft fork line, so a forklift takes either one straight out of the port end from the same stop as IN.
  // Finished racks lie flat on their backs, length along the 6 ft 6 in bay and centred on it: each stack sits on its pallet
