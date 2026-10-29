@@ -2,6 +2,7 @@
 #include "Logistics/FoundrylineMaterialHandlingCell.h"
 #include "World/FoundrylineCameraPawn.h"
 #include "EngineUtils.h"
+#include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
 #include "InputCoreTypes.h"
 #include "InputKeyEventArgs.h"
