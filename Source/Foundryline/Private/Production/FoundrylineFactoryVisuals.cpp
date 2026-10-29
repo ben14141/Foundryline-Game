@@ -1,4 +1,5 @@
 #include "Production/FoundrylineFactoryPlant.h"
+#include "Logistics/FoundrylineForkliftBeacon.h"
 #include "Production/FoundrylinePlasmaTable.h"
 #include "Production/FoundrylinePressBrakeDisplay.h"
 #include "Production/FoundrylineWeldingEffectComponent.h"
@@ -45,7 +46,7 @@ void AFoundrylineFactoryPlant::SetupVisuals(){
   for(int Level=0;Level<3;++Level)RackMesh(TEXT("Rack_Shelf400"),FVector(0,0,20+Level*130));
  }
  for(int I=0;I<4;++I){auto* R=Forks[I].Get();
-  Add(Asset(TEXT("Vehicles/Forklift/FL01"),TEXT("Forklift_Body")),R,FVector::ZeroVector);
+  Add(Asset(TEXT("Vehicles/Forklift/FL01"),TEXT("Forklift_Body")),R,FVector::ZeroVector);FFoundrylineForkliftBeacon::Attach(this,R);
   Add(Asset(TEXT("Vehicles/Forklift/FL01"),TEXT("Forklift_MastOuter")),R,FVector(28,0,16));
   auto* Car=Carriages[I].Get();
   Add(Asset(TEXT("Vehicles/Forklift/FL01"),TEXT("Forklift_Carriage")),Car,FVector::ZeroVector);Add(Asset(TEXT("Vehicles/Forklift/FL01"),TEXT("Forklift_MastInner")),Car,FVector::ZeroVector);

@@ -33,6 +33,10 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueFactoryConsole(APlayerController* Player,int32 Machine=1);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool QueueFactoryAction(APlayerController* Player,FName Action);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool AdvanceFactoryTest(APlayerController* Host,int32 Steps);
+ // Forklift review: room is made in the raw-steel rack and steel is bought, so a forklift unloads the truck and lifts it in.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool StartForkliftLiftReview(APlayerController* Host);
+ // Per forklift on this peer: shown, beacon light (on, colour, world position), carriage lift above its rest height.
+ UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static FString ForkliftBeaconReport(APlayerController* Player);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Camera",meta=(DevelopmentOnly)) static bool SetupWorkshopReview(APlayerController* Player,bool Interior=false);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Camera",meta=(DevelopmentOnly)) static bool SetupPlasmaReview(APlayerController* Player,bool CloseUp=false);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Camera",meta=(DevelopmentOnly)) static bool SetupWeldingReview(APlayerController* Player);
