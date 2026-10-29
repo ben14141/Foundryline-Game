@@ -571,6 +571,20 @@ Open items found in this review (not fixed here):
 - **Hidden station panel:** in Construction view the station panel is hidden, so the panel's BUY FRAMES / BUY LIGHT KITS buttons do not show in the Phase 6 shots. They are shown in the Phase 2 and Phase 5 shots.
 - **Wide shots:** the overview and eye-level shots are framed wide; a closer first-person pass with a player walking the station was not done.
 
+#### Economy v1 (29 October 2026, `welding/economy-v1`)
+
+Ben chose the full proposed set from `ECONOMY_REVIEW_WELDING.md`:
+
+- rack $480, orders of 2–5;
+- frame section $18, light kit $25;
+- wages per game hour while holding a job: welder $18, machine operator $15, forklift driver $15 (unassigned hires are unpaid);
+- sheet load onto the plasma 5 min, press brake install 120 min, second forklift install 30 min;
+- steel, deliveries, trucks and cut-part prices unchanged.
+
+The values live in `FFoundrylineEconomyTuning`, and wages are paid by `FFoundrylinePayroll` from each plant's own company, server-authoritative and saved. The Team screen shows each person's rate and the plant payroll, and the Money page shows a running "Wages" line.
+
+The PlayerFlow run now ends at $3,003.58, because staff are paid while waiting; see the economy review's result section.
+
 ### Acceptance checklist results (29 October 2026)
 
 Every item below has an automated check, a multiplayer check or a rendered review behind it. See the Phase 1–6 notes and PRs #6–#18 and the Phase 6 PR.
