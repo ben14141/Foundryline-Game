@@ -9,8 +9,9 @@ The master specification is Docs/Design/DEFAULT_CONSTRUCTION_KIT.md.
 - Building: hold left mouse at the first corner, drag a rectangle, release to build.
   Drafts show the entire blue translucent building; invalid drafts are red.
   Dimensions use the 1 m grid, with sides from 4 to 64 m.
-- Additions: drag beside an existing building. Edges magnetically snap within
-  1.5 m; adjoining sections remove both shared walls. Windows and doors on those
+- Additions: drag beside an existing building, or start inside it and drag out
+  past a wall. Edges magnetically snap within 2 m; adjoining sections remove both
+  shared walls. See "One connection rule" below. Windows and doors on those
   now-internal edges disappear from presentation. Undo restores the old exterior.
 - Personnel door / Garage door: point at an exterior wall and click. Real wall
   openings are cut; corner margins and overlapping openings are checked.
@@ -207,3 +208,38 @@ No electric lights were added. Lumen/daylight visual review is separate from tes
 Vendor assets remain unchanged. Roof preference and runtime door state reset after Play.
 
 Roof-only upper cladding closes the height steps above adjoining lower roofs. It hides with roofs; the shared ground-floor opening remains unobstructed.
+
+## One connection rule (2026-10-29)
+
+Drawing, moving and resizing now share one magnet so sections line up the same way
+every time. Source: `FFoundrylineBuildingConnections` (pure, unit tested) and
+`AFoundrylineBuildSite::RectangleRequest`/`SnapRoadEnds`.
+
+- Magnet: each free rectangle edge snaps to the nearest neighbour edge within 2 m,
+  flush against it or in line with its corner. Only neighbours beside the draft
+  count. Ties prefer the lower coordinate, so record order never matters. A snap
+  that would overlap anything is dropped and the drawn rectangle is kept.
+- Snapping never changes scale: moves and stamped surfaces slide as a whole.
+- Extend: start a building drag inside an existing same-plant building and drag out
+  past a wall. The new section starts on that wall. If the sideways drift is under
+  4 m it spans the whole wall; otherwise it spans the drag. A drag that never
+  leaves the building is refused with a hint instead of a red overlap.
+- Offices are a Build tool beside Tier 1 and Tier 2. They can stand alone or be
+  drawn off any building. Against a shop, the shop wall opens and the office keeps
+  its own wall with an automatic connecting door. Office to office joins open like
+  shop to shop joins. Every office gets an outside door on the first wall that
+  still faces outside. The Office tab now only holds rooms, doors and windows.
+- Pavement (parking, freight yard, walkway) magnetizes to buildings, roads and the
+  town street, because paved surfaces connect only when their edges are flush.
+- Road ends within 3 m of a building, road or paved area stop flush at its facing
+  edge. A run continuing a parallel road also lines up with its centre line.
+- Previews outline the joined length and say what will happen: shared wall opens,
+  connecting door added, or paving connects.
+
+Multiplayer: previews, picking and magnets use the local player's real company and
+plant from the business registry instead of the fixed site context; the host still
+validates every commit. While a client's request waits for the host, the HUD says
+so instead of reporting a failure.
+
+Tests: Foundryline.Construction.PredictableSectionConnections,
+ExtendFromWallAndSnapMoves and ExtendResizeOfficesAndRoadEnds.

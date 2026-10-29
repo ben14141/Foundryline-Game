@@ -71,6 +71,8 @@ public:
  uint8 DraftAreaRotation=0;
  bool bExactDraftPlacement=false;
  bool IsReady() const { return bReady; }
+ // Company/plant of the local player; the trusted server re-checks every commit.
+ FFoundrylinePlacementContext LocalContext() const;
 	FString Status = TEXT("Choose Building or a road type, then drag on the ground");
 	static constexpr int32 SlabHeightCm = 20;
 	static constexpr int32 WallThicknessCm = 30;
@@ -81,6 +83,7 @@ private:
  FFoundrylinePlanResult ExecuteConstructionBatch(const TArray<FFoundrylinePlacementRequest>& Requests);
  FFoundrylinePlacementResult ExecuteConstruction(const FFoundrylinePlacementRequest& Request);
  void RecordConstructionResult(EFoundrylinePlacementError Error,bool Commit);
+ bool SentToHost(EFoundrylinePlacementError Error);
  void DraftBlocked(const FString& Reason,bool Commit=false);
  bool HasActionFeedback() const;
  bool bHasPreviewFeedback=false;
@@ -97,7 +100,10 @@ private:
 	const FFoundrylinePlacedObject* PickOffice(FIntVector Cursor) const;
 	bool EditRequest(FName Tool,FIntVector Start,FIntVector End,FFoundrylinePlacementRequest& Out);
 	FFoundrylineOpening SelectedOpening;
-	bool RectangleRequest(FName Tool, FIntVector Start, FIntVector End, FFoundrylinePlacementRequest& Out,bool SnapConnections=true);
+	// SnapEdges selects which rectangle edges may magnetize; bExtend allows dragging out of a building.
+	bool RectangleRequest(FName Tool, FIntVector Start, FIntVector End, FFoundrylinePlacementRequest& Out,uint8 SnapEdges=15,bool bExtend=true);
+	TArray<FFoundrylineGridBounds> SnapTargets(bool bBuilding,FGuid Exclude) const;
+	void SnapRoadEnds(bool Horizontal,int32 Width,FIntVector& Center,FIntVector& A,FIntVector& B) const;
 	bool DoorRequest(FName Tool, FIntVector Cursor, FFoundrylinePlacementRequest& Out) const;
 	void Changed(const FFoundrylinePlacementChange& Change);
 	AActor* Render(const FFoundrylinePlacedObject& Object, bool bPreview=false, bool bValid=true, bool bOpeningOnly=false, bool bColumnsOnly=false, bool bOfficeOnly=false);

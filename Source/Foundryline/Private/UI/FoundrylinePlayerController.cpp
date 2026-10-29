@@ -139,11 +139,12 @@ void AFoundrylinePlayerController::ChooseTool(FName Tool)
 	for (TActorIterator<AFoundrylineBuildSite> It(GetWorld()); It; ++It)
 	{
 		It->HidePreview();It->ClearConstructionFeedback(); if(!Tool.IsNone() && !AFoundrylineBuildSite::IsEditTool(Tool)) It->SelectedObject.Invalidate();
-		if(AFoundrylineBuildSite::IsEditTool(Tool)) {It->Status=TEXT("Select: click a section. Move/resize: drag it. Remove: click; Z restores. Door: drag an opening.");break;}
+		if(AFoundrylineBuildSite::IsEditTool(Tool)) {It->Status=TEXT("Select: click a section. Move: drag it. Resize: drag a corner or the middle of a wall. Remove: click; Z restores.");break;}
 		if(Tool==TEXT("Columns")) {It->Status=TEXT("Click inside a Tier 2 shop to cycle column bays: 4 / 6 / 8 m. Z undoes."); break;}
 		It->Status = Tool.IsNone() ? TEXT("Choose a construction tool") :
 			(Tool == TEXT("Personnel") || Tool == TEXT("Garage") || Tool == TEXT("TruckDoor") || Tool==TEXT("LoadingDock")) ? TEXT("Point at an existing wall, then click to install") : TEXT("Hold left mouse and drag. Release to build. Right-click cancels.");
 		if(bExactSurface && FFoundrylineSizing::Surface(Tool)) It->Status=TEXT("Click once to place. R rotates. Right-click cancels.");
+		if(Tool==TEXT("Building") || Tool==TEXT("Shop2") || Tool==TEXT("OfficeArea")) It->Status=TEXT("Drag to draw. Start inside a building and drag out past a wall to extend it.");
 		break;
 	}
 }

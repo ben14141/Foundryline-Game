@@ -178,4 +178,49 @@ bool FFoundrylineOfficeTest::RunTest(const FString& Parameters)
  TestTrue(TEXT("Rooms and openings survive serialization"),Saved && Saved->OfficeRooms.Num()==3 && Saved->OfficeRooms[0].Openings.Num()==1);
  W->DestroyWorld(false);return true;
 }
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFoundrylineSimpleConnectionsTest,"Foundryline.Construction.ExtendResizeOfficesAndRoadEnds",
+ EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FFoundrylineSimpleConnectionsTest::RunTest(const FString& Parameters)
+{
+ auto* W=UWorld::CreateWorld(EWorldType::Game,false);auto* S=W->SpawnActor<AFoundrylineBuildSite>();S->DispatchBeginPlay();auto* P=W->GetSubsystem<UFoundrylinePlacementSubsystem>();
+ auto Size=[&](const FFoundrylinePlacedObject& O){const auto* D=P->FindDefinition(O.DefinitionId);return D?FIntPoint(D->Footprint.Max.X,D->Footprint.Max.Y):FIntPoint::ZeroValue;};
+ // The starter shop spans 400..2800 x -1200..400. Start inside it and pull out of the south wall.
+ TestTrue(TEXT("Drag out of a building extends it"),S->BuildRectangle(TEXT("Building"),{1600,-400,0},{1700,-2400,0}));
+ const auto Extension=P->GetObjects().Last();
+ TestTrue(TEXT("Extension spans the whole south wall"),Extension.Anchor==FIntVector(400,-2400,0) && Size(Extension)==FIntPoint(2400,1200));
+ TestTrue(TEXT("Extension reports the shared wall"),S->Status.Contains(TEXT("expanded")));
+ S->Undo();
+ TestFalse(TEXT("A drag that stays inside is refused"),S->BuildRectangle(TEXT("Building"),{1200,-400,0},{2000,0,0}));
+
+ // Grabbing the middle of a wall moves only that wall; doors keep their place in the world.
+ TestTrue(TEXT("Section for wall resize"),S->BuildRectangle(TEXT("Building"),{3200,1000,0},{4400,2000,0}));
+ const auto Id=P->GetObjects().Last().ObjectId;
+ auto Current=[&]()->const FFoundrylinePlacedObject& {return *P->GetObjects().FindByPredicate([&](const auto& O){return O.ObjectId==Id;});};
+ TestTrue(TEXT("North wall door"),S->PlaceDoor(TEXT("Personnel"),{3800,2000,0}));
+ const auto* Door=Current().Openings.FindByPredicate([](const auto& V){return V.Kind==EFoundrylineOpeningKind::Personnel;});
+ if(!TestNotNull(TEXT("Door recorded"),Door)) {W->DestroyWorld(false);return false;}
+ const auto DoorId=Door->OpeningId;const int32 DoorX=Current().Anchor.X+Door->OffsetCm;
+ TestTrue(TEXT("Select west wall"),S->BeginEdit(TEXT("Resize"),{3200,1500,0}));
+ TestTrue(TEXT("Pull west wall out"),S->CommitEdit(TEXT("Resize"),{3200,1500,0},{3000,1700,0}));
+ TestTrue(TEXT("Only the west wall moved"),Current().Anchor==FIntVector(3000,1000,0) && Size(Current())==FIntPoint(1400,1000));
+ const auto* Kept=Current().Openings.FindByPredicate([&](const auto& V){return V.OpeningId==DoorId;});
+ TestTrue(TEXT("Door stays at the same world position"),Kept && Current().Anchor.X+Kept->OffsetCm==DoorX);
+ S->Undo();TestTrue(TEXT("Undo restores the wall"),Current().Anchor==FIntVector(3200,1000,0));
+
+ // Offices joined to offices share one open floor; each still gets an outside door.
+ TestTrue(TEXT("First office"),S->BuildRectangle(TEXT("Office"),{3200,2600,0},{4200,3600,0}));
+ TestTrue(TEXT("Second office drawn off its east wall"),S->BuildRectangle(TEXT("Office"),{4200,2600,0},{5200,3600,0}));
+ const auto Second=P->GetObjects().Last();
+ TestTrue(TEXT("Joined office is flush"),Second.bOfficeAnnex && Second.Anchor==FIntVector(4200,2600,0));
+ TestTrue(TEXT("Joined office keeps an outside entrance"),Second.Openings.ContainsByPredicate([](const auto& V){return V.Kind==EFoundrylineOpeningKind::OfficeDoor && V.Edge!=3;}));
+ FHitResult Hit;
+ TestFalse(TEXT("Office to office wall is open"),W->LineTraceSingleByChannel(Hit,{4150,3100,120},{4250,3100,120},ECC_Visibility));
+ S->Undo();S->Undo();
+
+ // Road ends reach the wall they nearly touch.
+ TestTrue(TEXT("Road toward a building"),S->BuildRectangle(TEXT("Service"),{1600,-3500,0},{1600,-1400,0}));
+ const auto Road=P->GetObjects().Last();
+ TestTrue(TEXT("Road end snaps flush to the wall"),Road.Anchor.Y+Size(Road).Y==-1200);
+ W->DestroyWorld(false);return true;
+}
 #endif
