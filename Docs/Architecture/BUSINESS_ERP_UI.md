@@ -56,3 +56,30 @@ view-model/controller automation cases cover actual documents, missing dates,
 retained journal debt, upfront versus delivered receipts and immutable navigation.
 The runtime Canvas UFont cache selector is explicitly retained alongside Slate
 font info, because UE5.8 otherwise silently omits Canvas text.
+
+
+## Simpler office computer (28 October 2026, branch ui/simpler-office-computer)
+
+The office desktop was redesigned for first-time players. Seven plain sections
+(Home, Orders, Buy steel, Production, Stock & trucks, Team, Money) replace the
+eight-module rail, dock and document tabs. Home shows one "What to do next" card
+that follows the starter loop (accept order -> buy steel -> staff plasma & forklift
+-> program plasma -> book freight -> get paid), names exactly what is missing with a
+Fix button, a six-step checklist and eight at-a-glance tiles.
+
+`FFoundrylineERPViewModel::Guide` is a pure, read-only function of one plant's
+snapshot, so every co-op player sees identical guidance. It counts free finished
+stock and parts already cutting before recommending more cutting or steel.
+
+Every number and button has hover help. Clickable items get a blue hover outline
+(orange is reserved for selection and primary actions), a hand cursor and a click
+flash. A green DONE banner appears only after the server accepts a command, or
+after the replicated snapshot shows a hire/assignment/time change; refusals show a
+red NOT DONE banner. Guided shortcuts (BuySheets<n>, AssignOrder<id>,
+ProgramOrder<id>) only pre-fill local state or call the existing validated commands.
+
+Evidence: `Saved/Logs/UIRedesignBuild3.log`, 19/19 tests in
+`Saved/Logs/UIRedesignAutomationFinal.log` (new: StarterGuideFollowsLoop,
+GuideShortcutsStayLocal), and 38 before / 41 after native starter-loop captures in
+`Saved/UIRedesign` produced by `Tools/Unreal/review_office_desktop_loop.py`.
+The loading tablet keeps its previous layout (it gained only the DONE banner).

@@ -12,7 +12,7 @@ void AFoundrylinePartsArea::BeginPlay(){
  auto Mesh=[&](UStaticMesh* Asset,FVector P,FRotator R=FRotator::ZeroRotator,FVector S=FVector::OneVector,UMaterialInterface* M=nullptr){auto* C=NewObject<UStaticMeshComponent>(this);C->SetupAttachment(RootComponent);C->SetStaticMesh(Asset);C->SetRelativeLocationAndRotation(P,R);C->SetRelativeScale3D(S);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);if(M)C->SetMaterial(0,M);C->RegisterComponent();AddInstanceComponent(C);return C;};
  auto Box=[&](FVector P,FVector Size,UMaterialInterface* M){return Mesh(Cube,P,FRotator::ZeroRotator,Size/100,M);};
  auto Block=[&](FVector P,FVector Half){auto* C=NewObject<UBoxComponent>(this);C->SetupAttachment(RootComponent);C->SetRelativeLocation(P);C->SetBoxExtent(Half);C->SetCollisionProfileName(TEXT("BlockAllDynamic"));C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);};
- auto* Yellow=Material(TEXT("SafetyYellow"));auto* Dark=Material(TEXT("Graphite"));auto* Steel=Material(TEXT("MachinedSteel"));
+ auto* Yellow=Material(TEXT("SafetyYellow"));auto* DarkMaterial=Material(TEXT("Graphite"));auto* Steel=Material(TEXT("MachinedSteel"));
  // A 14 x 8 m parts zone. Keep a four-metre cross-aisle between staging and racks.
  // Functional factory floor markings are owned by the plant's typed layout.
  auto* Upright=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Inventory/Storage/SheetRacking/SM_Rack_Upright.SM_Rack_Upright"));
@@ -31,6 +31,6 @@ void AFoundrylinePartsArea::BeginPlay(){
   for(int End:{-1,1})Block(Center+FVector(End*201.735,0,210),FVector(6.3,57.5,210));
  }
  Box(FVector(100,100,87),FVector(180,80,6),Steel);
- for(float X:{20.f,180.f})for(float Y:{70.f,130.f})Box(FVector(X,Y,42),FVector(6,6,84),Dark);
+ for(float X:{20.f,180.f})for(float Y:{70.f,130.f})Box(FVector(X,Y,42),FVector(6,6,84),DarkMaterial);
  Block(FVector(100,100,45),FVector(90,40,45));
 }
