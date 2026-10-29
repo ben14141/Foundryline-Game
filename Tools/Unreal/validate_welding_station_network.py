@@ -5,7 +5,7 @@ from pathlib import Path
 unreal.EditorPythonScripting.set_keep_python_script_alive(True)
 T=unreal.FoundrylineNetworkTestTools
 start=time.monotonic();stage=0;last=0;q={'checks':{},'notes':{},'errors':[]};out=Path(unreal.Paths.project_saved_dir())/'Logs/WeldingStationNetworkQA.json'
-CENTER=unreal.Vector(-1806.12,1823.12,20)
+CENTER=unreal.Vector(-1768.02,1823.12,20)
 def worlds():return unreal.EditorLevelLibrary.get_pie_worlds(False)
 def players():return [a for w in worlds() for a in unreal.GameplayStatics.get_all_actors_of_class(w,unreal.PlayerController) if a.is_local_controller()]
 def reports():return [json.loads(T.welding_station_report(p)) for p in players()]
@@ -35,7 +35,7 @@ def tick(dt):
    # Same three paint strokes as the StarterShop automation test, sent by a client.
    T.queue_factory_lane(c,0,unreal.Vector(-2217.6,1275,20),unreal.Vector(-2217.6,2170,20),304.8)
    T.queue_factory_lane(c,1,unreal.Vector(-1455,1214.04,20),unreal.Vector(-810,1214.04,20),121.92)
-   T.queue_factory_lane(c,2,unreal.Vector(-1394,1450,20),unreal.Vector(-1394,1450,20),200);stage=3;last=t
+   T.queue_factory_lane(c,2,unreal.Vector(-1370,1450,20),unreal.Vector(-1370,1450,20),200);stage=3;last=t
   elif stage==3 and t-last>2:
    r=reports();q['notes']['lanes']=[x['lanes'] for x in r];q['checks']['client_paint_replicates']=len(set(x['lanes'] for x in r))==1 and r[0]['lanes']==q['notes']['initial']['lanes']+3
    c=next(p for p in players() if not p.has_authority());T.queue_welding_station(c,CENTER,0,False,True);stage=4;last=t
@@ -113,12 +113,14 @@ def tick(dt):
   elif stage==18:
    if t-last>2:T.advance_factory_test(host(),40)
    s=[x['stations'][0] for x in reports() if x['stations']]
-   if t-last>4 and all(x['out']==1 and x['stage']==0 for x in s):
-    q['checks']['one_rack_on_out_on_every_peer']=len(s)==len(players()) and all(x['out']==1 and x['units']==1 for x in s);q['notes']['finished']=s[0];stage=19;last=t
+   if t-last>4 and all(x['units']>=1 for x in s):
+    q['checks']['first_rack_on_out_on_every_peer']=len(s)==len(players()) and all(x['out']==x['units']>=1 for x in s);q['notes']['finished']=s[0];stage=19;last=t
    elif t-last>150:raise RuntimeError('Unit never finished on every peer: '+json.dumps(s[:2]))
   elif stage==19:
    T.advance_factory_test(host(),40)
-   if t-last>3:s=[x['stations'][0] for x in reports()];q['checks']['finished_once_no_second_unit_while_out_full']=all(x['out']==1 and x['units']==1 and x['stage']==0 for x in s);finish();return
+   if t-last>3:
+    s=[x['stations'][0] for x in reports()];h=json.loads(T.welding_station_report(host()))['stations'][0];q['notes']['out_after']=[(x['out'],x['units']) for x in s]
+    q['checks']['every_finished_rack_on_out_once_every_peer_agrees']=all(x['out']==x['units']==h['units'] for x in s);finish();return
 
   q['stage']=stage;out.write_text(json.dumps(q,indent=2))
  except Exception:q['errors'].append(traceback.format_exc());finish()

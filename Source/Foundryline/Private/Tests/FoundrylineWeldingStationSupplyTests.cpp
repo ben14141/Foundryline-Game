@@ -10,7 +10,7 @@ using Layout=FFoundrylineWeldingStationLayout;using Part=EFoundrylinePart;using 
 bool StarterStation(FFoundrylineFactorySimulation& M,FString& E){
  M.SeedCutPartsShop(true);M.State.Commerce.CashCents=1000000;
  return M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,2170,20},304.8f,0,E)&&M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E)
-  &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1394,1450,20},{-1394,1450,20},200,0,E)&&M.AddWeldingStation({-1806.12,1823.12,20},0,false,E);
+  &&M.PaintLane(EFoundrylineFloorLane::Crossing,{-1370,1450,20},{-1370,1450,20},200,0,E)&&M.AddWeldingStation({-1768.02,1823.12,20},0,false,E);
 }
 // Cut plates and brackets already in the finished-parts racks, as the plasma table leaves them.
 void RackStock(FFoundrylineFactorySimulation& M,Part P,int Slot,int Quantity,float UnitLb){auto* S=M.State.Slots.FindByPredicate([&](const auto& V){return V.Id==Slot;});S->Part=P;FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Quantity;A.Place=Place::Rack;A.Owner=Slot;A.Position=S->Position;A.UnitLb=UnitLb;M.State.Pallets.Add(A);}
@@ -25,7 +25,7 @@ bool FWeldingStationSupplies::RunTest(const FString&){
  FFoundrylineBoughtPart Frame,Light;TestTrue(TEXT("Frame sections are bought with fixed weight and price"),FFoundrylineFactoryCatalog::Bought(Part::FrameSection,&Frame)&&Frame.UnitLb>0&&Frame.PriceCents>0);
  TestTrue(TEXT("Light kits are bought with fixed weight and price"),FFoundrylineFactoryCatalog::Bought(Part::LightKit,&Light)&&Light.UnitLb>0&&Light.PriceCents>0);
  TestFalse(TEXT("Cut plates and brackets are not bought"),FFoundrylineFactoryCatalog::Bought(Part::MountingPlate)||FFoundrylineFactoryCatalog::Bought(Part::Bracket));
- TestTrue(TEXT("Bundle and crate capacities hold at least one rack"),FFoundrylineFactoryCatalog::Part(Part::FrameSection).Capacity>=6&&FFoundrylineFactoryCatalog::Part(Part::LightKit).Capacity>=2&&FFoundrylineFactoryCatalog::Part(Part::HeadacheRack).Capacity==1);
+ TestTrue(TEXT("Bundle and crate capacities hold at least one rack; a finished-rack pallet holds one OUT stack"),FFoundrylineFactoryCatalog::Part(Part::FrameSection).Capacity>=6&&FFoundrylineFactoryCatalog::Part(Part::LightKit).Capacity>=2&&FFoundrylineFactoryCatalog::Part(Part::HeadacheRack).Capacity==FFoundrylineWeldingStationLayout::RacksPerOutPallet);
 
  FFoundrylineFactorySimulation M;FString E;if(!TestTrue(TEXT("Starter station places: ")+E,StarterStation(M,E)))return false;
  const int Id=M.State.WeldingStations[0].Id;
@@ -90,7 +90,7 @@ bool FWeldingStationSupplies::RunTest(const FString&){
  {auto T=M;T.State.WeldingStations[0].BatchRemaining=5;TestFalse(TEXT("Batch without a recipe rejected"),T.Valid(E));}
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Part==Part::FrameSection)A.Quantity=13;TestFalse(TEXT("Overfilled bin rejected"),T.Valid(E));}
  // Schema 10 plant: zone part ledgers grow and saved stations join the route.
- {auto T=M;T.State.Version=10;for(auto& Route:T.State.Routes)Route.Destinations.Remove(Id);T.MigrateWeldingStations();TestEqual(TEXT("Schema 10 migrates to 13"),T.State.Version,13);TestTrue(TEXT("Migrated station is a route destination"),T.State.Routes[0].Destinations.Contains(Id));TestTrue(TEXT("Migrated schema 10 plant validates: ")+E,T.Valid(E));}
+ {auto T=M;T.State.Version=10;for(auto& X:T.State.WeldingStations)X.Center-=FFoundrylineWeldingStationLayout::Schema14Shift(X);for(auto& Route:T.State.Routes)Route.Destinations.Remove(Id);T.MigrateWeldingStations();TestEqual(TEXT("Schema 10 migrates to 14"),T.State.Version,14);TestTrue(TEXT("Migrated station is a route destination"),T.State.Routes[0].Destinations.Contains(Id));TestTrue(TEXT("Migrated schema 10 plant validates: ")+E,T.Valid(E));}
  return true;
 }
 #endif
