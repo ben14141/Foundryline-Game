@@ -932,7 +932,8 @@ auto Grass=[&](FVector Position)
 		if(!(bPreview && bOpeningOnly))
 		{
 			EdgeBox(Edge,Cursor,End,0,H);
-			EdgeBox(Edge,0,Edge%2==0?W:D,H-(O.bOfficeAnnex?10:18),H,TEXT("Metal"),O.bOfficeAnnex?38:46);
+			// The cap stands 2 cm proud of the wall so its top never z-fights the wall's top face.
+			EdgeBox(Edge,0,Edge%2==0?W:D,H-(O.bOfficeAnnex?10:18),H+2,TEXT("Metal"),O.bOfficeAnnex?38:46);
 			float BaseCursor=0;
 			const float BaseHeight=O.bOfficeAnnex?12:60,BaseDepth=O.bOfficeAnnex?34:44;
 			const FName BaseFinish=O.bOfficeAnnex?FName(TEXT("Metal")):FName(TEXT("Concrete"));

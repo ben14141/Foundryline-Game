@@ -208,13 +208,17 @@ bool FFoundrylineSimpleConnectionsTest::RunTest(const FString& Parameters)
  S->Undo();TestTrue(TEXT("Undo restores the wall"),Current().Anchor==FIntVector(3200,1000,0));
 
  // Offices joined to offices share one open floor; each still gets an outside door.
- TestTrue(TEXT("First office"),S->BuildRectangle(TEXT("Office"),{3200,2600,0},{4200,3600,0}));
- TestTrue(TEXT("Second office drawn off its east wall"),S->BuildRectangle(TEXT("Office"),{4200,2600,0},{5200,3600,0}));
+ TestTrue(TEXT("First office"),S->BuildRectangle(TEXT("Office"),{3200,3600,0},{4200,4600,0}));
+ const auto FirstId=P->GetObjects().Last().ObjectId;
+ TestTrue(TEXT("First office starts with its door on the south wall"),P->GetObjects().Last().Openings.ContainsByPredicate([](const auto& V){return V.Kind==EFoundrylineOpeningKind::OfficeDoor && V.Edge==0;}));
+ TestTrue(TEXT("Second office drawn off its south wall"),S->BuildRectangle(TEXT("Office"),{3700,4000,0},{3800,2600,0}));
  const auto Second=P->GetObjects().Last();
- TestTrue(TEXT("Joined office is flush"),Second.bOfficeAnnex && Second.Anchor==FIntVector(4200,2600,0));
- TestTrue(TEXT("Joined office keeps an outside entrance"),Second.Openings.ContainsByPredicate([](const auto& V){return V.Kind==EFoundrylineOpeningKind::OfficeDoor && V.Edge!=3;}));
+ TestTrue(TEXT("Joined office spans the whole wall"),Second.bOfficeAnnex && Second.Anchor==FIntVector(3200,2600,0) && Size(Second)==FIntPoint(1000,1000));
+ TestTrue(TEXT("Joined office keeps an outside entrance"),Second.Openings.ContainsByPredicate([](const auto& V){return V.Kind==EFoundrylineOpeningKind::OfficeDoor && V.Edge!=2;}));
+ const auto* First=P->GetObjects().FindByPredicate([&](const auto& O){return O.ObjectId==FirstId;});
+ TestTrue(TEXT("First office gets a new outside door when its old one now opens into the second"),First && First->Openings.ContainsByPredicate([](const auto& V){return V.Kind==EFoundrylineOpeningKind::OfficeDoor && V.Edge!=0;}));
  FHitResult Hit;
- TestFalse(TEXT("Office to office wall is open"),W->LineTraceSingleByChannel(Hit,{4150,3100,120},{4250,3100,120},ECC_Visibility));
+ TestFalse(TEXT("Office to office wall is open"),W->LineTraceSingleByChannel(Hit,{3350,3550,120},{3350,3650,120},ECC_Visibility));
  S->Undo();S->Undo();
 
  // Road ends reach the wall they nearly touch.
