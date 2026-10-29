@@ -41,28 +41,28 @@ void AFoundrylineFactoryPlant::UpdateCollision(){
 bool AFoundrylineFactoryPlant::Execute(APlayerController* P,const FFoundrylineFactoryCommand& C,FString& E){
  if(!HasAuthority()||!P||P->GetWorld()!=GetWorld()||!P->PlayerState||P->PlayerState->IsOnlyASpectator()||!GetWorld()->GetGameState()||!GetWorld()->GetGameState()->PlayerArray.Contains(P->PlayerState)){E=TEXT("Join the shared plant before editing production");return false;}
  if(auto* Registry=AFoundrylineBusinessRegistry::Find(GetWorld());Registry&&!Registry->CanOperate(P,Model.State.CompanyId,Model.State.PlantId)){E=TEXT("This plant belongs to another business");return false;}
- bool Ok=false;using Act=EFoundrylineFactoryAction;
+ bool Ok=false;using FactoryAct=EFoundrylineFactoryAction;
  switch(C.Action){
- case Act::Run:Model.State.Running=C.Flag;Ok=true;break;
- case Act::Speed:if(C.Count==1||C.Count==4||C.Count==8){Model.State.Speed=C.Count;Ok=true;}break;
- case Act::Order:Ok=Model.Order(C.Id,E);break;
- case Act::Collect:Ok=Model.Collect(C.Id,E);break;
- case Act::ReceiveSteel:Ok=Model.ReceiveSteel(C.Count,E);break;
- case Act::ReceiveKits:Ok=Model.ReceiveKits(E);break;
- case Act::Program:Ok=Model.Program(C.Id,C.Part,C.Count,C.Flag,E);if(Ok&&Model.State.Commerce.Enabled)Model.State.Running=true;break;
- case Act::MachineEnabled:if(auto* M=Model.State.Machines.FindByPredicate([&](const auto& X){return X.Id==C.Id;})){M->Enabled=C.Flag;Ok=true;}break;
- case Act::AddDriver:E=TEXT("Purchase a forklift, hire an employee, then assign the driving job in the ERP");break;
- case Act::AddWelder:E=TEXT("Hire an employee and assign a product-zone welding job in the ERP");break;
- case Act::AssignSlot:Ok=Model.AssignSlot(C.Id,C.Part,E);break;
- case Act::HireEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee hiring belongs to another business");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.HireEmployee(EFoundrylineEmployeeRole(C.Count),C.RequestId,E);break;
- case Act::AssignEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee assignment belongs to another plant");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.AssignEmployee(C.Id,EFoundrylineEmployeeRole(C.Count),C.Other,E);break;
- case Act::AddPresetZone:if(!Model.State.Running)Ok=Model.AddPresetZone(C.A,C.Id,C.QuarterTurns,C.SupplySide,C.Other,E);else E=TEXT("Pause before placing a work zone");break;
- case Act::AddZone:if(!Model.State.Running)Ok=Model.AddZone(C.A,C.B,E);else E=TEXT("Pause before changing the floor layout");break;
- case Act::PaintLane:if(!Model.State.Running&&C.Id>=0&&C.Id<=2)Ok=Model.PaintLane(EFoundrylineFloorLane(C.Id),C.A,C.B,C.WidthCm,C.Other,E);else E=TEXT("Pause before painting floor routes");break;
- case Act::EraseLane:if(!Model.State.Running){const int Removed=Model.State.Lanes.RemoveAll([&](const auto& L){return L.Id==C.Id;});Ok=Removed>0;if(Ok){for(auto& D:Model.State.Drivers){D.Path.Reset();D.Distance=0;}for(auto& W:Model.State.Walkers){W.Path.Reset();W.Distance=0;W.Retry=0;}for(auto& O:Model.State.Operators){O.Path.Reset();O.Distance=0;O.Retry=0;}}}else E=TEXT("Pause before removing floor routes");break;
- case Act::AddRoute:if(Model.State.Routes.Num()<8){FFoundrylineFactoryRoute R;R.Id=Model.State.NextId++;R.Name=FString::Printf(TEXT("Supply route %d"),Model.State.Routes.Num()+1);Model.State.Routes.Add(R);Ok=true;}break;
- case Act::LinkSource:case Act::LinkDestination:{auto* R=Model.State.Routes.FindByPredicate([&](const auto& X){return X.Id==C.Id;});bool Endpoint=C.Other==10||C.Other==11||Model.State.Slots.ContainsByPredicate([&](const auto& S){return S.Id==C.Other;})||Model.State.Machines.ContainsByPredicate([&](const auto& M){return M.Id==C.Other;})||Model.State.Zones.ContainsByPredicate([&](const auto& Z){return Z.Id==C.Other;});if(R&&Endpoint){auto& List=C.Action==Act::LinkSource?R->Sources:R->Destinations;if(C.Flag)List.AddUnique(C.Other);else List.Remove(C.Other);Ok=true;}break;}
- case Act::Save:case Act::Load:if(P->IsLocalController())Ok=C.Action==Act::Save?SaveFactory(E):LoadFactory(E);else E=TEXT("The host saves and loads the shared plant");break;
+ case FactoryAct::Run:Model.State.Running=C.Flag;Ok=true;break;
+ case FactoryAct::Speed:if(C.Count==1||C.Count==4||C.Count==8){Model.State.Speed=C.Count;Ok=true;}break;
+ case FactoryAct::Order:Ok=Model.Order(C.Id,E);break;
+ case FactoryAct::Collect:Ok=Model.Collect(C.Id,E);break;
+ case FactoryAct::ReceiveSteel:Ok=Model.ReceiveSteel(C.Count,E);break;
+ case FactoryAct::ReceiveKits:Ok=Model.ReceiveKits(E);break;
+ case FactoryAct::Program:Ok=Model.Program(C.Id,C.Part,C.Count,C.Flag,E);if(Ok&&Model.State.Commerce.Enabled)Model.State.Running=true;break;
+ case FactoryAct::MachineEnabled:if(auto* M=Model.State.Machines.FindByPredicate([&](const auto& X){return X.Id==C.Id;})){M->Enabled=C.Flag;Ok=true;}break;
+ case FactoryAct::AddDriver:E=TEXT("Purchase a forklift, hire an employee, then assign the driving job in the ERP");break;
+ case FactoryAct::AddWelder:E=TEXT("Hire an employee and assign a product-zone welding job in the ERP");break;
+ case FactoryAct::AssignSlot:Ok=Model.AssignSlot(C.Id,C.Part,E);break;
+ case FactoryAct::HireEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee hiring belongs to another business");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.HireEmployee(EFoundrylineEmployeeRole(C.Count),C.RequestId,E);break;
+ case FactoryAct::AssignEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee assignment belongs to another plant");else if(C.Count<0||C.Count>3)E=TEXT("Invalid employee role");else Ok=Model.AssignEmployee(C.Id,EFoundrylineEmployeeRole(C.Count),C.Other,E);break;
+ case FactoryAct::AddPresetZone:if(!Model.State.Running)Ok=Model.AddPresetZone(C.A,C.Id,C.QuarterTurns,C.SupplySide,C.Other,E);else E=TEXT("Pause before placing a work zone");break;
+ case FactoryAct::AddZone:if(!Model.State.Running)Ok=Model.AddZone(C.A,C.B,E);else E=TEXT("Pause before changing the floor layout");break;
+ case FactoryAct::PaintLane:if(!Model.State.Running&&C.Id>=0&&C.Id<=2)Ok=Model.PaintLane(EFoundrylineFloorLane(C.Id),C.A,C.B,C.WidthCm,C.Other,E);else E=TEXT("Pause before painting floor routes");break;
+ case FactoryAct::EraseLane:if(!Model.State.Running){const int Removed=Model.State.Lanes.RemoveAll([&](const auto& L){return L.Id==C.Id;});Ok=Removed>0;if(Ok){for(auto& D:Model.State.Drivers){D.Path.Reset();D.Distance=0;}for(auto& W:Model.State.Walkers){W.Path.Reset();W.Distance=0;W.Retry=0;}for(auto& O:Model.State.Operators){O.Path.Reset();O.Distance=0;O.Retry=0;}}}else E=TEXT("Pause before removing floor routes");break;
+ case FactoryAct::AddRoute:if(Model.State.Routes.Num()<8){FFoundrylineFactoryRoute R;R.Id=Model.State.NextId++;R.Name=FString::Printf(TEXT("Supply route %d"),Model.State.Routes.Num()+1);Model.State.Routes.Add(R);Ok=true;}break;
+ case FactoryAct::LinkSource:case FactoryAct::LinkDestination:{auto* R=Model.State.Routes.FindByPredicate([&](const auto& X){return X.Id==C.Id;});bool Endpoint=C.Other==10||C.Other==11||Model.State.Slots.ContainsByPredicate([&](const auto& S){return S.Id==C.Other;})||Model.State.Machines.ContainsByPredicate([&](const auto& M){return M.Id==C.Other;})||Model.State.Zones.ContainsByPredicate([&](const auto& Z){return Z.Id==C.Other;});if(R&&Endpoint){auto& List=C.Action==FactoryAct::LinkSource?R->Sources:R->Destinations;if(C.Flag)List.AddUnique(C.Other);else List.Remove(C.Other);Ok=true;}break;}
+ case FactoryAct::Save:case FactoryAct::Load:if(P->IsLocalController())Ok=C.Action==FactoryAct::Save?SaveFactory(E):LoadFactory(E);else E=TEXT("The host saves and loads the shared plant");break;
  }
  if(Ok){++Model.State.Revision;RefreshSnapshot();bRebuild=true;ForceNetUpdate();}else if(E.IsEmpty())E=TEXT("That factory action is unavailable");return Ok;
 }
