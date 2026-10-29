@@ -125,7 +125,10 @@ def tick(dt):
    elif t-last>150:raise RuntimeError('Unit never finished on every peer: '+json.dumps(s[:2]))
   elif stage==19:
    T.advance_factory_test(host(),40)
-   if t-last>3:
+   if t-last>3:T.queue_factory_action(host(),'Run');stage=191;last=t
+  # Compare with time paused, once the last snapshot has reached every client.
+  elif stage==191 and t-last>3:
+    T.queue_factory_action(host(),'Run')
     s=[x['stations'][0] for x in reports()];h=json.loads(T.welding_station_report(host()))['stations'][0];q['notes']['out_after']=[(x['out'],x['units']) for x in s]
     q['checks']['every_finished_rack_exists_once_every_peer_agrees']=all(x['racks']==x['units']==h['units'] for x in s);stage=20;last=t
   # Phase 5: rack orders, collection from OUT, booking and payment, all through client commands.
@@ -174,10 +177,13 @@ def tick(dt):
    if t-last>200:raise RuntimeError('Rack order never delivered')
   elif stage==29:
    T.advance_commerce_test(host(),100)
-   if t-last>4:
+   if t-last>4:T.queue_factory_action(host(),'Run');stage=291;last=t
+  elif stage==291:
+   if t-last>3:
     oid=q['notes']['rack_order']['id'];cs=[commerce(p) for p in players()];o=[order(c,oid) for c in cs];q['notes']['paid']=o[0]
-    q['checks']['rack_order_paid_exactly_once_every_peer']=all(x['paid']==x['quantity']*45000 and x['delivered']==x['quantity'] and x['status']==2 for x in o)
-    q['checks']['cash_agrees_every_peer']=len(set(c['cash'] for c in cs))==1;hc=commerce(host());q['checks']['host_ledger_valid']=hc.get('authoritative_valid',False) and hc.get('cash_matches_registry',False)
+    q['checks']['rack_order_paid_exactly_once_every_peer']=all(x['paid']==x['quantity']*48000 and x['delivered']==x['quantity'] and x['status']==2 for x in o)
+    q['checks']['cash_agrees_every_peer']=len(set(c['cash'] for c in cs))==1;q['notes']['wages']=[(c['payroll'],c['wages_paid'],c['cash']) for c in cs]
+    q['checks']['wages_paid_and_agree_every_peer']=cs[0]['wages_paid']>0 and cs[0]['payroll']>0 and len(set((c['payroll'],c['wages_paid']) for c in cs))==1;hc=commerce(host());q['checks']['host_ledger_valid']=hc.get('authoritative_valid',False) and hc.get('cash_matches_registry',False)
     finish();return
 
   q['stage']=stage;out.write_text(json.dumps(q,indent=2))

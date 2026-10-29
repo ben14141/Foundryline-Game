@@ -82,17 +82,23 @@ bool FWeldingStationPlayerFlow::RunTest(const FString&){using namespace WeldingP
  TestTrue(TEXT("Two welders finish a unit in about 1/1.7 of the plant time"),One>0&&Two>0&&FMath::IsNearlyEqual(Two/One,1/1.7f,.06f));
  // Where the money went, from the bookings (every purchase and pickup is one) and the cost total; the rest is the plant's
  // per-minute equipment operating cost (1 cent a game minute per working machine, 3 cents per forklift on a job).
+ int64 MarginOverMaterials=0;
  {const auto& C=M.State.Commerce;int64 Steel=0,Frames=0,Lights=0,Supplier=0,Trucks=0;int Sheets=0,Pickups=0;FString Carriers;
   for(const auto& B:C.Bookings){if(B.Inbound){Supplier+=2500;if(!B.Part){Sheets+=B.Sheets;Steel+=FMath::RoundToInt64(FFoundrylineSteelSheet::PoundsEach()*B.Sheets*100);}
     else{FFoundrylineBoughtPart Bought;FFoundrylineFactoryCatalog::Bought(EFoundrylinePart(B.Part),&Bought);(B.Part==uint8(Part::FrameSection)?Frames:Lights)+=Bought.PriceCents*B.Sheets;}}
    else{++Pickups;Trucks+=B.OriginalFeeCents;Carriers+=FString(FFoundrylineCommerceCatalog::Carrier(B.Carrier).Vehicle)+TEXT("; ");}}
-  const int64 Operating=C.CostCents-Steel-Frames-Lights-Supplier-Trucks;
-  AddInfo(FString::Printf(TEXT("Ledger: revenue %s / steel %s (%d sheets) / frame sections %s / light kits %s / supplier freight %s / pickup trucks %s (%d: %s) / operating %s / total cost %s / game minutes %.0f / net %s"),
+  const int64 Wages=C.WagesPaidCents,Operating=C.CostCents-Steel-Frames-Lights-Supplier-Trucks-Wages;
+  MarginOverMaterials=C.EarnedRevenueCents-Steel-Frames-Lights-Supplier-Trucks;
+  AddInfo(FString::Printf(TEXT("Ledger: revenue %s / steel %s (%d sheets) / frame sections %s / light kits %s / supplier freight %s / pickup trucks %s (%d: %s) / wages %s / operating %s / total cost %s / game minutes %.0f / net %s"),
    *FFoundrylineCommerceCatalog::Money(C.EarnedRevenueCents),*FFoundrylineCommerceCatalog::Money(Steel),Sheets,*FFoundrylineCommerceCatalog::Money(Frames),*FFoundrylineCommerceCatalog::Money(Lights),*FFoundrylineCommerceCatalog::Money(Supplier),*FFoundrylineCommerceCatalog::Money(Trucks),Pickups,*Carriers,
-   *FFoundrylineCommerceCatalog::Money(Operating),*FFoundrylineCommerceCatalog::Money(C.CostCents),C.Clock,*FFoundrylineCommerceCatalog::Money(C.CashCents-StartCash)));
+   *FFoundrylineCommerceCatalog::Money(Wages),*FFoundrylineCommerceCatalog::Money(Operating),*FFoundrylineCommerceCatalog::Money(C.CostCents),C.Clock,*FFoundrylineCommerceCatalog::Money(C.CashCents-StartCash)));
   int Left[4]={0,0,0,0};const Part Kit[]={Part::MountingPlate,Part::Bracket,Part::FrameSection,Part::LightKit};for(int I=0;I<4;++I)for(const auto& A:M.State.Pallets)if(A.Part==Kit[I])Left[I]+=A.Quantity;
   AddInfo(FString::Printf(TEXT("Left in stock at the end: %d plates, %d brackets, %d frame sections, %d light kits; steel %.0f lb"),Left[0],Left[1],Left[2],Left[3],M.State.Machines[0].BedLb+M.State.Pallets.FilterByPredicate([](const auto& A){return A.Part==Part::Sheet;}).Num()*FFoundrylineSteelSheet::PoundsEach()));}
- TestTrue(TEXT("The business made money and owes nothing"),M.State.Commerce.CashCents>StartCash&&M.State.Commerce.UnpaidCents==0);
+ // Economy v1 pays wages for every game hour a person holds a job, waiting included, so this one-order-at-a-time flow can end
+ // below its starting cash; that result is reported (AddInfo above), not asserted. What must hold: racks earn more than their
+ // materials and freight, and the business stays solvent.
+ TestTrue(TEXT("Racks earn more than their materials and freight"),MarginOverMaterials>0);
+ TestTrue(TEXT("The business stays solvent and owes nothing"),M.State.Commerce.CashCents>0&&M.State.Commerce.UnpaidCents==0);
  TestTrue(TEXT("Plant validates at the end: ")+E,M.Valid(E));
  return true;
 }

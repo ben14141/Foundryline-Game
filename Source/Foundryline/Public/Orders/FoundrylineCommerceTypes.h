@@ -70,6 +70,12 @@ USTRUCT() struct FFoundrylineCommerceState {
  UPROPERTY(SaveGame) int64 EarnedRevenueCents=0;
  UPROPERTY(SaveGame) int64 CostCents=0;
  UPROPERTY(SaveGame) double ExpenseFraction=0;
+ // Economy v1: wages owed but not yet a whole cent, and the equipment still being installed (game minutes left).
+ UPROPERTY(SaveGame) double WageFraction=0;
+ UPROPERTY(SaveGame) int64 WagesPaidCents=0;
+ UPROPERTY(SaveGame) float BrakeInstallMinutes=0;
+ UPROPERTY(SaveGame) float ForkliftInstallMinutes=0;
+ UPROPERTY(SaveGame) int32 ForkliftInstallDriver=0;
  UPROPERTY(SaveGame) bool BrakeOwned=false;
  UPROPERTY(SaveGame) int32 PickupOrder=0;
  UPROPERTY(SaveGame) int32 ActiveBooking=0;
@@ -109,5 +115,12 @@ struct FOUNDRYLINE_API FFoundrylineCommerceCatalog {
  // "4 sheets of steel" / "6 frame sections" for an inbound delivery.
  static FString InboundLabel(const FFoundrylineFreightBooking& Booking);
  static constexpr int64 SupplierFreightCents=2500;
+ // Economy v1 (29 October 2026, Ben): wages per game hour for a person while they hold a job (hiring is free; an unassigned
+ // hire is not paid), and install times for bought equipment in game minutes.
+ static constexpr int64 WelderWageCentsPerHour=1800;
+ static constexpr int64 OperatorWageCentsPerHour=1500;
+ static constexpr int64 DriverWageCentsPerHour=1500;
+ static constexpr float BrakeInstallMinutes=120;
+ static constexpr float ForkliftInstallMinutes=30;
 
 };

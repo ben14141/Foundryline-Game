@@ -68,6 +68,8 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  int32 StationRackSupply(EFoundrylinePart Part)const;
  // Finished products on a station's OUT pallets.
  int32 OutTotal(const FFoundrylineWeldingStationRecord& S)const;
+ // Wages per game hour of everyone holding a job in this plant (economy v1).
+ int64 PayrollCentsPerHour()const;
  FString WeldingStationStatus(const FFoundrylineWeldingStationRecord& Station)const;
  // Why finished products are still on OUT, after Lead (empty when OUT is clear).
  FString StationOutStatus(const FFoundrylineWeldingStationRecord& Station,const FString& Lead)const;

@@ -13,8 +13,8 @@ FString FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart Id){
 bool FFoundrylineFactoryCatalog::Bought(EFoundrylinePart Id,FFoundrylineBoughtPart* Out){
  FFoundrylineBoughtPart P;
  // Frame section: one ready-cut 2 in square tube member (~4 ft average). Light kit: one lamp with its wiring and hardware.
- if(Id==EFoundrylinePart::FrameSection){P.UnitLb=16;P.PriceCents=2400;}
- else if(Id==EFoundrylinePart::LightKit){P.UnitLb=4.5f;P.PriceCents=3800;}
+ if(Id==EFoundrylinePart::FrameSection){P.UnitLb=16;P.PriceCents=1800;}
+ else if(Id==EFoundrylinePart::LightKit){P.UnitLb=4.5f;P.PriceCents=2500;}
  else return false;
  if(Out)*Out=P;return true;
 }

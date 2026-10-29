@@ -9,6 +9,8 @@ int Units(const FFoundrylineAssemblyStep& S){int G=0;for(int Q:S.Parts)if(Q){if(
 void FFoundrylineFactorySimulation::Machines(float Dt){
  for(auto& M:State.Machines){
   if(!M.Enabled||!MachineStaffReady(M.Id))continue;
+  // A newly bought press brake is still being installed.
+  if(M.Id==2&&State.Commerce.BrakeInstallMinutes>0)continue;
   if(M.Remaining>0){M.Remaining=FMath::Max(0.f,M.Remaining-Dt);if(M.Remaining>0)continue;
    auto* P=State.Pallets.FindByPredicate([&](const auto& A){return A.Place==Place::MachineOutput&&A.Owner==M.Id&&A.Part==M.Making&&FMath::IsNearlyEqual(A.UnitLb,M.ReservedLb,.01f);});
    if(P)++P->Quantity;else AddPallet(M.Making,1,Place::MachineOutput,M.Id,M.OutputStock,M.ReservedLb);M.ReservedLb=0;
@@ -29,7 +31,8 @@ void FFoundrylineFactorySimulation::Machines(float Dt){
   const auto* Program=State.Programs.FindByPredicate([&](const auto& A){return A.Machine==M.Id&&A.Part==P;});if(!Program)continue;
   float Lb=0;
   if(M.Id==1){
-   if(M.BedLb+.0001f<Program->SteelLb){if(!Available(Part::Sheet,Place::MachineInput,1))continue;float SheetLb=0;Consume(Part::Sheet,1,Place::MachineInput,1,&SheetLb);M.BedLb+=SheetLb;++State.RawConsumed;}
+   // Loading a new sheet onto the bed takes SheetLoadMinutes before the first cut from it.
+   if(M.BedLb+.0001f<Program->SteelLb){if(!Available(Part::Sheet,Place::MachineInput,1))continue;M.SheetLoad+=Dt;if(M.SheetLoad<FFoundrylineFactoryCatalog::SheetLoadMinutes)continue;M.SheetLoad=0;float SheetLb=0;Consume(Part::Sheet,1,Place::MachineInput,1,&SheetLb);M.BedLb+=SheetLb;++State.RawConsumed;}
    if(M.BedLb+.0001f<Program->SteelLb)continue;M.BedLb-=Program->SteelLb;Lb=Program->SteelLb;
   }else if(!Consume(Input(P),1,Place::MachineInput,M.Id,&Lb))continue;
   M.Making=P;M.ReservedLb=Lb;M.Duration=Program->Seconds;M.Remaining=M.Duration;if(!M.Auto)--M.BatchRemaining;
@@ -113,7 +116,7 @@ void FFoundrylineFactorySimulation::Dispatch(){
  // The next waiting driver receives the lease, rather than racing for a pallet.
  bool CorridorBusy=false;for(const auto& D:State.Drivers)if(D.Job||FVector::Dist2D(D.Position,D.Parking)>20)CorridorBusy=true;
  TArray<int> DriverOrder;for(int I=0;I<State.Drivers.Num();++I)DriverOrder.Add(I);DriverOrder.Sort([&](int A,int B){const int IA=State.Drivers[A].Id>State.LastDriver?State.Drivers[A].Id:State.Drivers[A].Id+1000000;const int IB=State.Drivers[B].Id>State.LastDriver?State.Drivers[B].Id:State.Drivers[B].Id+1000000;return IA<IB;});
- for(int DriverIndex:DriverOrder){auto& D=State.Drivers[DriverIndex];if(CorridorBusy&&!State.Commerce.Enabled)break;if(D.Job||!D.EmployeeId)continue;const auto* R=State.Routes.FindByPredicate([&](const auto& A){return A.Id==D.Route&&A.Enabled;});if(!R)continue;
+ for(int DriverIndex:DriverOrder){auto& D=State.Drivers[DriverIndex];if(CorridorBusy&&!State.Commerce.Enabled)break;if(D.Job||!D.EmployeeId||State.Commerce.ForkliftInstallDriver==D.Id&&State.Commerce.ForkliftInstallMinutes>0)continue;const auto* R=State.Routes.FindByPredicate([&](const auto& A){return A.Id==D.Route&&A.Enabled;});if(!R)continue;
   FFoundrylineFactoryJob* Best=nullptr;TArray<FVector> BestPath;
   for(auto& J:State.Jobs)if(!J.Driver){const auto* Source=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J.SourcePallet;});if(!Source||!R->Sources.Contains(Source->Owner)||!(R->Destinations.Contains(J.Destination)||J.DestinationPlace==Place::Outbound&&R->Destinations.Contains(12)))continue;
    auto Score=[&](const auto& V){return (State.Commerce.Enabled&&D.Priorities.Num()==3?(3-D.Priorities[int(V.Task)])*1000:0)+V.Priority;};if(Best&&Score(*Best)>=Score(J))continue;auto P=Path(D.Position,J.Pickup);auto Delivery=Path(J.Pickup,J.Drop);if(P.IsEmpty()||Delivery.IsEmpty()){State.Status=TEXT("A transport request needs connected forklift lanes");continue;}Best=&J;BestPath=MoveTemp(P);

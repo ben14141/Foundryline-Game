@@ -12,7 +12,11 @@ template<typename T> bool CanOfferPart(const T& S,uint8 P){
 FVector FFoundrylineFactorySimulation::PickupPosition(int32 S){return {S%2?-725.:-975.,2000.,20};}
 FVector FFoundrylineFactorySimulation::CarrierPalletPosition(int32 S){return {1200,S%2?1765.:1635.,133};}
 FVector FFoundrylineFactorySimulation::CarrierDock(int32 S){return CarrierPalletPosition(S)-FVector(136,0,113);}
-void FFoundrylineFactorySimulation::CommerceExpense(int64 C,const FString& Label){if(C<=0)return;auto& S=State.Commerce;S.CostCents+=C;const int64 Paid=FMath::Min(S.CashCents,C);S.CashCents-=Paid;S.UnpaidCents+=C-Paid;if(Label==TEXT("Equipment operating costs")&&S.Money.Num()&&S.Money.Last().Label==Label){S.Money.Last().Cents-=C;S.Money.Last().At=S.Clock;}else S.Money.Add({S.Clock,-C,Label});if(S.Money.Num()>32)S.Money.RemoveAt(0);}
+void FFoundrylineFactorySimulation::CommerceExpense(int64 C,const FString& Label){if(C<=0)return;auto& S=State.Commerce;S.CostCents+=C;const int64 Paid=FMath::Min(S.CashCents,C);S.CashCents-=Paid;S.UnpaidCents+=C-Paid;// Running costs (operating and wages) post every game minute: each merges into its own line among the trailing running-cost
+ // lines, so the ledger keeps one line of each between real transactions.
+ auto Running=[](const FString& L){return L==TEXT("Equipment operating costs")||L==TEXT("Wages");};int32 Into=INDEX_NONE;
+ if(Running(Label))for(int32 I=S.Money.Num()-1;I>=0&&I>=S.Money.Num()-2&&Running(S.Money[I].Label);--I)if(S.Money[I].Label==Label){Into=I;break;}
+ if(Into!=INDEX_NONE){S.Money[Into].Cents-=C;S.Money[Into].At=S.Clock;}else S.Money.Add({S.Clock,-C,Label});if(S.Money.Num()>32)S.Money.RemoveAt(0);}
 void FFoundrylineFactorySimulation::CommerceIncome(int64 C,const FString& Label){if(C<=0)return;auto& S=State.Commerce;const int64 Debt=FMath::Min(C,S.UnpaidCents);S.UnpaidCents-=Debt;S.CashCents+=C-Debt;S.Money.Add({S.Clock,C,Label});if(S.Money.Num()>32)S.Money.RemoveAt(0);}
 void FFoundrylineFactorySimulation::SeedCommerce(){
  auto& C=State.Commerce;C={};C.Enabled=true;State.FloorMax.X=1600;
@@ -30,7 +34,7 @@ void FFoundrylineFactorySimulation::RefreshCommerceOffers(){
  while(Offered<8&&C.Orders.Num()<48){const int I=C.OfferSerial++;FFoundrylineCustomerOrder O;O.Id=State.NextId++;const Part Choices[]={Part::Bracket,Part::MountingPlate,Part::GussetPlate,Part::ReinforcementPlate,Part::BentBracket,Part::SupportChannel};O.Part=uint8(Choices[I%6]);if(!CanOfferPart(State,O.Part))continue;O.Quantity=I==0?40:I%6==0?50:I%6==1?60:I%6==2?75:30;const TCHAR* Customers[]={TEXT("Hartwell Fabrication"),TEXT("Northfield Repairs"),TEXT("Red Cedar Equipment"),TEXT("Mason Agricultural"),TEXT("Alder Workshop"),TEXT("Union Conveyor Co.")};O.Customer=Customers[I%6];O.Email=I%4==3;O.Rush=I%5==4;O.AllowedMinutes=I%5==2?0:O.Rush?360:2880;O.Payment=I%4==3?EFoundrylinePayment::Upfront:I%3==1?EFoundrylinePayment::PerDelivery:EFoundrylinePayment::OnCompletion;O.UnitPriceCents=FFoundrylineCommerceCatalog::SalePrice(O.Part)*(O.Rush?140:O.Payment==EFoundrylinePayment::Upfront?90:100)/100;O.Reference=FString::Printf(TEXT("FL-%04d"),I+1);C.Orders.Add(O);++Offered;}
  // One headache-rack contract on offer at a time while the business can build them; it does not displace part offers.
  if(CanOfferPart(State,uint8(Part::HeadacheRack))&&C.Orders.Num()<48&&!C.Orders.ContainsByPredicate([](const auto& O){return O.Status==EFoundrylineOrderState::Offered&&O.Part==uint8(Part::HeadacheRack);})){
-  const int I=C.RackOfferSerial++;FFoundrylineCustomerOrder O;O.Id=State.NextId++;O.Part=uint8(Part::HeadacheRack);O.Quantity=I%2?3:2;
+  const int I=C.RackOfferSerial++;FFoundrylineCustomerOrder O;O.Id=State.NextId++;O.Part=uint8(Part::HeadacheRack);O.Quantity=2+I*3%4;
   const TCHAR* Customers[]={TEXT("Ridgeline Truck Outfitters"),TEXT("Crossroads Fleet Service"),TEXT("Prairie Pickup Accessories")};O.Customer=Customers[I%3];
   O.AllowedMinutes=4320;O.Payment=I%3==2?EFoundrylinePayment::PerDelivery:EFoundrylinePayment::OnCompletion;O.UnitPriceCents=FFoundrylineCommerceCatalog::SalePrice(O.Part);O.Reference=FString::Printf(TEXT("FL-R%03d"),I+1);C.Orders.Add(O);}
 }
@@ -42,7 +46,7 @@ bool FFoundrylineFactorySimulation::InstallBrake(FString& E){
  for(const auto& P:FFoundrylineFactoryCatalog::DefaultPrograms())if(P.Machine==2&&(P.Part==Part::BentBracket||P.Part==Part::SupportChannel))State.Programs.Add(P);
  for(int I=0;I<2;++I){FFoundrylineFactorySlot S;S.Id=110+I;S.Part=I?Part::ReinforcementPlate:Part::Bracket;S.Position={-1500,1850,190.+I*130};S.Dock=M.InputDock;S.MachineId=2;S.bInputSupply=true;State.Slots.Add(S);for(auto& R:State.Routes){R.Sources.AddUnique(S.Id);R.Destinations.AddUnique(S.Id);R.Sources.AddUnique(2);R.Destinations.AddUnique(2);}}
  FFoundrylineFactoryLane L;L.Id=State.NextId++;L.Kind=EFoundrylineFloorLane::Forklift;L.Min={-1450,1450};L.Max={-300,1750};State.Lanes.Add(L);
- Solids.Emplace(FVector2D(-2025,1675),FVector2D(-1675,2025));Solids.Emplace(FVector2D(-1560,1642),FVector2D(-1440,2058));CommerceExpense(450000,TEXT("Press brake installation"));C.BrakeOwned=true;AddOperatorAccessLanes(2);return true;
+ Solids.Emplace(FVector2D(-2025,1675),FVector2D(-1675,2025));Solids.Emplace(FVector2D(-1560,1642),FVector2D(-1440,2058));CommerceExpense(450000,TEXT("Press brake installation"));C.BrakeOwned=true;C.BrakeInstallMinutes=FFoundrylineCommerceCatalog::BrakeInstallMinutes;AddOperatorAccessLanes(2);return true;
 }
 bool FFoundrylineFactorySimulation::CommerceCommand(const FFoundrylineCommerceCommand& A,FString& E){
  if(!State.Commerce.Enabled||A.PlantId.IsValid()&&A.PlantId!=State.PlantId){E=TEXT("Operations unavailable for this plant");return false;}
@@ -71,7 +75,7 @@ if(!O||O->Status!=EFoundrylineOrderState::Accepted||O->Delivered>=O->Quantity){E
  if(A.Action==Act::Reschedule){auto* B=C.Bookings.FindByPredicate([&](const auto& V){return V.Id==A.Id;});if(!B||B->Status!=BS::Booked||C.Clock>=B->DispatchAt){E=TEXT("The carrier is already travelling; this booking is locked");return false;}const auto Spec=FFoundrylineCommerceCatalog::Carrier(B->Carrier);const double Lead=B->Inbound?20:Spec.LeadMinutes;const int64 Fee=B->OriginalFeeCents/2;if(!FMath::IsFinite(A.Arrival)||A.Arrival<C.Clock+Lead+1||A.Arrival>C.Clock+4320||C.UnpaidCents||C.CashCents<Fee){E=TEXT("Choose a valid arrival and allow for the rebooking fee");return false;}B->ArrivalAt=A.Arrival;B->DispatchAt=A.Arrival-Lead;CommerceExpense(Fee,TEXT("Carrier rebooking / 50% original fee"));return true;}
  if(A.Action==Act::DriverPriority){auto* D=State.Drivers.FindByPredicate([&](const auto& V){return V.Id==A.Id;});if(!D||A.Choice<0||A.Choice>2||A.Quantity<0||A.Quantity>2||D->Priorities.Num()!=3){E=TEXT("Choose a driver task priority");return false;}const int Old=D->Priorities[A.Choice];for(auto& P:D->Priorities)if(P==A.Quantity)P=Old;D->Priorities[A.Choice]=A.Quantity;return true;}
  if(A.Action==Act::BuyBrake)return InstallBrake(E);
- if(A.Action==Act::BuyForklift){if(C.UnpaidCents||C.CashCents<120000||State.Drivers.Num()>=2){E=TEXT("A second forklift costs $1200; this starter has two parking stalls");return false;}if(!AddDriver(1,E,false))return false;auto& D=State.Drivers.Last();D.Parking={100,1100,20};D.Position=D.Parking;CommerceExpense(120000,TEXT("Forklift purchase"));return true;}
+ if(A.Action==Act::BuyForklift){if(C.UnpaidCents||C.CashCents<120000||State.Drivers.Num()>=2){E=TEXT("A second forklift costs $1200; this starter has two parking stalls");return false;}if(!AddDriver(1,E,false))return false;auto& D=State.Drivers.Last();D.Parking={100,1100,20};D.Position=D.Parking;CommerceExpense(120000,TEXT("Forklift purchase"));C.ForkliftInstallMinutes=FFoundrylineCommerceCatalog::ForkliftInstallMinutes;C.ForkliftInstallDriver=D.Id;return true;}
  E=TEXT("Unknown operations request");return false;};
  if(!Apply()){State=MoveTemp(Backup);Solids=OldSolids;return false;}++State.Revision;return true;
 }
