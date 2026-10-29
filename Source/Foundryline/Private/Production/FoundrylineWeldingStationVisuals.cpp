@@ -160,3 +160,5 @@ void AFoundrylineFactoryPlant::AddStationFitUpParts(){
   for(int I=0;I<4;++I)Lay(Part::Bracket,FVector(12+(I%2)*24,10+(I/2)*20,Layout::BenchHeightCm),22);
  }
 }
+int32 AFoundrylineFactoryPlant::StationGunsInHand(int32 I)const{int32 N=0;for(int K=I*2;K<I*2+2;++K)if(StationGuns.IsValidIndex(K)&&StationGuns[K]&&StationGuns[K]->IsVisible())++N;return N;}
+int32 AFoundrylineFactoryPlant::StationSparksActive(int32 I)const{int32 N=0;for(int K=I*2;K<I*2+2;++K)if(StationWeldEffects.IsValidIndex(K)&&StationWeldEffects[K]&&StationWeldEffects[K]->IsWelding())++N;return N;}

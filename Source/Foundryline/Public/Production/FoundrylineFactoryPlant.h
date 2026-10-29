@@ -58,6 +58,9 @@ public:
  static FVector MachinePosition(int32 Machine);
  bool bLocalOverlay=false;
  FFoundrylineFactorySimulation Model;
+ // Presentation read-outs for review tools: guns shown in welders' hands and spark emitters active at a station (snapshot index).
+ int32 StationGunsInHand(int32 StationIndex)const;
+ int32 StationSparksActive(int32 StationIndex)const;
 private:
  UPROPERTY() TObjectPtr<class AFoundrylineOperationsState> OperationsState;
  bool bCommerceRackBuilt=false;
