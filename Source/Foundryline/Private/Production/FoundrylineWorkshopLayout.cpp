@@ -14,7 +14,7 @@ TArray<FBox2D> FFoundrylineWorkshopLayout::Solids(){
 }
 TArray<FFoundrylineFactorySlot> FFoundrylineWorkshopLayout::Slots(){
  TArray<FFoundrylineFactorySlot> Out;
- auto Add=[&](int Id,EFoundrylinePart Part,FVector Center,int Level,bool Across=false){FFoundrylineFactorySlot S;S.Id=Id;S.Part=Part;S.Position=Center+FVector(0,0,40+Level*130);S.Dock=Center+(Across?FVector(0,136,0):FVector(136,0,0));S.MachineId=Id==100||Id>=107&&Id<=109?1:Id==101||Id==102||Id==110||Id==111?2:Id==103||Id==112?3:0;S.bInputSupply=Id==100||Id>=110;Out.Add(S);};
+ auto Add=[&](int Id,EFoundrylinePart Part,FVector Center,int Level,bool Across=false){FFoundrylineFactorySlot S;S.Id=Id;S.Part=Part;S.Position=Center+FVector(0,0,SlotHeight(Level));S.Dock=Center+(Across?FVector(0,136,0):FVector(136,0,0));S.MachineId=Id==100||Id>=107&&Id<=109?1:Id==101||Id==102||Id==110||Id==111?2:Id==103||Id==112?3:0;S.bInputSupply=Id==100||Id>=110;Out.Add(S);};
  Add(100,EFoundrylinePart::Sheet,InputRack(1),1);
  Add(101,EFoundrylinePart::BentBracket,OutputRack(2),0);Add(102,EFoundrylinePart::FrameRail,OutputRack(2),1);Add(103,EFoundrylinePart::ShellSection,OutputRack(3),0);
  FFoundrylineFactorySlot Head;Head.Id=104;Head.Part=EFoundrylinePart::EndCap;Head.Position={800,3000,20};Head.Dock={800,3136,20};Out.Add(Head);

@@ -42,7 +42,7 @@ void AFoundrylineFactoryPlant::SetupVisuals(){
   const FRotator Rot(0,Rack.Yaw,0);
   auto RackMesh=[&](const TCHAR* Name,FVector Offset){auto* C=Add(Asset(TEXT("Inventory/Storage/SheetRacking"),Name),RootComponent,Rack.Center+Rot.RotateVector(Offset));C->SetRelativeRotation(Rot);};
   for(int Side:{-1,1})RackMesh(TEXT("Rack_Upright"),FVector(0,Side*201.735,0));
-  for(int Level=0;Level<3;++Level)RackMesh(TEXT("Rack_Shelf400"),FVector(0,0,20+Level*130));
+  for(int Level=0;Level<3;++Level)RackMesh(TEXT("Rack_Shelf400"),FVector(0,0,FFoundrylineWorkshopLayout::ShelfOrigin(Level)));
  }
  for(int I=0;I<4;++I){auto* R=Forks[I].Get();
   Add(Asset(TEXT("Vehicles/Forklift/FL01"),TEXT("Forklift_Body")),R,FVector::ZeroVector);

@@ -1,4 +1,5 @@
 #include "Logistics/FoundrylineMaterialHandlingCell.h"
+#include "Production/FoundrylineWorkshopLayout.h"
 #include "Production/FoundrylineMachineMotion.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "Construction/FoundrylineEquipmentFootprintComponent.h"
@@ -52,7 +53,8 @@ void AFoundrylineMaterialHandlingCell::BeginPlay(){
  if(!bFactoryAutomation){for(int32 End:{-1,1})Mesh(*FString::Printf(TEXT("RackUpright%d"),End),TEXT("/Game/Foundryline/Inventory/Storage/SheetRacking/SM_Rack_Upright.SM_Rack_Upright"),RootComponent,GetRackCenter()+FVector(0,End*201.735,0));
  for(int32 Level=0;Level<3;++Level){
   const FVector P=GetRackPosition(Level)-FVector(0,0,20);
-  Mesh(*FString::Printf(TEXT("RackShelf%d"),Level),TEXT("/Game/Foundryline/Inventory/Storage/SheetRacking/SM_Rack_Shelf400.SM_Rack_Shelf400"),RootComponent,P);
+  // Beam tops (not the taller edge lips) carry the pallets that stand at the rack position.
+  Mesh(*FString::Printf(TEXT("RackShelf%d"),Level),TEXT("/Game/Foundryline/Inventory/Storage/SheetRacking/SM_Rack_Shelf400.SM_Rack_Shelf400"),RootComponent,GetRackPosition(Level)-FVector(0,0,FFoundrylineWorkshopLayout::ShelfBearingCm));
   auto* C=NewObject<UBoxComponent>(this);C->SetupAttachment(RootComponent);C->SetRelativeLocation(P+FVector(0,0,10));C->SetBoxExtent({55.8,201.7,10});C->SetCollisionProfileName(TEXT("BlockAllDynamic"));C->RegisterComponent();AddInstanceComponent(C);
  }
  }
