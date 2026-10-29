@@ -12,7 +12,7 @@ int32 FFoundrylineFactorySimulation::EmployeeHireCapacity(Role)const{return FMat
 bool FFoundrylineFactorySimulation::FindEmployeeWaitingPosition(FVector& Out)const{
  const auto People=FFoundrylineEmployeeRoster::Build(State);
  for(float Y:{275.f,425.f})for(int Col=0;Col<16;++Col){const FVector P(-2250+110*Col,Y,20);const FVector2D XY(P);if(P.X<State.FloorMin.X+35||P.Y<State.FloorMin.Y+35||P.X>State.FloorMax.X-35||P.Y>State.FloorMax.Y-35)continue;
-  bool Blocked=false;for(const auto& S:Solids)if(S.ExpandBy(35).IsInsideOrOn(XY))Blocked=true;for(const auto& L:State.Lanes)if(FBox2D(L.Min,L.Max).ExpandBy(35).IsInsideOrOn(XY))Blocked=true;for(const auto& Z:State.Zones)if(FFoundrylineWorkZoneLayout::Bounds(Z).ExpandBy(35).IsInsideOrOn(XY))Blocked=true;
+  bool Blocked=false;for(const auto& S:Solids)if(S.ExpandBy(35).IsInsideOrOn(XY))Blocked=true;for(const auto& L:State.Lanes)if(FBox2D(L.Min,L.Max).ExpandBy(35).IsInsideOrOn(XY))Blocked=true;for(const auto& Z:State.Zones)if(FFoundrylineWorkZoneLayout::Bounds(Z).ExpandBy(35).IsInsideOrOn(XY))Blocked=true;if(OverlapsWeldingStation(FBox2D(XY-FVector2D(35),XY+FVector2D(35)),true))Blocked=true;
   for(const auto& E:People){const float Clearance=E.bSeated?300:70;if(FVector::Dist2D(P,E.Position)<Clearance||FVector::Dist2D(P,E.Home)<Clearance)Blocked=true;}for(const auto& D:State.Drivers)if(FVector::Dist2D(P,D.Position)<300)Blocked=true;
   if(!Blocked){Out=P;return true;}
  }return false;

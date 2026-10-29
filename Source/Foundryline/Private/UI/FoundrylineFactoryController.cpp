@@ -13,6 +13,8 @@
 #include "Grid/FoundrylineFloorPlacement.h"
 #include "Grid/FoundrylineFloorGuide.h"
 #include "Core/FoundrylineUnits.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
+#include "Components/TextRenderComponent.h"
 AFoundrylineFactoryPlant* AFoundrylinePlayerController::FactoryPlant()const{for(TActorIterator<AFoundrylineFactoryPlant> It(GetWorld());It;++It){auto* R=AFoundrylineBusinessRegistry::Find(GetWorld());if(!R||R->CanOperate(this,It->BusinessCompanyId,It->BusinessPlantId))return *It;}return nullptr;}
 void AFoundrylinePlayerController::SendFactory(FFoundrylineFactoryCommand C){FactoryStatus.Reset();ServerFactoryCommand(C,++FactorySequence);}
 void AFoundrylinePlayerController::ServerFactoryCommand_Implementation(const FFoundrylineFactoryCommand& C,uint32 Sequence){
@@ -44,9 +46,10 @@ bool AFoundrylinePlayerController::HandleFactoryInput(const FInputKeyEventArgs& 
  }
  if(P.Key==EKeys::RightMouseButton&&P.Event==IE_Pressed){FactoryTool=NAME_None;bFactoryDragging=false;return true;}
  if(FactoryTool==TEXT("Zone")&&P.Event==IE_Pressed&&(P.Key==EKeys::R||P.Key==EKeys::V)){FactoryAction(P.Key==EKeys::R?TEXT("ZoneRotate"):TEXT("ZoneSide"));return true;}
+ if(FactoryTool==TEXT("Station")&&P.Event==IE_Pressed&&(P.Key==EKeys::R||P.Key==EKeys::V)){FactoryAction(P.Key==EKeys::R?TEXT("StationRotate"):TEXT("StationSide"));return true;}
  if(P.Key==EKeys::LeftMouseButton){if(FactoryOverHUD()){Super::InputKey(P);if(P.Event==IE_Released)bFactoryDragging=false;return true;}FVector A;if(!FactoryFloorCursor(A)){if(P.Event==IE_Released)bFactoryDragging=false;return true;}
-  if(FactoryTool==TEXT("Zone")||FactoryTool==TEXT("Crossing")){if(P.Event==IE_Pressed){if(!PreviewFactoryFloor(A)){FactoryStatus=FactoryPlacementHint;return true;}CommitFactoryFloorBrush();}return true;}
-  if(P.Event==IE_Pressed){if(FactoryTool.IsNone()){auto* Plant=FactoryPlant();FFoundrylineFactorySimulation View;View.State=Plant->Snapshot;for(const auto& Z:Plant->Snapshot.Zones)for(auto Part:{EFoundrylinePart::BentBracket,EFoundrylinePart::FrameRail,EFoundrylinePart::ShellSection,EFoundrylinePart::EndCap,EFoundrylinePart::RunningGear,EFoundrylinePart::Fittings}){const FVector P=View.BufferPosition(Z,Part);const auto Size=FFoundrylineWorkZoneLayout::BaySize(Z,Part);if(FBox2D(FVector2D(P)-Size/2,FVector2D(P)+Size/2).IsInside(FVector2D(A))){FactoryZone=Z.Id;FactorySelectedPart=int(Part);FactoryPage=0;return true;}}float Best=500;int Pick=0;for(const auto& Machine:Plant->Snapshot.Machines){const int I=Machine.Id;const float D=FVector::Dist2D(A,Plant->MachineWorldPosition(I));if(D<Best){Best=D;Pick=I;}}if(Pick){OpenFactoryComputer(Pick);return true;}for(const auto& Z:Plant->Snapshot.Zones)if(FFoundrylineWorkZoneLayout::Bounds(Z).IsInside(FVector2D(A))){FactoryZone=Z.Id;FactoryPage=0;return true;}return true;}
+  if(FactoryTool==TEXT("Zone")||FactoryTool==TEXT("Crossing")||FactoryTool==TEXT("Station")){if(P.Event==IE_Pressed){if(!PreviewFactoryFloor(A)){FactoryStatus=FactoryPlacementHint;return true;}CommitFactoryFloorBrush();}return true;}
+  if(P.Event==IE_Pressed){if(FactoryTool.IsNone()){auto* Plant=FactoryPlant();FFoundrylineFactorySimulation View;View.State=Plant->Snapshot;for(const auto& Z:Plant->Snapshot.Zones)for(auto Part:{EFoundrylinePart::BentBracket,EFoundrylinePart::FrameRail,EFoundrylinePart::ShellSection,EFoundrylinePart::EndCap,EFoundrylinePart::RunningGear,EFoundrylinePart::Fittings}){const FVector P=View.BufferPosition(Z,Part);const auto Size=FFoundrylineWorkZoneLayout::BaySize(Z,Part);if(FBox2D(FVector2D(P)-Size/2,FVector2D(P)+Size/2).IsInside(FVector2D(A))){FactoryZone=Z.Id;FactorySelectedPart=int(Part);FactoryPage=0;return true;}}for(const auto& S:Plant->Snapshot.WeldingStations)if(FFoundrylineWeldingStationLayout::Bounds(S).IsInside(FVector2D(A))){FactoryStation=S.Id;FactoryStatus.Reset();return true;}FactoryStation=0;float Best=500;int Pick=0;for(const auto& Machine:Plant->Snapshot.Machines){const int I=Machine.Id;const float D=FVector::Dist2D(A,Plant->MachineWorldPosition(I));if(D<Best){Best=D;Pick=I;}}if(Pick){OpenFactoryComputer(Pick);return true;}for(const auto& Z:Plant->Snapshot.Zones)if(FFoundrylineWorkZoneLayout::Bounds(Z).IsInside(FVector2D(A))){FactoryZone=Z.Id;FactoryPage=0;return true;}return true;}
    if(FactoryTool==TEXT("Erase")){auto* Plant=FactoryPlant();for(int I=Plant->Snapshot.Lanes.Num()-1;I>=0;--I)if(FBox2D(Plant->Snapshot.Lanes[I].Min,Plant->Snapshot.Lanes[I].Max).IsInside(FVector2D(A))){FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::EraseLane;C.Id=Plant->Snapshot.Lanes[I].Id;SendFactory(C);break;}return true;}
    FactoryDragStart=FactoryDragEnd=A;bFactoryDragging=true;PreviewFactoryFloor(A);
   }else if(P.Event==IE_Released&&bFactoryDragging){FactoryDragEnd=A;const bool Valid=PreviewFactoryFloor(A);bFactoryDragging=false;if(!Valid){FactoryStatus=FactoryPlacementHint;return true;}CommitFactoryFloorBrush();}return true;
@@ -58,6 +61,37 @@ void AFoundrylinePlayerController::TickFactory(float Dt){
  if(Active&&!FactoryFloorGuide){FActorSpawnParameters P;P.Owner=this;FactoryFloorGuide=GetWorld()->SpawnActor<AFoundrylineFloorGuide>(FVector::ZeroVector,FRotator::ZeroRotator,P);}
  if(Active){if(bFactoryDragging)FactoryDragEnd=Cursor;PreviewFactoryFloor(Cursor);}
  if(FactoryFloorGuide)FactoryFloorGuide->Show(FBox2D(Plant->Snapshot.FloorMin,Plant->Snapshot.FloorMax),FactoryPreviewBounds,FMath::Max(FactoryGridStep(),15.24),bFactoryGrid,bFactoryPresetValid,Active);
+ // Station hologram: bench, fixture, full-size rack, both worker spots, IN/OUT and outside access, all from the shared layout.
+ const bool ShowStation=Active&&FactoryTool==TEXT("Station");
+ if(ShowStation&&FactoryStationPreview.IsEmpty()){auto* Glow=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Production/Materials/M_FactoryPreview.M_FactoryPreview"));
+  const TCHAR* Machine=TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_Machine.SM_Welder_Machine");
+  const TCHAR* Paths[]={TEXT("/Game/Foundryline/Production/Equipment/WeldingBench/SM_StandardWeldingBench.SM_StandardWeldingBench"),TEXT("/Game/Foundryline/Production/Equipment/WeldingBench/SM_WeldingFixtureKit.SM_WeldingFixtureKit"),TEXT("/Game/Foundryline/Products/HeadacheRack/SM_HeadacheRack.SM_HeadacheRack"),nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,Machine,Machine};
+  // 13 hologram parts, a solid four-bar border round each of the IN and OUT bays (13..20), each OUT pallet's outline (21..28),
+  // then each IN supply pallet's outline (29..36).
+  for(int I=0;I<37;++I){FActorSpawnParameters SP;SP.Owner=this;auto* A=GetWorld()->SpawnActor<AStaticMeshActor>(FVector::ZeroVector,FRotator::ZeroRotator,SP);if(!A)continue;auto* C=A->GetStaticMeshComponent();C->SetMobility(EComponentMobility::Movable);UStaticMesh* Mesh=I<13&&Paths[I]?LoadObject<UStaticMesh>(nullptr,Paths[I]):nullptr;if(!Mesh)Mesh=LoadObject<UStaticMesh>(nullptr,I==3||I==4?TEXT("/Engine/BasicShapes/Cylinder.Cylinder"):TEXT("/Engine/BasicShapes/Cube.Cube"));C->SetStaticMesh(Mesh);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->SetCastShadow(false);for(int M=0;M<C->GetNumMaterials();++M)C->SetMaterial(M,UMaterialInstanceDynamic::Create(Glow,this));FactoryStationPreview.Add(A);
+   if(I==5||I==6){auto* Label=NewObject<UTextRenderComponent>(A);Label->SetupAttachment(A->GetRootComponent());Label->SetUsingAbsoluteLocation(true);Label->SetUsingAbsoluteRotation(true);Label->SetUsingAbsoluteScale(true);
+    Label->SetText(FText::FromString(I==5?TEXT("IN"):TEXT("OUT")));Label->SetHorizontalAlignment(EHTA_Center);Label->SetVerticalAlignment(EVRTA_TextCenter);Label->SetWorldSize(70);Label->SetCastShadow(false);Label->RegisterComponent();FactoryStationLabels.Add(Label);}}
+ }
+ for(AStaticMeshActor* A:FactoryStationPreview)if(A)A->SetActorHiddenInGame(!ShowStation);
+ if(ShowStation){using Layout=FFoundrylineWeldingStationLayout;FFoundrylineWeldingStationRecord S;S.Center=FactoryPreviewA;S.QuarterTurns=FactoryStationQuarter;S.bSwapSides=bFactoryStationSwap;
+  const FLinearColor Glow=bFactoryPresetValid?FLinearColor(.025,.48,1):FLinearColor(2.4,.1,.04);const auto Yaw=Layout::Rotation(S);
+  auto Pad=[&](const FBox2D& B,float Height){return FTransform(FRotator::ZeroRotator,FVector(B.GetCenter(),20+Height/2),FVector(B.GetSize().X/100,B.GetSize().Y/100,Height/100));};
+  const FTransform Poses[]={Layout::BenchTransform(S),Layout::BenchTransform(S),Layout::ProductTransform(S),FTransform(Yaw,Layout::WorkPoint(S,0)+FVector(0,0,1),FVector(.6,.6,.02)),FTransform(Yaw,Layout::WorkPoint(S,1)+FVector(0,0,1),FVector(.6,.6,.02)),Pad(Layout::Port(S,false),2),Pad(Layout::Port(S,true),2),Pad(Layout::ForkApproach(S,false),.6),Pad(Layout::ForkApproach(S,true),.6),Pad(Layout::WorkerApproach(S,0),.6),Pad(Layout::WorkerApproach(S,1),.6),Layout::MachineTransform(S,0),Layout::MachineTransform(S,1)};
+  // IN and OUT bays (with their forklift approaches) in the painted colours: a deep, saturated blue for IN, distinct from the
+  // light-blue station hologram, and green for OUT, each with a solid border. Everything is red when the spot is invalid.
+  const FLinearColor InGlow=bFactoryPresetValid?FLinearColor(0,.035,3.2):Glow,OutGlow=bFactoryPresetValid?FLinearColor(.02,1.6,.08):Glow;
+  auto Bar=[&](FVector2D A,FVector2D B){const FVector2D C=(A+B)/2,Size=(B-A).GetAbs()+FVector2D(6,6);return FTransform(FRotator::ZeroRotator,FVector(C,24),FVector(Size.X/100,Size.Y/100,.04));};
+  auto Border=[&](const FBox2D& B,int Edge){return Edge==0?Bar(B.Min,FVector2D(B.Max.X,B.Min.Y)):Edge==1?Bar(FVector2D(B.Min.X,B.Max.Y),B.Max):Edge==2?Bar(B.Min,FVector2D(B.Min.X,B.Max.Y)):Bar(FVector2D(B.Max.X,B.Min.Y),B.Max);};
+  // The OUT and IN pallet outlines are white on their bays so each pallet reads on its own.
+  const FLinearColor PalletGlow=bFactoryPresetValid?FLinearColor(2.6,2.6,2.6):FLinearColor(2.6,1.4,1.2);
+  for(int I=0;I<FactoryStationPreview.Num()&&I<37;++I)if(AStaticMeshActor* A=FactoryStationPreview[I]){A->SetActorTransform(I<13?Poses[I]:I<21?Border(Layout::Port(S,I>=17),(I-13)%4):I<29?Border(Layout::OutPalletRect(S,(I-21)/4),(I-21)%4):Border(Layout::InPalletRect(S,(I-29)/4),(I-29)%4));auto* C=A->GetStaticMeshComponent();
+   if(I>=21){A->SetActorScale3D(A->GetActorScale3D()*FVector(1,1,1.5));A->AddActorWorldOffset(FVector(0,0,2));}
+   const FLinearColor Colour=I==5?InGlow:I==6?OutGlow:I==7?InGlow*.45f:I==8?OutGlow*.45f:I>=13&&I<17?InGlow*1.6f:I>=21?PalletGlow:I>=17?OutGlow*1.6f:Glow;for(int M=0;M<C->GetNumMaterials();++M)if(auto* D=Cast<UMaterialInstanceDynamic>(C->GetMaterial(M)))D->SetVectorParameterValue(TEXT("GlowColor"),Colour);}
+  // Labels stay white when the spot is invalid, and float just above table height there, so they read through the red tint
+  // even when the invalid spot is on top of other equipment.
+  for(int I=0;I<FactoryStationLabels.Num();++I)if(auto* Label=FactoryStationLabels[I].Get()){const bool Out=I==1;Label->SetWorldLocationAndRotation(Layout::PortCenter(S,Out)+FVector(0,0,bFactoryPresetValid?6:130),FRotator(90,Yaw.Yaw+(Layout::PortOnLeft(S,Out)?0:180),0));
+   Label->SetTextRenderColor(!bFactoryPresetValid?FColor::White:Out?FColor(60,235,90):FColor(40,90,255));}
+ }
  const bool Show=Active&&FactoryTool==TEXT("Zone");
  if(Show&&!FactoryProductPreview){FActorSpawnParameters P;P.Owner=this;FactoryProductPreview=GetWorld()->SpawnActor<AStaticMeshActor>(FVector::ZeroVector,FRotator::ZeroRotator,P);auto* C=FactoryProductPreview->GetStaticMeshComponent();C->SetMobility(EComponentMobility::Movable);C->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Products/Tankers/StraightBarrel/SM_Tanker_Body.SM_Tanker_Body")));C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);auto* M=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Production/Materials/M_FactoryPreview.M_FactoryPreview"));for(int I=0;I<C->GetNumMaterials();++I)C->SetMaterial(I,UMaterialInstanceDynamic::Create(M,this));}
  if(Show&&!FactoryWelderPreview){FActorSpawnParameters P;P.Owner=this;FactoryWelderPreview=GetWorld()->SpawnActor<AStaticMeshActor>(FVector::ZeroVector,FRotator::ZeroRotator,P);auto* C=FactoryWelderPreview->GetStaticMeshComponent();C->SetMobility(EComponentMobility::Movable);C->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_Complete.SM_Welder_Complete")));C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);auto* M=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Production/Materials/M_FactoryPreview.M_FactoryPreview"));for(int I=0;I<C->GetNumMaterials();++I)C->SetMaterial(I,UMaterialInstanceDynamic::Create(M,this));}
@@ -67,7 +101,7 @@ void AFoundrylinePlayerController::TickFactory(float Dt){
  if(FactoryProductPreview){FactoryProductPreview->SetActorLocationAndRotation(FFoundrylineWorkZoneLayout::ProductCenter(Z)+FFoundrylineWorkZoneLayout::Rotation(Z).RotateVector(FVector(404,0,0)),FFoundrylineWorkZoneLayout::Rotation(Z));auto* C=FactoryProductPreview->GetStaticMeshComponent();for(int I=0;I<C->GetNumMaterials();++I)if(auto* M=Cast<UMaterialInstanceDynamic>(C->GetMaterial(I)))M->SetVectorParameterValue(TEXT("GlowColor"),bFactoryPresetValid?FLinearColor(.025,.48,1):FLinearColor(1,.05,.015));}
  if(FactoryWelderPreview){FactoryWelderPreview->SetActorLocationAndRotation(FFoundrylineWorkZoneLayout::WelderPosition(Z),FFoundrylineWorkZoneLayout::Rotation(Z));auto* C=FactoryWelderPreview->GetStaticMeshComponent();for(int I=0;I<C->GetNumMaterials();++I)if(auto* M=Cast<UMaterialInstanceDynamic>(C->GetMaterial(I)))M->SetVectorParameterValue(TEXT("GlowColor"),bFactoryPresetValid?FLinearColor(.025,.48,1):FLinearColor(1,.05,.015));}
 }
-void AFoundrylinePlayerController::FactoryAction(FName Name){auto* Plant=FactoryPlant();if(!Plant)return;const auto& S=Plant->Snapshot;const FString A=Name.ToString();FFoundrylineFactoryCommand C;using Act=EFoundrylineFactoryAction;
+void AFoundrylinePlayerController::FactoryAction(FName Name){auto* Plant=FactoryPlant();if(!Plant)return;const auto& S=Plant->Snapshot;const FString A=Name.ToString();FFoundrylineFactoryCommand C;using FactoryAct=EFoundrylineFactoryAction;
  if(A==TEXT("GridStep")){FactorySnapIndex=(FactorySnapIndex+1)%3;return;}
  if(A==TEXT("EdgeSnap")){bFactoryEdgeSnap=!bFactoryEdgeSnap;return;}
  if(A==TEXT("GridVisible")){bFactoryGrid=!bFactoryGrid;return;}
@@ -77,6 +111,14 @@ void AFoundrylinePlayerController::FactoryAction(FName Name){auto* Plant=Factory
  if(A==TEXT("ZoneNext")){if(!S.Zones.IsEmpty()){int I=S.Zones.IndexOfByPredicate([&](const auto& Z){return Z.Id==FactoryZone;});I=FMath::Max(0,I);FactoryZone=S.Zones[(I+1)%S.Zones.Num()].Id;FactorySelectedPart=-1;}return;}
  if(A==TEXT("ZoneRotate")){FactoryZoneQuarter=(FactoryZoneQuarter+1)%4;return;}
  if(A==TEXT("ZoneSide")){FactoryZoneSide=-FactoryZoneSide;return;}
+ if(A==TEXT("StationRotate")){FactoryStationQuarter=(FactoryStationQuarter+1)%4;return;}
+ if(A==TEXT("StationSide")){bFactoryStationSwap=!bFactoryStationSwap;return;}
+ // Station supplies: the headache-rack batch is product data; bought parts use the normal paid supplier booking.
+ if(A==TEXT("StationSupply")){const auto* St=S.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==FactoryStation;});if(!St)return;C.Action=FactoryAct::ConfigureWeldingStation;C.Id=St->Id;C.Other=St->Recipe?0:1;C.Count=St->Recipe?0:10;C.TargetPlantId=Plant->BusinessPlantId;SendFactory(C);return;}
+ if(A.StartsWith(TEXT("StationBuy"))){const auto* St=S.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==FactoryStation;});const FString Value=A.RightChop(10);if(!St||!Value.IsNumeric())return;const int Part=FCString::Atoi(*Value);if(!FFoundrylineFactoryCatalog::Bought(EFoundrylinePart(FMath::Clamp(Part,0,255))))return;
+  FFoundrylineFactorySimulation View;View.State=S;FFoundrylineCommerceCommand Buy;Buy.Action=EFoundrylineCommerceAction::BuyParts;Buy.Id=St->Id;Buy.Choice=Part;Buy.Quantity=FMath::Min(View.StationShortfall(*St,EFoundrylinePart(Part)),FFoundrylineFactoryCatalog::Part(EFoundrylinePart(Part)).Capacity);if(Buy.Quantity>0)SendOperations(Buy);return;}
+ if(A==TEXT("StationRemove")){
+if(!S.WeldingStations.ContainsByPredicate([&](const auto& V){return V.Id==FactoryStation;}))return;C.Action=FactoryAct::RemoveWeldingStation;C.Id=FactoryStation;C.TargetPlantId=Plant->BusinessPlantId;FactoryStation=0;SendFactory(C);return;}
  if(A==TEXT("BatchValue")){FactoryEditField=Name;FactoryEditText.Reset();return;}
  if(A==TEXT("Toggle")){const bool Show=!bFactoryMenu;if(FactoryMachine)OpenFactoryComputer(0);bFactoryMenu=Show;bFactoryDragging=false;FactoryTool=NAME_None;BuildTool=NAME_None;for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)It->HidePreview();if(bLogisticsOverlay)ToggleLogisticsOverlay();return;}
  if(A==TEXT("ReturnOffice")){if(bPropertyViewAccess&&!IsWalking())ToggleWalk();return;}
@@ -90,7 +132,8 @@ void AFoundrylinePlayerController::FactoryAction(FName Name){auto* Plant=Factory
  if(A==TEXT("PartNext")){TArray<FFoundrylineFactoryProgram> List=S.Programs.FilterByPredicate([&](const auto& P){return P.Machine==FactoryMachine;});if(List.Num()){FactoryProgramIndex=(FactoryProgramIndex+1)%List.Num();}return;}
  if(A==TEXT("BatchMinus")||A==TEXT("BatchPlus")){FactoryBatch=FMath::Clamp(FactoryBatch+(A.EndsWith(TEXT("Plus"))?1:-1),1,200);return;}
  if(A==TEXT("Auto")){if(S.bCutPartsStarter){bFactoryAuto=false;return;}bFactoryAuto=!bFactoryAuto;return;}
- if(A==TEXT("ToolZone")||A==TEXT("ToolForklift")||A==TEXT("ToolPedestrian")||A==TEXT("ToolCrossing")||A==TEXT("ToolErase")){bFactoryDragging=false;FactoryStatus.Reset();FactoryTool=FName(*A.RightChop(4));if(FactoryTool==TEXT("Pedestrian"))FactoryWidth=121.92f;else if(FactoryWidth<300)FactoryWidth=365.76f;return;}
+ if(A==TEXT("ToolStation")&&FactoryTool==TEXT("Station")){FactoryTool=NAME_None;bFactoryDragging=false;return;}
+ if(A==TEXT("ToolZone")||A==TEXT("ToolStation")||A==TEXT("ToolForklift")||A==TEXT("ToolPedestrian")||A==TEXT("ToolCrossing")||A==TEXT("ToolErase")){bFactoryDragging=false;FactoryStatus.Reset();FactoryTool=FName(*A.RightChop(4));if(FactoryTool==TEXT("Pedestrian"))FactoryWidth=121.92f;else if(FactoryWidth<300)FactoryWidth=365.76f;return;}
  if(A==TEXT("WidthMinus")||A==TEXT("WidthPlus")){const int Feet=FMath::RoundToInt(FactoryWidth/30.48f)+(A.EndsWith(TEXT("Plus"))?1:-1);FactoryWidth=FMath::Clamp(Feet,FactoryTool==TEXT("Pedestrian")?4:10,20)*30.48f;return;}
  if(A==TEXT("Direction")){FactoryDirection=(FactoryDirection+1)%3;return;}
  if(A==TEXT("StoragePrev")||A==TEXT("StorageNext")){FactoryStoragePage=FMath::Clamp(FactoryStoragePage+(A==TEXT("StorageNext")?1:-1),0,FMath::Max(0,(S.Slots.Num()-1)/5));return;}
@@ -98,21 +141,21 @@ void AFoundrylinePlayerController::FactoryAction(FName Name){auto* Plant=Factory
  TArray<int> Endpoints={10,11,1,2,3};for(const auto& R:S.Slots)Endpoints.Add(R.Id);for(const auto& Z:S.Zones)Endpoints.Add(Z.Id);
  if(A==TEXT("EndpointNext")){FactoryEndpoint=(FactoryEndpoint+1)%Endpoints.Num();return;}
  if(!FactoryZone&&S.Zones.Num())FactoryZone=S.Zones[0].Id;if(!FactorySlot&&S.Slots.Num())FactorySlot=S.Slots[0].Id;
- if(A==TEXT("Run")){C.Action=Act::Run;C.Flag=!S.Running;}
- else if(A==TEXT("Speed1")||A==TEXT("Speed4")||A==TEXT("Speed8")){C.Action=Act::Speed;C.Count=FCString::Atoi(*A.RightChop(5));}
- else if(A==TEXT("Speed")){C.Action=Act::Speed;C.Count=S.Speed==1?4:S.Speed==4?8:1;}
- else if(A==TEXT("Order")){C.Action=Act::Order;C.Id=FactoryZone;}
- else if(A==TEXT("Collect")){C.Action=Act::Collect;C.Id=FactoryZone;}
+ if(A==TEXT("Run")){C.Action=FactoryAct::Run;C.Flag=!S.Running;}
+ else if(A==TEXT("Speed1")||A==TEXT("Speed4")||A==TEXT("Speed8")){C.Action=FactoryAct::Speed;C.Count=FCString::Atoi(*A.RightChop(5));}
+ else if(A==TEXT("Speed")){C.Action=FactoryAct::Speed;C.Count=S.Speed==1?4:S.Speed==4?8:1;}
+ else if(A==TEXT("Order")){C.Action=FactoryAct::Order;C.Id=FactoryZone;}
+ else if(A==TEXT("Collect")){C.Action=FactoryAct::Collect;C.Id=FactoryZone;}
  else if(A==TEXT("Welder")||A==TEXT("Driver")){OpenOperations(1);if(OperationsScreen==1){OperationsPage=7;OperationsWorkspaceTab=0;OperationsEmployeeChoice=0;}else FactoryStatus=TEXT("Use the office computer to hire employees and assign jobs");return;}
- else if(A==TEXT("Steel")){C.Action=Act::ReceiveSteel;C.Count=10;}
- else if(A==TEXT("Kits")){C.Action=Act::ReceiveKits;}
- else if(A==TEXT("Save")){C.Action=Act::Save;}
- else if(A==TEXT("Load")){C.Action=Act::Load;}
- else if(A==TEXT("NewRoute")){C.Action=Act::AddRoute;}
- else if(A==TEXT("Source")||A==TEXT("Destination")){C.Action=A==TEXT("Source")?Act::LinkSource:Act::LinkDestination;C.Id=FactoryRoute;C.Other=Endpoints[FMath::Clamp(FactoryEndpoint,0,Endpoints.Num()-1)];if(const auto* R=S.Routes.FindByPredicate([&](const auto& X){return X.Id==FactoryRoute;}))C.Flag=!(A==TEXT("Source")?R->Sources:R->Destinations).Contains(C.Other);}
- else if(A==TEXT("AssignNext")){auto* Slot=S.Slots.FindByPredicate([&](const auto& R){return R.Id==FactorySlot;});if(!Slot)return;C.Action=Act::AssignSlot;C.Id=Slot->Id;C.Part=EFoundrylinePart((int(Slot->Part)+1)%10);}
- else if(A==TEXT("Apply")){auto List=S.Programs.FilterByPredicate([&](const auto& P){return P.Machine==FactoryMachine;});if(!List.IsValidIndex(FactoryProgramIndex))return;C.Action=Act::Program;C.Id=FactoryMachine;C.Part=List[FactoryProgramIndex].Part;C.Count=FactoryBatch;C.Flag=S.bCutPartsStarter?false:bFactoryAuto;}
- else if(A==TEXT("MachinePause")){auto* M=S.Machines.FindByPredicate([&](const auto& X){return X.Id==FactoryMachine;});if(!M)return;C.Action=Act::MachineEnabled;C.Id=M->Id;C.Flag=!M->Enabled;}
+ else if(A==TEXT("Steel")){C.Action=FactoryAct::ReceiveSteel;C.Count=10;}
+ else if(A==TEXT("Kits")){C.Action=FactoryAct::ReceiveKits;}
+ else if(A==TEXT("Save")){C.Action=FactoryAct::Save;}
+ else if(A==TEXT("Load")){C.Action=FactoryAct::Load;}
+ else if(A==TEXT("NewRoute")){C.Action=FactoryAct::AddRoute;}
+ else if(A==TEXT("Source")||A==TEXT("Destination")){C.Action=A==TEXT("Source")?FactoryAct::LinkSource:FactoryAct::LinkDestination;C.Id=FactoryRoute;C.Other=Endpoints[FMath::Clamp(FactoryEndpoint,0,Endpoints.Num()-1)];if(const auto* R=S.Routes.FindByPredicate([&](const auto& X){return X.Id==FactoryRoute;}))C.Flag=!(A==TEXT("Source")?R->Sources:R->Destinations).Contains(C.Other);}
+ else if(A==TEXT("AssignNext")){auto* Slot=S.Slots.FindByPredicate([&](const auto& R){return R.Id==FactorySlot;});if(!Slot)return;C.Action=FactoryAct::AssignSlot;C.Id=Slot->Id;C.Part=EFoundrylinePart((int(Slot->Part)+1)%10);}
+ else if(A==TEXT("Apply")){auto List=S.Programs.FilterByPredicate([&](const auto& P){return P.Machine==FactoryMachine;});if(!List.IsValidIndex(FactoryProgramIndex))return;C.Action=FactoryAct::Program;C.Id=FactoryMachine;C.Part=List[FactoryProgramIndex].Part;C.Count=FactoryBatch;C.Flag=S.bCutPartsStarter?false:bFactoryAuto;}
+ else if(A==TEXT("MachinePause")){auto* M=S.Machines.FindByPredicate([&](const auto& X){return X.Id==FactoryMachine;});if(!M)return;C.Action=FactoryAct::MachineEnabled;C.Id=M->Id;C.Flag=!M->Enabled;}
  else return;SendFactory(C);
 }
 void AFoundrylinePlayerController::CommitFactoryNumber(){if(!FactoryEditText.IsEmpty()){const float V=FCString::Atof(*FactoryEditText);if(FactoryEditField==TEXT("BatchValue"))FactoryBatch=FMath::Clamp(FMath::RoundToInt(V),1,200);}FactoryEditField=NAME_None;}

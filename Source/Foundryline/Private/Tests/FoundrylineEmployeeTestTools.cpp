@@ -17,9 +17,9 @@ FString UFoundrylineNetworkTestTools::EmployeeReport(APlayerController* Player){
 #endif
  FString Out;auto Writer=TJsonWriterFactory<>::Create(&Out);FJsonSerializer::Serialize(J,Writer);return Out;
 }
-bool UFoundrylineNetworkTestTools::QueueEmployeeAssignment(APlayerController* Player,int32 Id,int32 Role,int32 Target,FGuid Plant){
+bool UFoundrylineNetworkTestTools::QueueEmployeeAssignment(APlayerController* Player,int32 Id,int32 Role,int32 Target,FGuid Plant,int32 Slot){
 #if WITH_EDITOR
- auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Id,Role,Target,Plant](float){if(Weak.IsValid()){FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::AssignEmployee;C.Id=Id;C.Count=Role;C.Other=Target;C.TargetPlantId=Plant;Weak->SendFactory(C);}return false;}));return true;
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Id,Role,Target,Plant,Slot](float){if(Weak.IsValid()){FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::AssignEmployee;C.Id=Id;C.Count=Role;C.Other=Target;C.QuarterTurns=Slot;C.TargetPlantId=Plant;Weak->SendFactory(C);}return false;}));return true;
 #else
  return false;
 #endif

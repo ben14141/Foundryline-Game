@@ -2,13 +2,15 @@
 #include "Algo/Reverse.h"
 #include "Production/FoundrylineWorkZoneLayout.h"
 #include "Grid/FoundrylineFloorPlacement.h"
+#include "Production/FoundrylineWeldingStationLayout.h"
 
 bool FFoundrylineFactorySimulation::Walkable(FVector2D P,bool Pedestrian)const{
  const float Radius=Pedestrian?35:80;
  if(P.X<State.FloorMin.X+Radius||P.Y<State.FloorMin.Y+Radius||P.X>State.FloorMax.X-Radius||P.Y>State.FloorMax.Y-Radius)return false;
  for(const auto& Box:Solids)if(Box.ExpandBy(Radius).IsInside(P))return false;
  for(const auto& Z:State.Zones){if(FFoundrylineWorkZoneLayout::WelderBounds(Z).ExpandBy(Radius).IsInside(P))return false;const FVector Local=FFoundrylineWorkZoneLayout::Rotation(Z).UnrotateVector(FVector(P,20)-FFoundrylineWorkZoneLayout::ProductCenter(Z));if(FMath::Abs(Local.X)<665+Radius&&FMath::Abs(Local.Y)<130+Radius)return false;}
- auto Inside=[&](FVector2D V){if(Pedestrian)for(const auto& Z:State.Zones)if(FFoundrylineWorkZoneLayout::Bounds(Z).IsInsideOrOn(V))return true;for(const auto& L:State.Lanes)if((Pedestrian?(L.Kind!=EFoundrylineFloorLane::Forklift):(L.Kind==EFoundrylineFloorLane::Forklift))&&FBox2D(L.Min,L.Max).IsInsideOrOn(V))return true;return false;};
+ for(const auto& S:State.WeldingStations){if(FFoundrylineWeldingStationLayout::Bench(S).ExpandBy(Radius).IsInside(P))return false;if(!Pedestrian&&FFoundrylineWeldingStationLayout::Bounds(S).ExpandBy(Radius-.01).IsInside(P))return false;}
+ auto Inside=[&](FVector2D V){if(Pedestrian){for(const auto& Z:State.Zones)if(FFoundrylineWorkZoneLayout::Bounds(Z).IsInsideOrOn(V))return true;for(const auto& S:State.WeldingStations){for(int Side=0;Side<2;++Side)if(FFoundrylineWeldingStationLayout::Worker(S,Side).IsInsideOrOn(V))return true;for(const auto& R:FFoundrylineWeldingStationLayout::AccessRing(S))if(R.IsInsideOrOn(V))return true;}}for(const auto& L:State.Lanes)if((Pedestrian?(L.Kind!=EFoundrylineFloorLane::Forklift):(L.Kind==EFoundrylineFloorLane::Forklift))&&FBox2D(L.Min,L.Max).IsInsideOrOn(V))return true;return false;};
  return Inside(P)&&Inside(P+FVector2D(Radius,0))&&Inside(P-FVector2D(Radius,0))&&Inside(P+FVector2D(0,Radius))&&Inside(P-FVector2D(0,Radius));
 }
 namespace {
@@ -33,6 +35,8 @@ TArray<FVector> FFoundrylineFactorySimulation::Path(FVector Start,FVector End,bo
    if(ClipRouteBox(FVector2D(R.UnrotateVector(A-C)),FVector2D(R.UnrotateVector(B-C)),FBox2D({-665-Radius,-130-Radius},{665+Radius,130+Radius}),Lo,Hi))return false;
    if(LaneOnly&&ClipRouteBox(FVector2D(A),FVector2D(B),FFoundrylineWorkZoneLayout::Bounds(Z).ExpandBy(Radius-.01),Lo,Hi))return false;
   }
+  // Forklift docking spurs stop outside a welding station; nobody routes through its bench.
+  for(const auto& S:State.WeldingStations){if(ClipRouteBox(FVector2D(A),FVector2D(B),FFoundrylineWeldingStationLayout::Bench(S).ExpandBy(Radius),Lo,Hi))return false;if(!Pedestrian&&ClipRouteBox(FVector2D(A),FVector2D(B),FFoundrylineWeldingStationLayout::Bounds(S).ExpandBy(Radius-.01),Lo,Hi))return false;}
   if(!Pedestrian)for(const auto& Other:State.Drivers)if(FVector::Dist2D(Start,Other.Position)>1&&FVector::Dist2D(End,Other.Position)>200&&FMath::PointDistToSegment(Other.Position,A,B)<200)return false;
   return true;
  };
@@ -104,5 +108,6 @@ bool FFoundrylineFactorySimulation::PaintLane(EFoundrylineFloorLane Kind,FVector
  if(L.Min.X<State.FloorMin.X||L.Min.Y<State.FloorMin.Y||L.Max.X>State.FloorMax.X||L.Max.Y>State.FloorMax.Y){Error=TEXT("Paint lanes inside the shop floor");return false;}
  for(const auto& S:Solids)if(FFoundrylineFloorPlacement::Overlap(S,FBox2D(L.Min,L.Max))){Error=TEXT("Lane overlaps machinery or racking");return false;}
  for(const auto& Z:State.Zones)if(FFoundrylineFloorPlacement::Overlap(FFoundrylineWorkZoneLayout::Bounds(Z),FBox2D(L.Min,L.Max))){Error=TEXT("Lane overlaps a work zone; connect at its edge");return false;}
+ if(OverlapsWeldingStation(FBox2D(L.Min,L.Max),false)){Error=TEXT("Lane overlaps a welding station; paint it along the station edge");return false;}
  State.Lanes.Add(L);for(auto& O:State.Operators){O.Path.Reset();O.Distance=0;O.Retry=0;}for(auto& W:State.Walkers){W.Path.Reset();W.Distance=0;W.Retry=0;}++State.Revision;return true;
 }

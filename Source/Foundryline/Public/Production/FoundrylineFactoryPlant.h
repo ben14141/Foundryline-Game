@@ -6,7 +6,8 @@
 #include "FoundrylineFactoryPlant.generated.h"
 
 UENUM()
-enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee};
+enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation};
+
 USTRUCT()
 struct FFoundrylineFactoryCommand {
  GENERATED_BODY()
@@ -57,6 +58,9 @@ public:
  static FVector MachinePosition(int32 Machine);
  bool bLocalOverlay=false;
  FFoundrylineFactorySimulation Model;
+ // Presentation read-outs for review tools: guns shown in welders' hands and spark emitters active at a station (snapshot index).
+ int32 StationGunsInHand(int32 StationIndex)const;
+ int32 StationSparksActive(int32 StationIndex)const;
 private:
  UPROPERTY() TObjectPtr<class AFoundrylineOperationsState> OperationsState;
  bool bCommerceRackBuilt=false;
@@ -111,4 +115,30 @@ private:
  UPROPERTY() TMap<int32,TObjectPtr<class UBoxComponent>> PalletPhysicalBodies;
  void SetupFloorVisuals();
  void RebuildFloor();
+ // Bench, fixture and collision per placed welding station; rebuilt only when a station record changes.
+ void RebuildWeldingStations();
+ FString StationLayoutKey;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationMeshes;
+ UPROPERTY() TArray<TObjectPtr<class UBoxComponent>> StationCollision;
+ // Lead from each machine to its holstered gun, three segments per machine (station index * 2 + side).
+ UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> StationIdleLeads;
+ // The unit on each station's bench, by snapshot station index: fixture kit stored on the shelf or set out as a jig on
+ // the worktop, the rack as hologram, as weld progress and as the finished product, and Welder A's gun, lead and sparks.
+ UPROPERTY() TArray<TObjectPtr<class USceneComponent>> StationUnitParts;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationStoredFixtures;
+ // Eight jig parts per station (four risers, four hold-downs), in JigRisers/JigHoldDowns order.
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationJigParts;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRackGhosts;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRackBuilds;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationRacks;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationHolsteredGuns;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> StationGuns;
+ UPROPERTY() TArray<TObjectPtr<class USplineMeshComponent>> StationLeads;
+ UPROPERTY() TArray<TObjectPtr<class UFoundrylineWeldingEffectComponent>> StationWeldEffects;
+ TArray<int32> StationShownStage;
+ void AnimateWeldingStations(float Dt,double Age);
+ void AddStationFitUpParts();
+ static FString RackBuildSuffix(const class UMaterialInterface* Material);
+ static bool IsRackLight(const class UMaterialInterface* Material);
+ class UMaterialInstanceDynamic* RackProgressMaterial(class UMaterialInterface* Base,const FTransform& On);
 };

@@ -1,0 +1,37 @@
+{
+  "checks": {
+    "no_external_images": true,
+    "no_linked_libraries": true,
+    "no_vendor_armature": true,
+    "two_independent_roots": true,
+    "lift_action_105degrees": true,
+    "fbx_roundtrip_fullscale": true,
+    "fbx_mesh_count": true
+  },
+  "closed_neutral_bounds_cm": {
+    "min": [
+      -17.649999260902405,
+      -19.69445049762726,
+      -16.780000925064087
+    ],
+    "max": [
+      17.649999260902405,
+      16.4000004529953,
+      14.28000032901764
+    ],
+    "size": [
+      35.29999852180481,
+      36.09445095062256,
+      31.060001254081726
+    ]
+  },
+  "closed_size_inches": [
+    13.89763721330898,
+    14.210413760087622,
+    12.228346950425877
+  ],
+  "original_mesh_parts": 92,
+  "evaluated_triangles": 33288,
+  "passed": true,
+  "no_engine_use": true
+}

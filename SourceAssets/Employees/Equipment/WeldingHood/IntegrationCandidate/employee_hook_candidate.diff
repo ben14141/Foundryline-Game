@@ -1,0 +1,162 @@
+--- a/Source/Foundryline/Public/Employees/FoundrylineEmployeeAppearance.h
++++ b/Source/Foundryline/Public/Employees/FoundrylineEmployeeAppearance.h
+@@ -20,6 +20,7 @@
+  UPROPERTY(EditAnywhere) bool bHandymanPose=false;
+  UPROPERTY(EditAnywhere) TArray<FFoundrylineEmployeeOutfit> Outfits;
+  UPROPERTY(Transient) TArray<TObjectPtr<USkeletalMesh>> RuntimeVariants;
++ UPROPERTY(Transient) TArray<TObjectPtr<USkeletalMesh>> RuntimeWeldingHoodVariants;
+  UPROPERTY(EditAnywhere) FVector FootRootOffset=FVector::ZeroVector;
+  UPROPERTY(EditAnywhere) FRotator FacingOffset=FRotator::ZeroRotator;
+  UPROPERTY(EditAnywhere) TObjectPtr<UAnimSequence> Idle;
+--- a/Source/Foundryline/Public/Employees/FoundrylineEmployeeVisualComponent.h
++++ b/Source/Foundryline/Public/Employees/FoundrylineEmployeeVisualComponent.h
+@@ -9,6 +9,7 @@
+ class USkeletalMeshComponent;
+ class UPoseableMeshComponent;
+ class UFoundrylineEmployeeAppearance;
++class UFoundrylineWeldingHoodComponent;
+ 
+ // Presentation only: identity, movement and work remain authoritative in the plant roster.
+ // Foot-root, centimetres, forward +X. Replace this component with a skeletal adapter
+@@ -47,6 +48,8 @@
+  void HandymanIK(FName Upper,FName Lower,FName End,FVector Target,FVector Pole,const FQuat* EndRotation=nullptr);
+  void HandymanRotate(int32 Bone,FQuat Delta);
+  UPROPERTY() TObjectPtr<UPoseableMeshComponent> HandymanBody;
++ UPROPERTY() TObjectPtr<UFoundrylineWeldingHoodComponent> WeldingHood;
++ bool bWeldingHoodBody=false;
+  TArray<FTransform> HandymanPose,HandymanRest;
+  TArray<int32> HandymanParents,HandymanSamplerBones;
+  TMap<FName,int32> HandymanBones;
+--- a/Source/Foundryline/Private/Employees/FoundrylineHandymanPresentation.cpp
++++ b/Source/Foundryline/Private/Employees/FoundrylineHandymanPresentation.cpp
+@@ -1,5 +1,6 @@
+ #include "Employees/FoundrylineEmployeeVisualComponent.h"
+ #include "Employees/FoundrylineEmployeeAppearance.h"
++#include "Employees/FoundrylineWeldingHoodComponent.h"
+ #include "Employees/FoundrylineEmployeeTypes.h"
+ #include "Employees/FoundrylineHandymanAssetTools.h"
+ #include "Animation/AnimSequence.h"
+@@ -32,7 +33,15 @@
+  if(!HandymanBody||HandymanPose.Num()!=HandymanParents.Num())return;HandymanBody->BoneSpaceTransforms.SetNum(HandymanPose.Num());for(int I=0;I<HandymanPose.Num();++I)HandymanBody->BoneSpaceTransforms[I]=HandymanParents[I]>=0?HandymanPose[I].GetRelativeTransform(HandymanPose[HandymanParents[I]]):HandymanPose[I];HandymanBody->MarkRefreshTransformDirty();HandymanBody->RefreshBoneTransforms();HandymanBody->UpdateBounds();
+ }
+ void UFoundrylineEmployeeVisualComponent::PresentHandyman(const FFoundrylineEmployeeRecord& R,float Dt){
+- if(HandymanVariant<0){const auto& Variants=Appearance->RuntimeVariants.IsEmpty()?Appearance->Variants:Appearance->RuntimeVariants;HandymanVariant=Variants.IsEmpty()?0:int(FCrc::StrCrc32(*R.Key)%Variants.Num());auto* Mesh=Variants.IsValidIndex(HandymanVariant)?Variants[HandymanVariant].Get():Appearance->Mesh.Get();HandymanBody->SetSkinnedAssetAndUpdate(Mesh);HandymanRest.Reset();HandymanParents.Reset();HandymanBones.Reset();HandymanSamplerBones.Reset();const auto& Ref=Mesh->GetRefSkeleton();for(int I=0;I<Ref.GetNum();++I){const int P=Ref.GetParentIndex(I);FTransform T=Ref.GetRefBonePose()[I];if(P>=0)T*=HandymanRest[P];HandymanRest.Add(T);HandymanParents.Add(P);HandymanBones.Add(Ref.GetBoneName(I),I);HandymanSamplerBones.Add(SkeletalBody->GetBoneIndex(Ref.GetBoneName(I)));}for(int I=0;I<2;++I){const int H=HandymanBones.FindRef(I?TEXT("hand_r"):TEXT("hand_l")),M=HandymanBones.FindRef(I?TEXT("middle_01_r"):TEXT("middle_01_l"));HandymanPalmOffsets[I]=HandymanRest[H].InverseTransformPosition(FMath::Lerp(HandymanRest[H].GetLocation(),HandymanRest[M].GetLocation(),.55));}}
++ const auto& Variants=Appearance->RuntimeVariants.IsEmpty()?Appearance->Variants:Appearance->RuntimeVariants;
++ if(HandymanVariant<0)HandymanVariant=Variants.IsEmpty()?0:int(FCrc::StrCrc32(*R.Key)%Variants.Num());
++ USkeletalMesh* DesiredMesh=Variants.IsValidIndex(HandymanVariant)?Variants[HandymanVariant].Get():Appearance->Mesh.Get();
++ bWeldingHoodBody=false;
++ if(UFoundrylineWeldingHoodComponent::WantsHood(R)&&GetOwner()->GetNetMode()!=NM_DedicatedServer){
++  if(!WeldingHood){WeldingHood=NewObject<UFoundrylineWeldingHoodComponent>(GetOwner());WeldingHood->SetupAttachment(this);WeldingHood->RegisterComponent();GetOwner()->AddInstanceComponent(WeldingHood);}
++  if(WeldingHood->HasModelAssets())if(auto* NoHat=UFoundrylineWeldingHoodComponent::NoHatOutfit(Appearance,HandymanVariant)){DesiredMesh=NoHat;bWeldingHoodBody=true;}
++ }
++ if(HandymanBody->GetSkinnedAsset()!=DesiredMesh){auto* Mesh=DesiredMesh;HandymanBody->SetSkinnedAssetAndUpdate(Mesh);HandymanRest.Reset();HandymanParents.Reset();HandymanBones.Reset();HandymanSamplerBones.Reset();const auto& Ref=Mesh->GetRefSkeleton();for(int I=0;I<Ref.GetNum();++I){const int P=Ref.GetParentIndex(I);FTransform T=Ref.GetRefBonePose()[I];if(P>=0)T*=HandymanRest[P];HandymanRest.Add(T);HandymanParents.Add(P);HandymanBones.Add(Ref.GetBoneName(I),I);HandymanSamplerBones.Add(SkeletalBody->GetBoneIndex(Ref.GetBoneName(I)));}for(int I=0;I<2;++I){const int H=HandymanBones.FindRef(I?TEXT("hand_r"):TEXT("hand_l")),M=HandymanBones.FindRef(I?TEXT("middle_01_r"):TEXT("middle_01_l"));HandymanPalmOffsets[I]=HandymanRest[H].InverseTransformPosition(FMath::Lerp(HandymanRest[H].GetLocation(),HandymanRest[M].GetLocation(),.55));}}
+  if(R.Activity!=EFoundrylineEmployeeActivity::Paused)HandymanClock+=FMath::Min(Dt,.1f);auto* Clip=R.bMoving&&!R.bSeated?Appearance->Walk.Get():Appearance->Idle.Get();HandymanAnimation=Clip->GetPathName();if(!SkeletalBody->GetSingleNodeInstance()||SkeletalBody->GetSingleNodeInstance()->GetCurrentAsset()!=Clip)SkeletalBody->SetAnimation(Clip);SkeletalBody->SetPlayRate(0);const float Time=R.bMoving&&!R.bSeated?Phase*Clip->GetPlayLength():FMath::Fmod(HandymanClock,Clip->GetPlayLength());SkeletalBody->SetPosition(Time,false);SkeletalBody->TickAnimation(0,false);SkeletalBody->RefreshBoneTransforms();const auto& Evaluated=SkeletalBody->GetComponentSpaceTransforms();HandymanPose.SetNum(HandymanParents.Num());for(int I=0;I<HandymanPose.Num();++I){const int Source=HandymanSamplerBones.IsValidIndex(I)?HandymanSamplerBones[I]:INDEX_NONE;HandymanPose[I]=Evaluated.IsValidIndex(Source)?Evaluated[Source]:HandymanRest[I];}
+  const FTransform T=HandymanBody->GetRelativeTransform();
+  if(bSeated||R.bMoving){const int Pel=HandymanBones.FindRef(TEXT("pelvis"));const FVector Shift=T.InverseTransformVectorNoScale(FVector(0,0,bSeated?147:86))-HandymanPose[Pel].GetLocation();for(int I=Pel;I<HandymanPose.Num();++I){int P=I;while(P>Pel)P=HandymanParents[P];if(P==Pel)HandymanPose[I].AddToTranslation(Shift);}if(bSeated){const int Spine=HandymanBones.FindRef(TEXT("spine_02"));HandymanRotate(Spine,FQuat(T.InverseTransformVectorNoScale(FVector::RightVector),FMath::DegreesToRadians(9.f)));}}
+@@ -42,4 +51,5 @@
+  for(int I=0;I<2;++I){const FName Foot=I?TEXT("foot_r"):TEXT("foot_l");const int F=HandymanBones.FindRef(Foot);if(R.bMoving&&!bSeated||bSeated){float X=0,Z=8.23821;const float P=FMath::Fmod(Phase+I*.5f,1.f);if(bSeated){X=47;Z+=83;}else if(P<.5f)X=27.5f-110*P;else{const float A=(P-.5f)*2;X=FMath::Lerp(-27.5f,27.5f,A);Z+=10*FMath::Sin(PI*A);}const FVector Target=T.InverseTransformPosition({X,I?14.08756:-14.08756,Z});const FVector Pole=T.InverseTransformPosition({100,I?15.:-15.,bSeated?125.:40.});const FQuat Rotation=HandymanRest[F].GetRotation();HandymanIK(I?TEXT("thigh_r"):TEXT("thigh_l"),I?TEXT("calf_r"):TEXT("calf_l"),Foot,Target,Pole,&Rotation);}}
+  if(bSeated){HandymanPalm(0,{43,-18,174},true);HandymanPalm(1,{43,18,174},true);}else if(R.bWorking){const int Spine=HandymanBones.FindRef(TEXT("spine_02"));HandymanRotate(Spine,FQuat(T.InverseTransformVectorNoScale(FVector::RightVector),FMath::DegreesToRadians(R.Assignment==2?15.f:R.Assignment==3?12.f:7.f)));if(R.Activity==EFoundrylineEmployeeActivity::Welding){HandymanPalm(0,{49,-3,131},true);HandymanPalm(1,{43,0,125},true);}else{const float Reach=R.Assignment==2?55.f:R.Assignment==3?50.f:42.f;const float Tap=R.bWorking?FMath::Sin(WorkPhase*6*PI):0;HandymanPalm(0,{Reach,-12,115+Tap});HandymanPalm(1,{Reach,12,115-Tap});}}
+  CommitHandymanPose();
++ if(WeldingHood)WeldingHood->Present(HandymanBody,R,bWeldingHoodBody,Dt);
+ }
+--- a/Source/Foundryline/Private/Employees/FoundrylineEmployeeVisualComponent.cpp
++++ b/Source/Foundryline/Private/Employees/FoundrylineEmployeeVisualComponent.cpp
+@@ -86,7 +86,7 @@
+ FString UFoundrylineEmployeeVisualComponent::GetPresentationReport()const{
+  auto J=MakeShared<FJsonObject>();J->SetStringField(TEXT("key"),Identity);J->SetStringField(TEXT("activity"),ActivityName);J->SetNumberField(TEXT("distanceCm"),DisplayDistance);J->SetNumberField(TEXT("gaitPhase"),Phase);J->SetBoolField(TEXT("moving"),bMoving);J->SetBoolField(TEXT("seated"),bSeated);J->SetNumberField(TEXT("footRootWorldZ"),GetComponentLocation().Z);J->SetNumberField(TEXT("heightCm"),180);
+  J->SetBoolField(TEXT("walkingCollision"),WalkingBody&&WalkingBody->GetCollisionEnabled()!=ECollisionEnabled::NoCollision);J->SetNumberField(TEXT("weldingGripErrorCm"),WeldingGripError);
+- if(HandymanBody){J->SetBoolField(TEXT("skeletal"),true);if(SkeletalBody){const auto& Sample=SkeletalBody->GetComponentSpaceTransforms();for(FName N:{TEXT("pelvis"),TEXT("foot_l"),TEXT("hand_l")}){const int B=SkeletalBody->GetBoneIndex(N);if(Sample.IsValidIndex(B)){J->SetNumberField(N.ToString()+TEXT("SamplerZ"),Sample[B].GetLocation().Z);J->SetNumberField(N.ToString()+TEXT("SamplerX"),Sample[B].GetLocation().X);}}}J->SetStringField(TEXT("profile"),Appearance?Appearance->GetPathName():TEXT(""));TArray<TSharedPtr<FJsonValue>> Outfit;if(Appearance&&Appearance->Outfits.IsValidIndex(HandymanVariant))for(auto P:Appearance->Outfits[HandymanVariant].Parts)if(P)Outfit.Add(MakeShared<FJsonValueString>(P->GetPathName()));J->SetArrayField(TEXT("outfit"),Outfit);J->SetStringField(TEXT("mesh"),HandymanBody->GetSkinnedAsset()?HandymanBody->GetSkinnedAsset()->GetPathName():TEXT(""));J->SetNumberField(TEXT("variant"),HandymanVariant);J->SetStringField(TEXT("animation"),HandymanAnimation);if(HandymanBody->GetSkinnedAsset())J->SetNumberField(TEXT("heightCm"),HandymanBody->GetSkinnedAsset()->GetBounds().BoxExtent.Z*2);const auto World=HandymanBody->GetComponentTransform();const auto Relative=HandymanBody->GetRelativeTransform();for(int I=0;I<2;++I){const int F=HandymanBones.FindRef(I?TEXT("foot_r"):TEXT("foot_l")),K=HandymanBones.FindRef(I?TEXT("calf_r"):TEXT("calf_l")),S=HandymanBones.FindRef(I?TEXT("upperarm_r"):TEXT("upperarm_l")),H=HandymanBones.FindRef(I?TEXT("hand_r"):TEXT("hand_l"));if(!HandymanPose.IsValidIndex(H))continue;J->SetNumberField(FString::Printf(TEXT("foot%dWorldZ"),I),World.TransformPosition(HandymanPose[F].GetLocation()).Z-8.23821);J->SetNumberField(FString::Printf(TEXT("knee%dPitch"),I),(HandymanPose[K].GetRotation()*HandymanRest[K].GetRotation().Inverse()).Rotator().Pitch);J->SetNumberField(FString::Printf(TEXT("shoulder%dPitch"),I),(HandymanPose[S].GetRotation()*HandymanRest[S].GetRotation().Inverse()).Rotator().Pitch);const FVector Hand=Relative.TransformPosition(HandymanPose[H].GetLocation()),Palm=Relative.TransformPosition(HandymanPose[H].TransformPosition(HandymanPalmOffsets[I]));J->SetNumberField(FString::Printf(TEXT("hand%dLocalX"),I),Hand.X);J->SetNumberField(FString::Printf(TEXT("hand%dLocalZ"),I),Hand.Z);J->SetNumberField(FString::Printf(TEXT("palm%dLocalX"),I),Palm.X);J->SetNumberField(FString::Printf(TEXT("palm%dLocalZ"),I),Palm.Z);TArray<TSharedPtr<FJsonValue>> Point;const FVector P=World.TransformPosition(HandymanPose[H].TransformPosition(HandymanPalmOffsets[I]));Point.Add(MakeShared<FJsonValueNumber>(P.X));Point.Add(MakeShared<FJsonValueNumber>(P.Y));Point.Add(MakeShared<FJsonValueNumber>(P.Z));J->SetArrayField(FString::Printf(TEXT("palm%dWorld"),I),Point);}}
++ if(HandymanBody){J->SetBoolField(TEXT("skeletal"),true);if(SkeletalBody){const auto& Sample=SkeletalBody->GetComponentSpaceTransforms();for(FName N:{TEXT("pelvis"),TEXT("foot_l"),TEXT("hand_l")}){const int B=SkeletalBody->GetBoneIndex(N);if(Sample.IsValidIndex(B)){J->SetNumberField(N.ToString()+TEXT("SamplerZ"),Sample[B].GetLocation().Z);J->SetNumberField(N.ToString()+TEXT("SamplerX"),Sample[B].GetLocation().X);}}}J->SetStringField(TEXT("profile"),Appearance?Appearance->GetPathName():TEXT(""));TArray<TSharedPtr<FJsonValue>> Outfit;if(Appearance&&Appearance->Outfits.IsValidIndex(HandymanVariant))for(auto P:Appearance->Outfits[HandymanVariant].Parts)if(P&&(!bWeldingHoodBody||!P->GetName().StartsWith(TEXT("SK_Hat_"))))Outfit.Add(MakeShared<FJsonValueString>(P->GetPathName()));J->SetArrayField(TEXT("outfit"),Outfit);J->SetStringField(TEXT("mesh"),HandymanBody->GetSkinnedAsset()?HandymanBody->GetSkinnedAsset()->GetPathName():TEXT(""));J->SetNumberField(TEXT("variant"),HandymanVariant);J->SetStringField(TEXT("animation"),HandymanAnimation);if(HandymanBody->GetSkinnedAsset())J->SetNumberField(TEXT("heightCm"),HandymanBody->GetSkinnedAsset()->GetBounds().BoxExtent.Z*2);const auto World=HandymanBody->GetComponentTransform();const auto Relative=HandymanBody->GetRelativeTransform();for(int I=0;I<2;++I){const int F=HandymanBones.FindRef(I?TEXT("foot_r"):TEXT("foot_l")),K=HandymanBones.FindRef(I?TEXT("calf_r"):TEXT("calf_l")),S=HandymanBones.FindRef(I?TEXT("upperarm_r"):TEXT("upperarm_l")),H=HandymanBones.FindRef(I?TEXT("hand_r"):TEXT("hand_l"));if(!HandymanPose.IsValidIndex(H))continue;J->SetNumberField(FString::Printf(TEXT("foot%dWorldZ"),I),World.TransformPosition(HandymanPose[F].GetLocation()).Z-8.23821);J->SetNumberField(FString::Printf(TEXT("knee%dPitch"),I),(HandymanPose[K].GetRotation()*HandymanRest[K].GetRotation().Inverse()).Rotator().Pitch);J->SetNumberField(FString::Printf(TEXT("shoulder%dPitch"),I),(HandymanPose[S].GetRotation()*HandymanRest[S].GetRotation().Inverse()).Rotator().Pitch);const FVector Hand=Relative.TransformPosition(HandymanPose[H].GetLocation()),Palm=Relative.TransformPosition(HandymanPose[H].TransformPosition(HandymanPalmOffsets[I]));J->SetNumberField(FString::Printf(TEXT("hand%dLocalX"),I),Hand.X);J->SetNumberField(FString::Printf(TEXT("hand%dLocalZ"),I),Hand.Z);J->SetNumberField(FString::Printf(TEXT("palm%dLocalX"),I),Palm.X);J->SetNumberField(FString::Printf(TEXT("palm%dLocalZ"),I),Palm.Z);TArray<TSharedPtr<FJsonValue>> Point;const FVector P=World.TransformPosition(HandymanPose[H].TransformPosition(HandymanPalmOffsets[I]));Point.Add(MakeShared<FJsonValueNumber>(P.X));Point.Add(MakeShared<FJsonValueNumber>(P.Y));Point.Add(MakeShared<FJsonValueNumber>(P.Z));J->SetArrayField(FString::Printf(TEXT("palm%dWorld"),I),Point);}}
+  else J->SetBoolField(TEXT("skeletal"),false);
+  for(int32 I=0;I<Feet.Num();++I){J->SetNumberField(FString::Printf(TEXT("foot%dWorldZ"),I),Feet[I]->GetComponentLocation().Z-7);J->SetNumberField(FString::Printf(TEXT("knee%dPitch"),I),Shins[I]->GetRelativeRotation().Pitch);J->SetNumberField(FString::Printf(TEXT("shoulder%dPitch"),I),Shoulders[I]->GetRelativeRotation().Pitch);const FVector Hand=GetComponentTransform().InverseTransformPosition(Hands[I]->GetComponentLocation());J->SetNumberField(FString::Printf(TEXT("hand%dLocalX"),I),Hand.X);J->SetNumberField(FString::Printf(TEXT("hand%dLocalZ"),I),Hand.Z);}
+  FString Out;const auto W=TJsonWriterFactory<>::Create(&Out);FJsonSerializer::Serialize(J,W);return Out;
+--- /dev/null
++++ b/Source/Foundryline/Public/Employees/FoundrylineWeldingHoodComponent.h
+@@ -0,0 +1,33 @@
++#pragma once
++// INTEGRATION CANDIDATE ONLY: not in live Source, not compiled or native-tested.
++#include "CoreMinimal.h"
++#include "Components/SceneComponent.h"
++#include "FoundrylineWeldingHoodComponent.generated.h"
++class UFoundrylineEmployeeAppearance;
++class UPoseableMeshComponent;
++class USkeletalMesh;
++class UStaticMeshComponent;
++struct FFoundrylineEmployeeRecord;
++
++UCLASS(ClassGroup=(Foundryline),meta=(BlueprintSpawnableComponent))
++class FOUNDRYLINE_API UFoundrylineWeldingHoodComponent : public USceneComponent {
++ GENERATED_BODY()
++public:
++ UFoundrylineWeldingHoodComponent();
++ // Cache only original outfit parts with SK_Hat_* removed. Never remove the head/beard.
++ // Returns null if no safe no-hat mesh can be assembled; caller keeps normal body/hidden hood.
++ static USkeletalMesh* NoHatOutfit(UFoundrylineEmployeeAppearance* Profile,int32 Variant);
++ static bool WantsHood(const FFoundrylineEmployeeRecord& Record);
++ static bool WantsClosedVisor(const FFoundrylineEmployeeRecord& Record);
++ bool HasModelAssets();
++ void Present(UPoseableMeshComponent* Body,const FFoundrylineEmployeeRecord& Record,bool bNoHatBody,float DeltaSeconds);
++ UFUNCTION(BlueprintPure) bool IsEquipped()const{return bEquipped;}
++ UFUNCTION(BlueprintPure) bool IsVisorClosed()const{return bEquipped&&VisorAngleDegrees<2;}
++ UFUNCTION(BlueprintPure) float GetVisorAngleDegrees()const{return VisorAngleDegrees;}
++private:
++ void CreateMeshes();
++ UPROPERTY() TObjectPtr<UStaticMeshComponent> Harness;
++ UPROPERTY() TObjectPtr<UStaticMeshComponent> Visor;
++ bool bTriedAssets=false,bEquipped=false;
++ float VisorAngleDegrees=105;
++};
+--- /dev/null
++++ b/Source/Foundryline/Private/Employees/FoundrylineWeldingHoodComponent.cpp
+@@ -0,0 +1,51 @@
++// INTEGRATION CANDIDATE ONLY: no live Source file was modified by its preparation.
++#include "Employees/FoundrylineWeldingHoodComponent.h"
++#include "Employees/FoundrylineEmployeeAppearance.h"
++#include "Employees/FoundrylineEmployeeTypes.h"
++#include "Employees/FoundrylineHandymanAssetTools.h"
++#include "Components/PoseableMeshComponent.h"
++#include "Components/StaticMeshComponent.h"
++#include "Engine/SkeletalMesh.h"
++#include "Engine/StaticMesh.h"
++#include "GameFramework/Actor.h"
++
++namespace {
++ constexpr float OpenAngle=105.f;
++ // Measured Handyman head rest transform: hood neutral root is ear hinge at native Z170cm.
++ // Final asset metadata must agree with these constants before native acceptance.
++ const FTransform HoodFromHead(FQuat(-.02512077,-.70663461,.02516714,-.70668457).GetNormalized(),FVector(14.55806393,-1.85629664,.00112296));
++ const TCHAR* Folder=TEXT("/Game/Foundryline/Employees/Equipment/WeldingHood/");
++}
++UFoundrylineWeldingHoodComponent::UFoundrylineWeldingHoodComponent(){PrimaryComponentTick.bCanEverTick=false;SetIsReplicatedByDefault(false);}
++bool UFoundrylineWeldingHoodComponent::WantsHood(const FFoundrylineEmployeeRecord& R){return R.Role==EFoundrylineEmployeeRole::Welder&&R.Assignment>0&&!R.bSeated;}
++bool UFoundrylineWeldingHoodComponent::WantsClosedVisor(const FFoundrylineEmployeeRecord& R){return WantsHood(R)&&R.bWorking&&R.Activity==EFoundrylineEmployeeActivity::Welding&&!R.bMoving;}
++USkeletalMesh* UFoundrylineWeldingHoodComponent::NoHatOutfit(UFoundrylineEmployeeAppearance* P,int32 Variant){
++ if(!P||!P->Outfits.IsValidIndex(Variant))return nullptr;
++ // Shared across all people/companies using this profile. Only three current outfits exist.
++ // Runtime meshes are NEVER saved as editor assets (they do not contain ImportedModel).
++ if(P->RuntimeWeldingHoodVariants.Num()!=P->Outfits.Num())P->RuntimeWeldingHoodVariants.SetNum(P->Outfits.Num());
++ if(P->RuntimeWeldingHoodVariants[Variant])return P->RuntimeWeldingHoodVariants[Variant].Get();
++ TArray<USkeletalMesh*> Parts;bool RemovedCap=false;
++ for(auto Part:P->Outfits[Variant].Parts)if(Part){if(Part->GetName().StartsWith(TEXT("SK_Hat_")))RemovedCap=true;else Parts.Add(Part.Get());}
++ if(!RemovedCap||Parts.Num()<2)return nullptr;
++ auto* M=UFoundrylineHandymanAssetTools::BuildRuntimeVariant(1000+Variant,Parts);if(!M)return nullptr;
++ P->RuntimeWeldingHoodVariants[Variant]=M;return M;
++}
++void UFoundrylineWeldingHoodComponent::CreateMeshes(){
++ if(bTriedAssets||!GetOwner()||GetOwner()->GetNetMode()==NM_DedicatedServer)return;bTriedAssets=true;
++ auto Make=[&](const TCHAR* Name){auto* C=NewObject<UStaticMeshComponent>(GetOwner(),MakeUniqueObjectName(GetOwner(),UStaticMeshComponent::StaticClass(),Name));C->SetupAttachment(this);C->SetMobility(EComponentMobility::Movable);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->SetCastShadow(true);C->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*(FString(Folder)+Name)));C->RegisterComponent();GetOwner()->AddInstanceComponent(C);return C;};
++ Harness=Make(TEXT("SM_WeldingHood_Harness"));Visor=Make(TEXT("SM_WeldingHood_Visor"));SetVisibility(false,true);
++}
++bool UFoundrylineWeldingHoodComponent::HasModelAssets(){CreateMeshes();return Harness&&Visor&&Harness->GetStaticMesh()&&Visor->GetStaticMesh();}
++void UFoundrylineWeldingHoodComponent::Present(UPoseableMeshComponent* Body,const FFoundrylineEmployeeRecord& R,bool bNoHatBody,float Dt){
++ if(!GetOwner()||GetOwner()->GetNetMode()==NM_DedicatedServer)return;
++ const bool Equip=Body&&Body->GetBoneIndex(TEXT("head"))!=INDEX_NONE&&bNoHatBody&&WantsHood(R)&&HasModelAssets();
++ if(!Equip){if(bEquipped)SetVisibility(false,true);bEquipped=false;return;}
++ if(!bEquipped){VisorAngleDegrees=OpenAngle;SetVisibility(true,true);}bEquipped=true;
++ // Read the actual evaluated poseable head AFTER CommitHandymanPose, including employee yaw.
++ SetWorldTransform(HoodFromHead*Body->GetSocketTransform(TEXT("head"),RTS_World));
++ const float Target=WantsClosedVisor(R)?0.f:OpenAngle;
++ VisorAngleDegrees=FMath::FInterpConstantTo(VisorAngleDegrees,Target,FMath::Clamp(Dt,0.f,.1f),720.f);
++ // Both original meshes have their origins on the same ear hinge; visor native axis is +X.
++ Visor->SetRelativeRotation(FQuat(FVector::ForwardVector,FMath::DegreesToRadians(VisorAngleDegrees)));
++}

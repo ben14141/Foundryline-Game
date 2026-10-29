@@ -66,6 +66,13 @@ struct FFoundrylineStarterGuide {
  double SteelNeededLb=0;
  bool bAssignedToBay=false,bOperator=false,bForkliftDriver=false;
  FString OperatorName,DriverName;
+ // Welded products (headache racks): the focused order is made at a welding station instead of the plasma.
+ bool bWeldedOrder=false,bWelder=false;int32 StationId=0;
+ FString WelderName,StationName,StationStatus;
+ // Payroll per game hour, and what is idle while it runs (empty when everyone paid has work).
+ int64 PayrollCentsPerHour=0;FString IdleWhilePaid;
+ // Finished products (welded) anywhere in the shop, listed apart from cut parts.
+ int32 FinishedOnOut=0,FinishedInStorage=0,FinishedAtBayProducts=0,FinishedOnTrucks=0;
  // Whole-business glance (all accepted orders).
  int32 AcceptedOrders=0,OffersWaiting=0,CompletedOrders=0,PartsInProgress=0,FinishedParts=0,FinishedAtBay=0,PickupsBooked=0,SteelDeliveriesDue=0;
  double SteelOnHandLb=0,SteelIncomingLb=0;

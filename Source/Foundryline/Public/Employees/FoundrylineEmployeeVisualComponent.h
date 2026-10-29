@@ -9,6 +9,7 @@ class UCapsuleComponent;
 class USkeletalMeshComponent;
 class UPoseableMeshComponent;
 class UFoundrylineEmployeeAppearance;
+class UFoundrylineWeldingHoodComponent;
 
 // Presentation only: identity, movement and work remain authoritative in the plant roster.
 // Foot-root, centimetres, forward +X. Replace this component with a skeletal adapter
@@ -47,6 +48,8 @@ private:
  void HandymanIK(FName Upper,FName Lower,FName End,FVector Target,FVector Pole,const FQuat* EndRotation=nullptr);
  void HandymanRotate(int32 Bone,FQuat Delta);
  UPROPERTY() TObjectPtr<UPoseableMeshComponent> HandymanBody;
+ UPROPERTY() TObjectPtr<UFoundrylineWeldingHoodComponent> WeldingHood;
+ bool bWeldingHoodBody=false;
  TArray<FTransform> HandymanPose,HandymanRest;
  TArray<int32> HandymanParents,HandymanSamplerBones;
  TMap<FName,int32> HandymanBones;
