@@ -98,13 +98,18 @@ def tick(dt):
    reserved=[a for a in c['pallets'] if a['part']==RACK and a['place']==OUT and a['reserved']>0];onforks=[a for a in c['pallets'] if a['part']==RACK and a['place']==FORKS]
    if (reserved or onforks) and 'collect_seen_at' not in q['notes']:q['notes']['collect_seen_at']=t;q['checks']['forklift_collects_from_out']=True
    # The moment the forklift lifts a pallet off OUT: pause time, aim at that forklift, shoot, then carry on.
-   if onforks and not any('Phase5_ForkliftCollectingFromOUT' in x for x in q['shots']) and hold==0:
-    T.queue_factory_action(p,'Run');d=next((d for d in c['drivers'] if d['id']==onforks[0]['owner']),c['drivers'][0]);q['notes']['collecting_driver']=d
-    look(p,unreal.Vector(d['x']+320,d['y']-380,280),unreal.Vector(d['x']+90,d['y'],90),62);hold=1;last=t
+   # Once a forklift is sent for an OUT pallet, drop to 1x and stop fast-forwarding so the pickup itself can be caught.
+   if reserved and hold==0 and not any('Phase5_ForkliftCollectingFromOUT' in x for x in q['shots']):T.queue_factory_action(p,'Speed1');hold=5;last=t
+   if hold==5 and t-last>120:hold=2
+   # Caught at the OUT stop: the forklift 136 cm from the claimed pallet, forks under its stack.
+   at_dock=[(d,a) for d in c['drivers'] for a in reserved if d['job'] and ((d['x']-a['x'])**2+(d['y']-a['y'])**2)**.5<150]
+   if at_dock and not any('Phase5_ForkliftCollectingFromOUT' in x for x in q['shots']) and hold==5:
+    T.queue_factory_action(p,'Run');d,a=at_dock[0];q['notes']['collecting_driver']=d
+    look(p,unreal.Vector((d['x']+a['x'])/2+40,(d['y']+a['y'])/2-520,300),unreal.Vector((d['x']+a['x'])/2,(d['y']+a['y'])/2,70),58);hold=1;last=t
    elif hold==1 and t-last>2.5:shot('Phase5_ForkliftCollectingFromOUT');hold=3;last=t
-   elif hold==3 and t-last>1.5:T.queue_factory_action(p,'Run');hold=2;s2=station(p);look(p,unreal.Vector(s2['x']+620,s2['y']-420,330),unreal.Vector(s2['x']+250,s2['y'],60),62)
+   elif hold==3 and t-last>1.5:T.queue_factory_action(p,'Run');T.queue_factory_action(p,'Speed8');hold=2;s2=station(p);look(p,unreal.Vector(s2['x']+620,s2['y']-420,330),unreal.Vector(s2['x']+250,s2['y'],60),62)
    if staged>=o['quantity']:q['notes']['staged']=[a for a in c['pallets'] if a['place']==PICKUP];go('staged',t)
-   elif hold not in (1,3):T.advance_factory_test(p,6)
+   elif hold not in (1,3,5):T.advance_factory_test(p,6)
   elif stage=='staged' and t-last>1:
    p=player();c=commerce(p);pid=[a['id'] for a in c['pallets'] if a['place']==PICKUP and a['order']==oid];q['notes']['pickup_pallets']=pid
    x=[a for a in c['pallets'] if a['place']==PICKUP][0];look(p,unreal.Vector(x['x']+420,x['y']-380,300),unreal.Vector(x['x'],x['y'],60),60);go('staged_shot',t)
@@ -143,7 +148,7 @@ def tick(dt):
   elif stage=='stock_run':
    p=player();c=commerce(p);stored=[a for a in c['pallets'] if a['part']==RACK and a['place']==STORED]
    if stored and not any(a['part']==RACK and a['place'] in (OUT,FORKS) for a in c['pallets']):
-    a=stored[0];q['notes']['stored']=a;q['checks']['full_pallet_to_storage']=a['quantity']==5;look(p,unreal.Vector(a['x']-380,a['y']-380,320),unreal.Vector(a['x'],a['y'],a['z']+40),58);go('stock_shot',t)
+    a=stored[0];q['notes']['stored']=a;q['checks']['full_pallet_to_storage']=a['quantity']==5;look(p,unreal.Vector(a['x']-430,a['y']-330,a['z']+190),unreal.Vector(a['x']+20,a['y'],a['z']+60),55);go('stock_shot',t)
    else:T.advance_factory_test(p,6)
   elif stage=='stock_shot' and t-last>2.5:shot('Phase5_RackInStorage');go('stock_ui',t)
   elif stage=='stock_ui' and t-last>1.5:p=player();action(p,'Office');action(p,'Page11');go('stock_ui_shot',t)

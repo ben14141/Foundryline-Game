@@ -468,6 +468,54 @@ Add the opposite slot, exclusive claims and configurable 170% total rate. Preser
 
 Enable eligible headache-rack demand, finished-product inventory, storage/collection, carrier footprint/weight validation, delivery and payment. Keep direct bracket/plate sales working.
 
+Implemented 29 October 2026, on `welding/phase5-commercial`:
+
+- **Demand:**
+  - One headache-rack contract is offered at a time, only while the business has a welding station. It is 2 or 3 racks at $450.00 each and allows 72 game hours.
+  - Rack offers use their own serial, so the cut-part offer rotation is unchanged.
+  - Accepting a rack order without a station is refused: "This order needs a welding station to build headache racks".
+- **Collection from OUT:**
+  - A forklift always takes a whole OUT pallet, from the stop in front of that pallet. An empty pallet takes its place. A pallet the forklift has been sent for takes no more racks.
+  - A pallet is collected when it is full (5), when its station has no batch and no unit on the bench, or when an accepted rack order needs more than finished-goods storage holds free.
+  - If the loading-bay order still needs every rack on the pallet, it goes straight to the pickup zone. Otherwise it goes to a finished-goods rack slot, either one already holding racks with room or an empty, non-supply slot. Racks are stored only where the shelf above clears the stack: 130 cm shelf pitch takes 4, the top level any number.
+  - Only stations on a forklift route's sources are collected. New stations join every route, and schema 14 adds saved ones.
+  - Placement checks that a forklift can reach the stops for both OUT pallets.
+- **Carriers:**
+  - A 6 ft 6 in rack needs a deck at least that long. The pallet van (160 cm) is refused; the flatbed, rigid truck and semi take it.
+  - A rack pallet takes 2 deck spaces. The pallet weight is the racks' kit mass plus 60 lb per space.
+  - The loading tablet says why a van can't take a rack pallet, and the server refuses the booking anyway.
+- **Delivery and payment:** these use the existing booking, manifest and invoicing rules; a rack order is paid once, on delivery or per delivery as its terms say.
+- **UI:**
+  - **Overview**, for a rack order, steps through:
+    1. Assign a welder to the station (and a forklift driver).
+    2. "Set Welding Station 01: make N headache racks". The *Set the station* button sends the normal validated `ConfigureWeldingStation` command for what the order still needs, after racks already made or in progress.
+    3. "Welding racks: N left".
+    4. "Book a pickup truck: flatbed or larger".
+  - The Overview also flags a held-up station in its own status words.
+  - **Orders:** the order detail shows "Set welding station" instead of "Program plasma".
+  - **Stock:** a separate FINISHED PRODUCTS card shows racks on OUT, stored, at the bay and on trucks. Pallets on a station show as "Welding station IN/OUT".
+  - **Production:** the welding station appears with its status, what it is making, and racks on OUT.
+
+Tests:
+
+- **`Foundryline.Factory.WeldingStation.Commercial`** covers:
+  - no rack offer without a station; an offer once there is one;
+  - the Overview steps;
+  - a 2- or 3-rack order going from OUT straight to the pickup zone;
+  - the van refused, the flatbed's two spaces, the rigid truck booked;
+  - a mid-delivery save;
+  - payment exactly once with no racks left behind;
+  - 6 racks for stock stored as 5 + 1, each under enough headroom.
+- **`Foundryline.Commerce.TwoRecipeRepeatSales`** still passes, so bracket and plate sales are unchanged.
+- **The multiplayer validator** (`validate_welding_station_network.py`) adds client-driven Phase 5 steps:
+  - two clients race to accept the rack order; it is accepted once;
+  - a client sets the station from the order;
+  - every peer sees the racks staged after the forklift collects from OUT;
+  - a client's van choice is refused;
+  - a client books the rigid truck;
+  - every peer sees the order paid exactly once, with the same cash.
+- **The rendered review** (`review_welding_phase5.py`) shows the same flow in PIE.
+
 ### Phase 6 — Focused native and multiplayer acceptance
 
 Run the actual player flow, relevant authority/save tests, a five-player/independent-company check and clear visual/animation review. Do not repeatedly rerun unrelated broad suites without a changed dependency or failure.

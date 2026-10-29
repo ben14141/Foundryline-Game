@@ -16,6 +16,8 @@ def make_guid(text):
  return g
 def hoods():return [json.loads(T.welding_hood_report(p)) for p in players()]
 def host():return next(p for p in players() if p.has_authority())
+def commerce(p):return json.loads(T.commerce_report(p))
+def order(c,oid):return next((o for o in c['orders'] if o['id']==oid),None)
 def guests():return [p for p in players() if not p.has_authority()]
 def finish():
  q['completed']=True;out.write_text(json.dumps(q,indent=2));unreal.unregister_slate_post_tick_callback(handle);unreal.SystemLibrary.execute_console_command(worlds()[0],'QUIT_EDITOR')
@@ -23,7 +25,7 @@ def tick(dt):
  global stage,last
  try:
   t=time.monotonic()-start
-  if t>520:raise RuntimeError('Welding network timeout at stage '+str(stage))
+  if t>900:raise RuntimeError('Welding network timeout at stage '+str(stage))
   if stage==0 and t>3:stage=1;last=t;unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_request_begin_play()
   elif stage==1 and t-last>12:
    ps=players();q['checks']['four_players']=len(ps)==4;c=next(p for p in ps if not p.has_authority())
@@ -119,13 +121,64 @@ def tick(dt):
    if t-last>2:T.advance_factory_test(host(),40)
    s=[x['stations'][0] for x in reports() if x['stations']]
    if t-last>4 and all(x['units']>=1 for x in s):
-    q['checks']['first_rack_on_out_on_every_peer']=len(s)==len(players()) and all(x['out']==x['units']>=1 for x in s);q['notes']['finished']=s[0];stage=19;last=t
+    q['checks']['first_rack_finished_once_on_every_peer']=len(s)==len(players()) and all(x['racks']==x['units']>=1 for x in s);q['notes']['finished']=s[0];stage=19;last=t
    elif t-last>150:raise RuntimeError('Unit never finished on every peer: '+json.dumps(s[:2]))
   elif stage==19:
    T.advance_factory_test(host(),40)
    if t-last>3:
     s=[x['stations'][0] for x in reports()];h=json.loads(T.welding_station_report(host()))['stations'][0];q['notes']['out_after']=[(x['out'],x['units']) for x in s]
-    q['checks']['every_finished_rack_on_out_once_every_peer_agrees']=all(x['out']==x['units']==h['units'] for x in s);finish();return
+    q['checks']['every_finished_rack_exists_once_every_peer_agrees']=all(x['racks']==x['units']==h['units'] for x in s);stage=20;last=t
+  # Phase 5: rack orders, collection from OUT, booking and payment, all through client commands.
+  elif stage==20:
+   c=guests();o=[o for o in commerce(host())['orders'] if o['part']==16 and o['status']==0]
+   if not o:raise RuntimeError('No headache-rack offer')
+   q['notes']['rack_order']=o[0];oid=o[0]['id']
+   for g in c[:2]:T.queue_commerce_action(g,'Order'+str(oid));T.queue_commerce_action(g,'Accept')
+   stage=21;last=t
+  elif stage==21 and t-last>3:
+   oid=q['notes']['rack_order']['id'];cs=[commerce(p) for p in players()]
+   q['checks']['rack_order_accepted_once_every_peer']=all(order(c,oid)['status']==1 for c in cs) and sum(1 for o in commerce(host())['orders'] if o['status']==1 and o['id']==oid)==1
+   g=guests()[1];T.queue_commerce_action(g,'AssignOrder'+str(oid));stage=22;last=t
+  elif stage==22 and t-last>2:
+   oid=q['notes']['rack_order']['id'];g=guests()[2];T.queue_commerce_action(g,'StationOrder'+str(oid));stage=23;last=t
+  elif stage==23 and t-last>3:
+   oid=q['notes']['rack_order']['id'];s=[x['stations'][0] for x in reports()];q['notes']['station_after_order']=s[0]
+   q['checks']['client_sets_station_from_order_every_peer']=all(x['recipe']==1 and x['batch']>=1 for x in s);q['notes']['racks_before_order']=s[0]['racks'];stage=24;last=t
+  elif stage==24:
+   h=host();oid=q['notes']['rack_order']['id'];hs=json.loads(T.welding_station_report(h))['stations'][0]
+   if hs['stage']==0:T.setup_welding_assembly_review(h,hs['id'])
+   c=commerce(h);staged=sum(a['quantity'] for a in c['pallets'] if a['place']==6 and a['order']==oid)
+   if any(a['part']==16 and a['place']==11 and a['reserved'] for a in c['pallets']):q['notes']['out_claimed']=True
+   if staged>=order(c,oid)['quantity']:stage=25;last=t
+   else:T.advance_factory_test(h,20)
+   if t-last>200:raise RuntimeError('Rack order never staged: '+json.dumps(hs))
+  elif stage==25 and t-last>3:
+   oid=q['notes']['rack_order']['id'];cs=[commerce(p) for p in players()];ids=sorted(a['id'] for a in cs[0]['pallets'] if a['place']==6 and a['order']==oid)
+   q['checks']['forklift_collected_out_to_pickup']=q['notes'].get('out_claimed',False) and len(ids)>=1
+   q['checks']['every_peer_sees_staged_racks']=all(sorted(a['id'] for a in c['pallets'] if a['place']==6 and a['order']==oid)==ids for c in cs);q['notes']['staged_ids']=ids
+   g=guests()[0];T.queue_commerce_action(g,'Tablet');T.queue_commerce_action(g,'Carrier0')
+   for i in ids:T.queue_commerce_action(g,'Pallet'+str(i))
+   stage=26;last=t
+  elif stage==26 and t-last>2:
+   g=guests()[0];q['notes']['van_status']=commerce(g)['status'];q['checks']['client_van_refused']="won't fit" in q['notes']['van_status']
+   T.queue_commerce_action(g,'Carrier2')
+   for i in q['notes']['staged_ids']:T.queue_commerce_action(g,'Pallet'+str(i))
+   T.queue_commerce_action(g,'Book');stage=27;last=t
+  elif stage==27 and t-last>3:
+   oid=q['notes']['rack_order']['id'];cs=[commerce(p) for p in players()]
+   q['checks']['client_booked_rigid_truck_every_peer']=all(sum(1 for b in c['bookings'] if not b['inbound'] and b['order']==oid)==1 for c in cs);q['notes']['revenue_before']=commerce(host())['revenue'];stage=28;last=t
+  elif stage==28:
+   h=host();oid=q['notes']['rack_order']['id']
+   if order(commerce(h),oid)['status']==2:stage=29;last=t
+   else:T.advance_commerce_test(h,20)
+   if t-last>200:raise RuntimeError('Rack order never delivered')
+  elif stage==29:
+   T.advance_commerce_test(host(),100)
+   if t-last>4:
+    oid=q['notes']['rack_order']['id'];cs=[commerce(p) for p in players()];o=[order(c,oid) for c in cs];q['notes']['paid']=o[0]
+    q['checks']['rack_order_paid_exactly_once_every_peer']=all(x['paid']==x['quantity']*45000 and x['delivered']==x['quantity'] and x['status']==2 for x in o)
+    q['checks']['cash_agrees_every_peer']=len(set(c['cash'] for c in cs))==1;hc=commerce(host());q['checks']['host_ledger_valid']=hc.get('authoritative_valid',False) and hc.get('cash_matches_registry',False)
+    finish();return
 
   q['stage']=stage;out.write_text(json.dumps(q,indent=2))
  except Exception:q['errors'].append(traceback.format_exc());finish()
