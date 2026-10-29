@@ -74,6 +74,8 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  // Whether a forklift should now take this OUT pallet whole: full, the station finished, or an accepted order needs it.
  bool OutPalletReady(const FFoundrylineWeldingStationRecord& Station,const FFoundrylineFactoryPallet& Pallet)const;
  bool OutCollected(const FFoundrylineWeldingStationRecord& Station)const;
+ // Where a delivery of Part is set down at a station's IN: on its stock pallet, above any stock already there.
+ FVector StationInDrop(const FFoundrylineWeldingStationRecord& Station,EFoundrylinePart Part)const;
  // Welders assigned to the station (AtWork: standing at their own slot's work point), and the shared work rate from those
  // at work: 0, 1 (100%) or the recipe's TwoWelderRate.
  int32 StationWelders(const FFoundrylineWeldingStationRecord& Station,bool AtWork)const;

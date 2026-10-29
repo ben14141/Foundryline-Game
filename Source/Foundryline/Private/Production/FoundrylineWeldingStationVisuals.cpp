@@ -50,7 +50,7 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
   const auto P=Layout::IdleLead();if(Cable)for(int I=0;I+1<P.Num();++I){auto* Lead=NewObject<USplineMeshComponent>(this);Lead->SetMobility(EComponentMobility::Movable);Lead->SetupAttachment(RootComponent);Lead->SetStaticMesh(Cable);Lead->SetForwardAxis(ESplineMeshAxis::Z,false);Lead->SetStartScale(FVector2D(.024f));Lead->SetEndScale(FVector2D(.024f));
    const FVector A=T.TransformPosition(P[I]),B=T.TransformPosition(P[I+1]);Lead->SetStartAndEnd(A,B-A,B,B-A);Lead->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lead->SetCanEverAffectNavigation(false);if(Rubber)Lead->SetMaterial(0,Rubber);Lead->RegisterComponent();AddInstanceComponent(Lead);StationMeshes.Add(Lead);StationIdleLeads.Add(Lead);}
  }
- // Parts bay beside IN (kit stock on the floor, no table) and the two OUT pallets.
+ // The two OUT pallets (the IN stock pallets come and go with their stock; see RebuildVisuals).
  // The OUT pallets are always there: a forklift that takes a loaded one leaves an empty in its place.
  auto* Block=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube")):nullptr;
  auto* Orange=Render?LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Shared/Materials/MaterialHandling/M_MH_FoundryOrange.M_MH_FoundryOrange")):nullptr;
@@ -58,9 +58,6 @@ void AFoundrylineFactoryPlant::RebuildWeldingStations(){
  auto* Wood=Render?LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Inventory/Storage/Pallets/SM_Pallet_Wood.SM_Pallet_Wood")):nullptr;
  for(const auto& S:Snapshot.WeldingStations){const FRotator Yaw=Layout::Rotation(S);
   auto Collide=[&](FVector Center,FVector Extent,FRotator Rot){auto* Box=NewObject<UBoxComponent>(this);Box->SetupAttachment(RootComponent);Box->SetBoxExtent(Extent);Box->ComponentTags.Add(TEXT("FoundrylinePhysicalCollision"));Box->SetCollisionProfileName(TEXT("BlockAllDynamic"));Box->SetCanEverAffectNavigation(false);Box->RegisterComponent();AddInstanceComponent(Box);Box->SetRelativeLocationAndRotation(Center,Rot);StationCollision.Add(Box);};
-  const FBox2D Bay=Layout::PartsBay(S);const FVector BayCenter(Bay.GetCenter(),20);
-
-  Collide(BayCenter+FVector(0,0,15),FVector(Bay.GetSize()/2,15),FRotator::ZeroRotator);
   for(int Slot=0;Slot<Layout::OutPallets;++Slot){const FTransform T=Layout::OutPalletTransform(S,Slot);Collide(T.GetLocation()+FVector(0,0,Layout::PalletTopCm/2),Layout::PalletSizeCm()/2,T.Rotator());
    if(!Wood)continue;auto* Mc=NewObject<UStaticMeshComponent>(this);Mc->SetupAttachment(RootComponent);Mc->SetStaticMesh(Wood);Mc->SetCollisionEnabled(ECollisionEnabled::NoCollision);Mc->SetCanEverAffectNavigation(false);Mc->RegisterComponent();AddInstanceComponent(Mc);Mc->SetRelativeTransform(T);StationMeshes.Add(Mc);}
   if(!Block)continue;

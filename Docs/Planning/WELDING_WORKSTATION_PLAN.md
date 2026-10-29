@@ -414,7 +414,12 @@ Implemented 29 October 2026 (schema 11):
   - Light Kits = new bought `LightKit`: 4.5 lb and $38.00 each, 8 per crate.
   - `HeadacheRack` = the recipe output: 1 per OUT cradle, not yet produced or sold.
 - **Recipe:** `FFoundrylineFactoryCatalog::Recipe(1)` holds the 2 / 4 / 6 / 2 bill. The station stores only a recipe id and the batch quantity.
-- **Internal bins:** the station holds its stock in a parts bay in the free 4.5 x 2.5 ft corner beside IN, diagonal to the welding machines. Revised 29 October 2026 at Ben's request: there is no table in the corner, and the main bench is the station's only bench. Frame sections lie in a tight bundle on the floor along the bay's outer half; plates, brackets and light kits sit on the floor along its inner half.
+- **Internal bins** (revised 29 October 2026 at Ben's request, "Parts come from the input pallets. Not the floor"): there is no parts-bay corner. The station's supply stays on two pallets in the blue IN bay, on the same 2 ft fork line as OUT.
+  - Bought parts (frame sections, light kits) share one pallet; cut parts (plates, brackets) share the other.
+  - A delivery is set down on its pallet, on top of any stock there, and its 8 s unload moves the parts onto that pallet. The delivery pallet then despawns; its return is abstracted.
+  - The welders take each kit straight from these pallets, so the stock visibly shrinks. A stock pallet is gone once it is empty, so the next delivery lands on a clear spot.
+  - Each IN pallet is delivered to from the stop straight in front of it, and placement checks that both stops are reachable.
+  - The hologram outlines both IN pallets in the blue bay, like OUT's.
   - Bin capacity is 4 / 8 / 12 / 4, which is two kits.
   - The buffer target is two kits, or the remaining batch if smaller, capped by the bins.
 - **IN port:** IN is a transfer port. Only one delivery may claim it at a time: a pallet on IN, or a forklift job heading there.
@@ -553,7 +558,7 @@ Run the actual player flow, relevant authority/save tests, a five-player/indepen
 
 **Visual review.** What reads well:
 
-- The bench is the station's only bench. At Ben's request the small parts-bay table was removed; the kit stock sits on the floor beside IN.
+- The bench is the station's only bench. At Ben's request the small parts-bay table was removed, and the kit stock now sits on the two IN supply pallets, not the floor.
 - Two OUT floor pallets carry flat stacks of finished racks.
 - The blue IN and green OUT paint and the hologram (IN/OUT bays and pallet outlines) read clearly.
 - Each welder wears a hood and works with their own machine, gun and lead. With two welders, they stand on opposite sides of the rack.

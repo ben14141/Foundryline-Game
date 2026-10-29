@@ -46,8 +46,9 @@ bool FFoundrylineFactorySimulation::WeldingStationAccess(FFoundrylineWeldingStat
  for(bool Out:{false,true}){int32& Offset=Out?S.OutDockOffsetFt:S.InDockOffsetFt;bool Found=false;
   for(int32 Try:{0,1,-1,2,-2}){Offset=Try;if(!Path(Fork,Layout::Dock(S,Out)).IsEmpty()){Found=true;break;}}
   if(!Found){Offset=0;E=FString::Printf(TEXT("Forklifts cannot reach the %s end; connect it to a forklift lane"),Out?TEXT("OUT"):TEXT("IN"));return false;}}
- // A forklift collects each OUT pallet from straight in front of it.
+ // A forklift collects each OUT pallet, and delivers to each IN stock pallet, from straight in front of it.
  for(int32 Slot=0;Slot<Layout::OutPallets;++Slot)if(Path(Fork,Layout::OutPalletDock(S,Slot)).IsEmpty()){E=TEXT("Forklifts cannot reach both OUT pallets; widen the forklift space at the OUT end");return false;}
+ for(int32 Slot=0;Slot<2;++Slot)if(Path(Fork,Layout::InPalletDock(S,Slot)).IsEmpty()){E=TEXT("Forklifts cannot reach both IN pallets; widen the forklift space at the IN end");return false;}
  // People walk only on walkways and inside the two worker clearances, so each side needs its own connection.
  FVector Home=FVector::ZeroVector;bool HasHome=false;
  for(const auto& P:FFoundrylineEmployeeRoster::Build(State))if(!P.bSeated){Home=P.Home;HasHome=true;break;}
@@ -75,6 +76,8 @@ bool FFoundrylineFactorySimulation::RemoveWeldingStation(int32 Id,FString& E){
  State.WeldingStations.RemoveAt(I);for(auto& R:State.Routes){R.Destinations.Remove(Id);R.Sources.Remove(Id);}++State.Revision;return true;
 }
 void FFoundrylineFactorySimulation::MigrateWeldingStations(){
+ // Station stock positions are derived: it always sits on its IN supply pallet.
+ for(const auto& S:State.WeldingStations)for(auto& P:State.Pallets)if(P.Owner==S.Id&&P.Place==Place::Buffer)P.Position=Layout::BinPoint(S,P.Part);
  if(State.Version==9)State.Version=10;
  if(State.Version==10){
  // Zone part ledgers grow to cover frame sections, light kits and finished racks; saved stations join existing routes.
@@ -163,7 +166,7 @@ void FFoundrylineFactorySimulation::PlanWeldingStations(){
   TArray<TPair<float,Part>> Wanted;for(Part P:Catalog::AssemblyParts()){const int Target=StationTarget(S,P),Short=StationShortfall(S,P);if(Short>0&&StationRackSupply(P)>0)Wanted.Add({float(Short)/Target,P});}
   Wanted.Sort([](const auto& A,const auto& B){return A.Key>B.Key;});bool Booked=false;
   for(const auto& W:Wanted){const int Short=FMath::Min(StationShortfall(S,W.Value),StationRackSupply(W.Value));
-   for(const auto& A:State.Pallets)if(A.Part==W.Value&&A.Place==Place::Rack&&!A.BookingId&&A.Quantity>A.Reserved&&MakeJob(A.Id,S.Id,Place::StationIn,FMath::Min(Short,A.Quantity-A.Reserved),Layout::Dock(S,false),Layout::PortDrop(S,false),90)){Booked=true;break;}
+   for(const auto& A:State.Pallets)if(A.Part==W.Value&&A.Place==Place::Rack&&!A.BookingId&&A.Quantity>A.Reserved&&MakeJob(A.Id,S.Id,Place::StationIn,FMath::Min(Short,A.Quantity-A.Reserved),Layout::InPalletDock(S,Layout::InSlot(A.Part)),StationInDrop(S,A.Part),90)){Booked=true;break;}
    if(Booked)break;}
  }
 }
@@ -208,6 +211,9 @@ void FFoundrylineFactorySimulation::AssembleWeldingStations(float Dt){
   for(auto& W:State.Walkers)if(W.Station==S.Id&&FVector::Dist2D(W.Position,Layout::WorkPoint(S,W.StationSide))<=1)W.Yaw=Layout::WorkYaw(S,W.StationSide);
   S.Work=FMath::Min(S.Work+Dt*Rate,Layout::StageSeconds(S.Stage));S.bAdvancing=true;if(S.Work<Layout::StageSeconds(S.Stage))continue;S.Work=0;++S.Stage;
  }
+}
+FVector FFoundrylineFactorySimulation::StationInDrop(const FFoundrylineWeldingStationRecord& S,Part P)const{
+ const int32 Slot=Layout::InSlot(P);return Layout::InDrop(S,P,State.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==Place::Buffer&&A.Quantity>0&&Layout::InSlot(A.Part)==Slot;}));
 }
 int32 FFoundrylineFactorySimulation::OutTotal(const FFoundrylineWeldingStationRecord& S)const{int32 N=0;for(int32 I=0;I<Layout::OutPallets;++I)N+=Layout::OutCount(S,State.Pallets,I);return N;}
 // What is happening to the finished products on OUT, after Lead ("3 finished on OUT"); empty when OUT is clear.

@@ -91,10 +91,15 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static FVector RackSizeCm(){return {198.12,81.28,27.94};}
  static bool ProductFits(const FBox& OnBench,FVector2D CarriedSize,FString& Error);
  static FString Name(int32 Number){return FString::Printf(TEXT("Welding Station %02d"),Number);}
- // Station parts bay: the free 4.5 x 2.5 ft corner beside IN (diagonal to the welding machines). Kit stock sits on the floor
- // there, with no table: the frame-section bundle along the outer half, plates, brackets and light
- // kits side by side along the inner half. The main bench is the station's only bench. IN is only a transfer port.
- static FBox2D PartsBay(const FFoundrylineWeldingStationRecord& S){return PortOnLeft(S,false)?CoreRect(S,0,10.5,4.5,13):CoreRect(S,12.5,0,17,2.5);}
+ // Station supply: the parts stay on two pallets in the IN bay, on the same 2 ft fork line as OUT's, and the welders take
+ // each kit straight from them. Bought parts (frame sections, light kits) share one pallet, cut parts (plates, brackets) the
+ // other. A delivery is set down on its pallet and unloaded onto it; a stock pallet is gone once it is empty.
+ static int32 InSlot(EFoundrylinePart Part){return Part==EFoundrylinePart::FrameSection||Part==EFoundrylinePart::LightKit?0:1;}
+ static FVector InPalletPoint(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,false),Slot?8.5:4.5);}
+ static FBox2D InPalletRect(const FFoundrylineWeldingStationRecord& S,int32 Slot){const FVector2D H(PalletSizeCm().X/2/Foot,PalletSizeCm().Y/2/Foot);const double X=PortForkX(S,false),Y=Slot?8.5:4.5;return Rect(S,X-H.X,Y-H.Y,X+H.X,Y+H.Y);}
+ static FVector InPalletDock(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,false)+(PortOnLeft(S,false)?-1:1)*DockReachCm/Foot,Slot?8.5:4.5);}
+ // Where a delivery is set down: on the pallet deck, above the stock already there.
+ static FVector InDrop(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart Part,bool OnStock){return InPalletPoint(S,InSlot(Part))+FVector(0,0,OnStock?PalletTopCm+22:0);}
  // Bin capacity per assembly category: two full headache-rack kits, so one kit can be in work while the next waits.
  static int32 BinCapacity(EFoundrylinePart Part);
  static FVector BinPoint(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart Part);
