@@ -1,0 +1,861 @@
+{
+  "assets": [
+    {
+      "id": "HeadacheRack",
+      "destination": "/Game/Foundryline/Products/HeadacheRack",
+      "asset_name": "SM_HeadacheRack",
+      "fbx": "SourceAssets\\PublishedOriginalModels\\HeadacheRack\\HeadacheRack.fbx",
+      "blend": "SourceAssets\\PublishedOriginalModels\\HeadacheRack\\HeadacheRack.blend",
+      "root_name": "HeadacheRack_AssemblyDatum",
+      "bounds_cm": {
+        "min": [
+          -99.0600049495697,
+          -13.969999551773071,
+          -10.159999877214432
+        ],
+        "max": [
+          99.0600049495697,
+          13.969999551773071,
+          71.18674516677856
+        ],
+        "size": [
+          198.1200098991394,
+          27.939999103546143,
+          81.346745043993
+        ]
+      },
+      "materials": {
+        "Raw carbon steel": {
+          "color": [
+            0.03500000014901161,
+            0.04600000008940697,
+            0.05700000002980232
+          ],
+          "metallic": 0.8199999928474426,
+          "roughness": 0.6200000047683716,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Weld steel": {
+          "color": [
+            0.10000000149011612,
+            0.11999999731779099,
+            0.14000000059604645
+          ],
+          "metallic": 0.8600000143051147,
+          "roughness": 0.5199999809265137,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "AP / Weld metal": {
+          "color": [
+            0.09000000357627869,
+            0.10999999940395355,
+            0.12999999523162842
+          ],
+          "metallic": 0.800000011920929,
+          "roughness": 0.46000000834465027,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "AP / Turned steel hardware": {
+          "color": [
+            0.25,
+            0.28999999165534973,
+            0.3199999928474426
+          ],
+          "metallic": 0.8999999761581421,
+          "roughness": 0.28999999165534973,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Machined steel": {
+          "color": [
+            0.2199999988079071,
+            0.24500000476837158,
+            0.25999999046325684
+          ],
+          "metallic": 0.8500000238418579,
+          "roughness": 0.47999998927116394,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Amber": {
+          "color": [
+            0.949999988079071,
+            0.3700000047683716,
+            0.02500000037252903
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.30000001192092896,
+          "coat": 0.0,
+          "emission": [
+            0.949999988079071,
+            0.3700000047683716,
+            0.02500000037252903
+          ],
+          "emission_strength": 0.5
+        },
+        "Lens": {
+          "color": [
+            0.800000011920929,
+            0.9100000262260437,
+            1.0
+          ],
+          "metallic": 0.25,
+          "roughness": 0.1899999976158142,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "LED": {
+          "color": [
+            0.8799999952316284,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.10000000149011612,
+          "roughness": 0.25,
+          "coat": 0.0,
+          "emission": [
+            0.8799999952316284,
+            0.9399999976158142,
+            1.0
+          ],
+          "emission_strength": 1.7000000476837158
+        }
+      },
+      "mesh_objects": [
+        "AngledCabCorner_L_Tube",
+        "CornerWeld.001",
+        "AngledCabCorner_R_Tube",
+        "CornerWeld.003",
+        "AP_UprightSaddleWeld",
+        "AP_UprightSaddleWeld.001",
+        "AP_UprightSaddleWeld.002",
+        "AP_UprightSaddleWeld.003",
+        "AP_Washer_BedRailBoltHead",
+        "AP_Washer_BedRailBoltHead.001",
+        "AP_Washer_BedRailBoltHead.002",
+        "AP_Washer_BedRailBoltHead.003",
+        "BedRailBolt",
+        "BedRailBolt.001",
+        "BedRailBolt.002",
+        "BedRailBolt.003",
+        "BedRailBoltHead",
+        "BedRailBoltHead.001",
+        "BedRailBoltHead.002",
+        "BedRailBoltHead.003",
+        "BedRailTopPlate_-1",
+        "SaddleOuterDownstand",
+        "AP_Washer_BedRailBoltHead.004",
+        "AP_Washer_BedRailBoltHead.005",
+        "AP_Washer_BedRailBoltHead.006",
+        "AP_Washer_BedRailBoltHead.007",
+        "BedRailBolt.004",
+        "BedRailBolt.005",
+        "BedRailBolt.006",
+        "BedRailBolt.007",
+        "BedRailBoltHead.004",
+        "BedRailBoltHead.005",
+        "BedRailBoltHead.006",
+        "BedRailBoltHead.007",
+        "BedRailTopPlate_1",
+        "SaddleOuterDownstand.001",
+        "LowerCrossmember_Tube",
+        "GussetPlate",
+        "SaddleFilletWeld",
+        "GussetPlate.001",
+        "SaddleFilletWeld.001",
+        "GussetPlate.002",
+        "SaddleFilletWeld.002",
+        "GussetPlate.003",
+        "SaddleFilletWeld.003",
+        "Louver_01_Steel",
+        "Louver_02_Steel",
+        "Louver_03_Steel",
+        "Louver_04_Steel",
+        "Louver_05_Steel",
+        "StakePocketTube",
+        "StakePocketTube.001",
+        "CornerWeld.002",
+        "UpperCrossmember_Tube",
+        "CornerWeld",
+        "Upright_L_Tube",
+        "Upright_R_Tube",
+        "AmberSideMarker_-1",
+        "CoolingRib_-1_0",
+        "CoolingRib_-1_1",
+        "CoolingRib_-1_2",
+        "CoolingRib_-1_3",
+        "CoolingRib_-1_4",
+        "FrostedLens_-1",
+        "LEDCell_-1_0",
+        "LEDCell_-1_1",
+        "LEDCell_-1_2",
+        "LEDCell_-1_3",
+        "LensScrew",
+        "LensScrew.001",
+        "LensScrew.002",
+        "LensScrew.003",
+        "LightBezel_-1",
+        "LightMountBracket_-1",
+        "RibbedLightHousing_-1",
+        "AmberSideMarker_1",
+        "CoolingRib_1_0",
+        "CoolingRib_1_1",
+        "CoolingRib_1_2",
+        "CoolingRib_1_3",
+        "CoolingRib_1_4",
+        "FrostedLens_1",
+        "LEDCell_1_0",
+        "LEDCell_1_1",
+        "LEDCell_1_2",
+        "LEDCell_1_3",
+        "LensScrew.004",
+        "LensScrew.005",
+        "LensScrew.006",
+        "LensScrew.007",
+        "LightBezel_1",
+        "LightMountBracket_1",
+        "RibbedLightHousing_1"
+      ],
+      "provenance": "Original procedural geometry/materials; no external images, linked libraries or vendor geometry",
+      "no_external_images": true,
+      "bench_cable_stowed_within_table_footprint": false
+    },
+    {
+      "id": "StandardWeldingBench",
+      "destination": "/Game/Foundryline/Production/Equipment/WeldingBench",
+      "asset_name": "SM_StandardWeldingBench",
+      "fbx": "SourceAssets\\PublishedOriginalModels\\StandardWeldingBench\\StandardWeldingBench.fbx",
+      "blend": "SourceAssets\\PublishedOriginalModels\\StandardWeldingBench\\StandardWeldingBench.blend",
+      "root_name": "StandardWeldingBench_FloorDatum",
+      "bounds_cm": {
+        "min": [
+          -121.92001342773438,
+          -60.96000671386719,
+          0.0
+        ],
+        "max": [
+          121.92001342773438,
+          60.96000671386719,
+          92.27120876312256
+        ],
+        "size": [
+          243.84002685546875,
+          121.92001342773438,
+          92.27120876312256
+        ]
+      },
+      "materials": {
+        "AP / Weld metal": {
+          "color": [
+            0.09000000357627869,
+            0.10999999940395355,
+            0.12999999523162842
+          ],
+          "metallic": 0.800000011920929,
+          "roughness": 0.46000000834465027,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "AP / Turned steel hardware": {
+          "color": [
+            0.25,
+            0.28999999165534973,
+            0.3199999928474426
+          ],
+          "metallic": 0.8999999761581421,
+          "roughness": 0.28999999165534973,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Bench gloss graphite": {
+          "color": [
+            0.017999999225139618,
+            0.024000000208616257,
+            0.029999999329447746
+          ],
+          "metallic": 0.0,
+          "roughness": 0.20000000298023224,
+          "coat": 0.44999998807907104,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Bench gloss orange": {
+          "color": [
+            0.5199999809265137,
+            0.08500000089406967,
+            0.00800000037997961
+          ],
+          "metallic": 0.0,
+          "roughness": 0.23000000417232513,
+          "coat": 0.3499999940395355,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Bench polished steel": {
+          "color": [
+            0.3400000035762787,
+            0.3700000047683716,
+            0.4000000059604645
+          ],
+          "metallic": 1.0,
+          "roughness": 0.23999999463558197,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Copper": {
+          "color": [
+            0.4000000059604645,
+            0.15000000596046448,
+            0.054999999701976776
+          ],
+          "metallic": 0.8299999833106995,
+          "roughness": 0.2800000011920929,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Rubber": {
+          "color": [
+            0.02500000037252903,
+            0.03200000151991844,
+            0.03500000014901161
+          ],
+          "metallic": 0.05000000074505806,
+          "roughness": 0.699999988079071,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Machined steel": {
+          "color": [
+            0.2199999988079071,
+            0.24500000476837158,
+            0.25999999046325684
+          ],
+          "metallic": 0.8500000238418579,
+          "roughness": 0.47999998927116394,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Label": {
+          "color": [
+            0.8999999761581421,
+            0.9100000262260437,
+            0.8799999952316284
+          ],
+          "metallic": 0.05000000074505806,
+          "roughness": 0.5,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        }
+      },
+      "mesh_objects": [
+        "AP_LegApronFillet",
+        "AP_LegApronFillet.001",
+        "AP_LegApronFillet.002",
+        "AP_LegApronFillet.003",
+        "AP_Washer_TableTopRetainingBolt",
+        "AP_Washer_TableTopRetainingBolt.001",
+        "AP_Washer_TableTopRetainingBolt.002",
+        "AP_Washer_TableTopRetainingBolt.003",
+        "BrandPlate",
+        "FixtureStorageBin",
+        "FixtureStorageBin.001",
+        "FixtureTop_5eighthInHoles_4inPitch",
+        "GroundCableLug",
+        "GroundLead",
+        "GroundQuickConnector",
+        "GroundTerminalBolt",
+        "HexLockNut",
+        "HexLockNut.001",
+        "HexLockNut.002",
+        "HexLockNut.003",
+        "Leg_80x80",
+        "Leg_80x80.001",
+        "Leg_80x80.002",
+        "Leg_80x80.003",
+        "LegBottomCap",
+        "LegBottomCap.001",
+        "LegBottomCap.002",
+        "LegBottomCap.003",
+        "LevellingFootPad",
+        "LevellingFootPad.001",
+        "LevellingFootPad.002",
+        "LevellingFootPad.003",
+        "LevellingStud",
+        "LevellingStud.001",
+        "LevellingStud.002",
+        "LevellingStud.003",
+        "LowerLongitudinalBrace",
+        "LowerLongitudinalBrace.001",
+        "LowerSideBrace",
+        "LowerSideBrace.001",
+        "LowerToolShelf",
+        "ShelfReturnLip",
+        "ShelfReturnLip.001",
+        "StoredFixturePin",
+        "StoredFixturePin.001",
+        "StoredFixturePin.002",
+        "StoredFixturePin.003",
+        "StoredFixturePin.004",
+        "StoredFixturePin.005",
+        "TableTopRetainingBolt",
+        "TableTopRetainingBolt.001",
+        "TableTopRetainingBolt.002",
+        "TableTopRetainingBolt.003",
+        "Text_FOUNDRYLINE  /  WE",
+        "TorchHolster",
+        "UpperLongitudinalApron",
+        "UpperLongitudinalApron.001",
+        "UpperSideApron",
+        "UpperSideApron.001"
+      ],
+      "provenance": "Original procedural geometry/materials; no external images, linked libraries or vendor geometry",
+      "no_external_images": true,
+      "bench_cable_stowed_within_table_footprint": true
+    },
+    {
+      "id": "CurvedSheetCradle",
+      "destination": "/Game/Foundryline/Inventory/Storage/CurvedSheetCradle",
+      "asset_name": "SM_CurvedSheetCradle",
+      "fbx": "SourceAssets\\PublishedOriginalModels\\CurvedSheetCradle\\CurvedSheetCradle.fbx",
+      "blend": "SourceAssets\\PublishedOriginalModels\\CurvedSheetCradle\\CurvedSheetCradle.blend",
+      "root_name": "CurvedSheetCradle_FloorCentre",
+      "bounds_cm": {
+        "min": [
+          -121.92000150680542,
+          -91.43999814987183,
+          0.0
+        ],
+        "max": [
+          121.92000150680542,
+          91.43999814987183,
+          122.49999046325684
+        ],
+        "size": [
+          243.84000301361084,
+          182.87999629974365,
+          122.49999046325684
+        ]
+      },
+      "materials": {
+        "Bench gloss graphite": {
+          "color": [
+            0.017999999225139618,
+            0.024000000208616257,
+            0.029999999329447746
+          ],
+          "metallic": 0.0,
+          "roughness": 0.20000000298023224,
+          "coat": 0.44999998807907104,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "AP / Weld metal": {
+          "color": [
+            0.09000000357627869,
+            0.10999999940395355,
+            0.12999999523162842
+          ],
+          "metallic": 0.800000011920929,
+          "roughness": 0.46000000834465027,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "AP / Turned steel hardware": {
+          "color": [
+            0.25,
+            0.28999999165534973,
+            0.3199999928474426
+          ],
+          "metallic": 0.8999999761581421,
+          "roughness": 0.28999999165534973,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Bench gloss orange": {
+          "color": [
+            0.5199999809265137,
+            0.08500000089406967,
+            0.00800000037997961
+          ],
+          "metallic": 0.0,
+          "roughness": 0.23000000417232513,
+          "coat": 0.3499999940395355,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Rubber": {
+          "color": [
+            0.02500000037252903,
+            0.03200000151991844,
+            0.03500000014901161
+          ],
+          "metallic": 0.05000000074505806,
+          "roughness": 0.699999988079071,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Machined steel": {
+          "color": [
+            0.2199999988079071,
+            0.24500000476837158,
+            0.25999999046325684
+          ],
+          "metallic": 0.8500000238418579,
+          "roughness": 0.47999998927116394,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Weld steel": {
+          "color": [
+            0.10000000149011612,
+            0.11999999731779099,
+            0.14000000059604645
+          ],
+          "metallic": 0.8600000143051147,
+          "roughness": 0.5199999809265137,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Label": {
+          "color": [
+            0.8999999761581421,
+            0.9100000262260437,
+            0.8799999952316284
+          ],
+          "metallic": 0.05000000074505806,
+          "roughness": 0.5,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        }
+      },
+      "mesh_objects": [
+        "AP_SaddleSupportShoe",
+        "AP_SaddleSupportShoe.001",
+        "AP_SaddleSupportShoe.002",
+        "AP_SaddleSupportShoe.003",
+        "AP_ShoeFillet",
+        "AP_ShoeFillet.001",
+        "AP_ShoeFillet.002",
+        "AP_ShoeFillet.003",
+        "AP_Washer_EntryWearFastener",
+        "AP_Washer_EntryWearFastener.001",
+        "AP_Washer_EntryWearFastener.002",
+        "AP_Washer_EntryWearFastener.003",
+        "AP_Washer_EntryWearFastener.004",
+        "AP_Washer_EntryWearFastener.005",
+        "AP_Washer_EntryWearFastener.006",
+        "AP_Washer_EntryWearFastener.007",
+        "AxialRetentionTab",
+        "AxialRetentionTab.001",
+        "AxialRetentionTab.002",
+        "AxialRetentionTab.003",
+        "AxialStopPad",
+        "AxialStopPad.001",
+        "AxialStopPad.002",
+        "AxialStopPad.003",
+        "CradleIDPlate",
+        "EndCrossBeam",
+        "EndCrossBeam.001",
+        "EntryWearFastener",
+        "EntryWearFastener.001",
+        "EntryWearFastener.002",
+        "EntryWearFastener.003",
+        "EntryWearFastener.004",
+        "EntryWearFastener.005",
+        "EntryWearFastener.006",
+        "EntryWearFastener.007",
+        "ForkPocket_40inCentres",
+        "ForkPocket_40inCentres.001",
+        "BaseWebFilletWeld",
+        "CatchAdjustmentBolt",
+        "CatchAdjustmentBolt.001",
+        "CatchAdjustmentBolt.002",
+        "CatchAdjustmentBolt.003",
+        "CatchMountArm",
+        "CatchMountArm.001",
+        "ContactPadRetainer",
+        "ContactPadRetainer.001",
+        "ContactPadRetainer.002",
+        "ContactPadRetainer.003",
+        "ContactPadRetainer.004",
+        "CurvedSteelSupportWeb",
+        "EdgeCatchBracket",
+        "EdgeCatchBracket.001",
+        "EdgeCatchReplaceablePad",
+        "EdgeCatchReplaceablePad.001",
+        "ReplaceableCurvedContactPad",
+        "WebBaseGusset",
+        "WebBaseGusset.001",
+        "WebBaseGusset.002",
+        "WebBaseGusset.003",
+        "BaseWebFilletWeld.001",
+        "CatchAdjustmentBolt.004",
+        "CatchAdjustmentBolt.005",
+        "CatchAdjustmentBolt.006",
+        "CatchAdjustmentBolt.007",
+        "CatchMountArm.002",
+        "CatchMountArm.003",
+        "ContactPadRetainer.005",
+        "ContactPadRetainer.006",
+        "ContactPadRetainer.007",
+        "ContactPadRetainer.008",
+        "ContactPadRetainer.009",
+        "CurvedSteelSupportWeb.001",
+        "EdgeCatchBracket.002",
+        "EdgeCatchBracket.003",
+        "EdgeCatchReplaceablePad.002",
+        "EdgeCatchReplaceablePad.003",
+        "ReplaceableCurvedContactPad.001",
+        "WebBaseGusset.004",
+        "WebBaseGusset.005",
+        "WebBaseGusset.006",
+        "WebBaseGusset.007",
+        "SideTieBeam",
+        "SideTieBeam.001",
+        "Text_FOUNDRYLINE / CURV"
+      ],
+      "provenance": "Original procedural geometry/materials; no external images, linked libraries or vendor geometry",
+      "no_external_images": true,
+      "bench_cable_stowed_within_table_footprint": false
+    },
+    {
+      "id": "WeldingFixtureKit",
+      "destination": "/Game/Foundryline/Production/Equipment/WeldingBench",
+      "asset_name": "SM_WeldingFixtureKit",
+      "fbx": "SourceAssets\\PublishedOriginalModels\\WeldingFixtureKit\\WeldingFixtureKit.fbx",
+      "blend": "SourceAssets\\PublishedOriginalModels\\WeldingFixtureKit\\WeldingFixtureKit.blend",
+      "root_name": "WeldingFixtureKit_FloorDatum",
+      "bounds_cm": {
+        "min": [
+          -57.40399956703186,
+          -17.27200150489807,
+          23.571200668811798
+        ],
+        "max": [
+          57.40399956703186,
+          17.27200150489807,
+          51.25720500946045
+        ],
+        "size": [
+          114.80799913406372,
+          34.54400300979614,
+          27.68600434064865
+        ]
+      },
+      "materials": {
+        "Bench gloss graphite": {
+          "color": [
+            0.017999999225139618,
+            0.024000000208616257,
+            0.029999999329447746
+          ],
+          "metallic": 0.0,
+          "roughness": 0.20000000298023224,
+          "coat": 0.44999998807907104,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Machined steel": {
+          "color": [
+            0.2199999988079071,
+            0.24500000476837158,
+            0.25999999046325684
+          ],
+          "metallic": 0.8500000238418579,
+          "roughness": 0.47999998927116394,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Bench gloss orange": {
+          "color": [
+            0.550000011920929,
+            0.08500000089406967,
+            0.006000000052154064
+          ],
+          "metallic": 0.0,
+          "roughness": 0.20000000298023224,
+          "coat": 0.44999998807907104,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        },
+        "Fixture steel": {
+          "color": [
+            0.05999999865889549,
+            0.07500000298023224,
+            0.08500000089406967
+          ],
+          "metallic": 0.8500000238418579,
+          "roughness": 0.5799999833106995,
+          "coat": 0.0,
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission_strength": 0.0
+        }
+      },
+      "mesh_objects": [
+        "AnchorCollar",
+        "AnchorCollar.001",
+        "AnchorCollar.002",
+        "AnchorCollar.003",
+        "HoldDownAnchor",
+        "HoldDownAnchor.001",
+        "HoldDownAnchor.002",
+        "HoldDownAnchor.003",
+        "HoldDownBridge",
+        "HoldDownBridge.001",
+        "HoldDownBridge.002",
+        "HoldDownBridge.003",
+        "HoldDownScrew",
+        "HoldDownScrew.001",
+        "HoldDownScrew.002",
+        "HoldDownScrew.003",
+        "ScrewTHandle",
+        "ScrewTHandle.001",
+        "ScrewTHandle.002",
+        "ScrewTHandle.003",
+        "StoredFixtureRiser",
+        "StoredFixtureRiser.001",
+        "StoredFixtureRiser.002",
+        "StoredFixtureRiser.003",
+        "SwivelPressurePad",
+        "SwivelPressurePad.001",
+        "SwivelPressurePad.002",
+        "SwivelPressurePad.003"
+      ],
+      "provenance": "Original procedural geometry/materials; no external images, linked libraries or vendor geometry",
+      "no_external_images": true,
+      "bench_cable_stowed_within_table_footprint": false
+    }
+  ],
+  "source_scope": "Native publication of original standalone models only; no licensed tanker content"
+}
