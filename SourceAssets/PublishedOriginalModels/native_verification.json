@@ -1,0 +1,215 @@
+{
+  "assets": [
+    {
+      "path": "/Game/Foundryline/Products/HeadacheRack/SM_HeadacheRack",
+      "size_cm": [
+        198.12001037597656,
+        27.94001579284668,
+        81.34674453735352
+      ],
+      "material_slots": 8,
+      "dependencies": [
+        "/Script/NavigationSystem",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Amber",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_AP___Turned_steel_hardware",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_AP___Weld_metal",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_LED",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Lens",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Machined_steel",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Raw_carbon_steel",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Weld_steel"
+      ]
+    },
+    {
+      "path": "/Game/Foundryline/Production/Equipment/WeldingBench/SM_StandardWeldingBench",
+      "size_cm": [
+        243.8400421142578,
+        121.92003631591797,
+        92.27120971679688
+      ],
+      "material_slots": 9,
+      "dependencies": [
+        "/Script/NavigationSystem",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_AP___Turned_steel_hardware",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_AP___Weld_metal",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_gloss_graphite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_gloss_orange",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_polished_steel",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Copper",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Label",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Machined_steel",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Rubber"
+      ]
+    },
+    {
+      "path": "/Game/Foundryline/Inventory/Storage/CurvedSheetCradle/SM_CurvedSheetCradle",
+      "size_cm": [
+        243.84002685546875,
+        182.8800048828125,
+        122.49999237060547
+      ],
+      "material_slots": 8,
+      "dependencies": [
+        "/Script/NavigationSystem",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_AP___Turned_steel_hardware",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_AP___Weld_metal",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_gloss_graphite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_gloss_orange",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Label",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Machined_steel",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Rubber",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Weld_steel"
+      ]
+    },
+    {
+      "path": "/Game/Foundryline/Production/Equipment/WeldingBench/SM_WeldingFixtureKit",
+      "size_cm": [
+        114.8080062866211,
+        34.544010162353516,
+        27.68600082397461
+      ],
+      "material_slots": 4,
+      "dependencies": [
+        "/Script/NavigationSystem",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_gloss_graphite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_gloss_orange",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Fixture_steel",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Machined_steel"
+      ]
+    },
+    {
+      "path": "/Game/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_1Level",
+      "size_cm": [
+        305.0000305175781,
+        148.030029296875,
+        152.40000915527344
+      ],
+      "material_slots": 5,
+      "dependencies": [
+        "/Script/NavigationSystem",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Graphite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_LabelWhite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Orange",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_SafetyYellow",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Steel"
+      ]
+    },
+    {
+      "path": "/Game/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_2Levels",
+      "size_cm": [
+        305.0000305175781,
+        148.030029296875,
+        304.8000183105469
+      ],
+      "material_slots": 5,
+      "dependencies": [
+        "/Script/NavigationSystem",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Graphite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_LabelWhite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Orange",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_SafetyYellow",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Steel"
+      ]
+    },
+    {
+      "path": "/Game/Foundryline/Inventory/Storage/ModularPalletRacking/SM_PalletRack_3Levels",
+      "size_cm": [
+        305.0000305175781,
+        148.030029296875,
+        457.20001220703125
+      ],
+      "material_slots": 5,
+      "dependencies": [
+        "/Script/NavigationSystem",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Graphite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_LabelWhite",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Orange",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_SafetyYellow",
+        "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Steel"
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_AP___Turned_steel_hardware",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_AP___Weld_metal",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Amber",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_gloss_graphite",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_gloss_orange",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Bench_polished_steel",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Copper",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Graphite",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_LabelWhite",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Orange",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_SafetyYellow",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_FL_Rack_Steel",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Fixture_steel",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_LED",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Label",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Lens",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Machined_steel",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Raw_carbon_steel",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Rubber",
+      "dependencies": []
+    },
+    {
+      "path": "/Game/Foundryline/Shared/Materials/OriginalModels/M_Original_Weld_steel",
+      "dependencies": []
+    }
+  ],
+  "passed": true
+}
