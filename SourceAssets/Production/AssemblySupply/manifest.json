@@ -1,0 +1,51 @@
+{
+  "original_assets_only": true,
+  "units": "metres; FBX exports centimetres via unit scale",
+  "cart": {
+    "length_in": 48,
+    "width_in": 28,
+    "handle_height_in": 39,
+    "payload_lb": 300
+  },
+  "bins": [
+    {
+      "compartments": 4,
+      "width_cm": 98.4,
+      "depth_cm": 60.96,
+      "height_cm": 120,
+      "compartment_payload_lb": 100,
+      "total_payload_lb": 400
+    },
+    {
+      "compartments": 6,
+      "width_cm": 144.60000000000002,
+      "depth_cm": 60.96,
+      "height_cm": 120,
+      "compartment_payload_lb": 100,
+      "total_payload_lb": 600
+    },
+    {
+      "compartments": 8,
+      "width_cm": 190.8,
+      "depth_cm": 60.96,
+      "height_cm": 120,
+      "compartment_payload_lb": 100,
+      "total_payload_lb": 800
+    }
+  ],
+  "exports": [
+    "CollectorCart",
+    "CollectorCart_Body",
+    "CollectorCart_Wheel",
+    "CollectorCart_Caster",
+    "AssemblySupplyBin_4",
+    "AssemblySupplyBin_6",
+    "AssemblySupplyBin_8"
+  ],
+  "notes": [
+    "All bin compartments have bottoms, backs, sidewalls and low front lips.",
+    "Bin upgrades add physical width.",
+    "Cart wheels retain separate object pivots.",
+    "Ratings are provisional gameplay values."
+  ]
+}

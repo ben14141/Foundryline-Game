@@ -32,6 +32,7 @@ bool FFoundrylineFactorySimulation::CanPlaceWeldingStation(FFoundrylineWeldingSt
  for(const auto& Person:FFoundrylineEmployeeRoster::Build(State))if(!Person.bSeated&&(B.ExpandBy(35).IsInside(FVector2D(Person.Position))||B.ExpandBy(35).IsInside(FVector2D(Person.Home))||B.ExpandBy(35).IsInside(FVector2D(Person.WorkPoint)))){E=TEXT("An employee, their waiting spot or workstation is inside the station footprint");return false;}
  for(const auto& D:State.Drivers)if(B.ExpandBy(80).IsInside(FVector2D(D.Position))||B.ExpandBy(80).IsInside(FVector2D(D.Parking))){E=TEXT("A forklift or its parking bay is inside the station footprint");return false;}
  FFoundrylineFactorySimulation Candidate;Candidate.State=State;Candidate.Solids=Solids;Candidate.State.WeldingStations.RemoveAll([&](const auto& O){return O.Id==S.Id;});Candidate.State.WeldingStations.Add(S);
+ if(!Candidate.ConfigureSupplyBin(S.Id,4,E))return false;
  if(!Candidate.WeldingStationAccess(S,E))return false;
  return true;
 }
@@ -61,22 +62,24 @@ bool FFoundrylineFactorySimulation::AddWeldingStation(FVector Center,int32 Quart
  if(!CanPlaceWeldingStation(S,E))return false;
  S.Id=State.NextId++;S.Reserved.Init(0,Catalog::PartCount);for(int N=1;N<=99;++N)if(!State.WeldingStations.ContainsByPredicate([&](const auto& O){return O.Number==N;})){S.Number=N;break;}
  State.WeldingStations.Add(S);
+ if(!ConfigureSupplyBin(S.Id,4,E)){State.WeldingStations.Pop();return false;}
  // Forklifts may bring supplies to the new IN port and collect from its OUT pallets on every existing route.
  for(auto& R:State.Routes){if(R.Destinations.Num()<80)R.Destinations.AddUnique(S.Id);if(R.Sources.Num()<80)R.Sources.AddUnique(S.Id);}
  for(auto& O:State.Operators){O.Path.Reset();O.Distance=0;O.Retry=0;}for(auto& W:State.Walkers){W.Path.Reset();W.Distance=0;W.Retry=0;}
  ++State.Revision;return true;
 }
 bool FFoundrylineFactorySimulation::RemoveWeldingStation(int32 Id,FString& E){
+ if(State.Collectors.ContainsByPredicate([&](const auto& C){return C.Area==Id;})){E=TEXT("Release the area collector before removing its station");return false;}
  const int I=State.WeldingStations.IndexOfByPredicate([&](const auto& S){return S.Id==Id;});if(I==INDEX_NONE){E=TEXT("Choose a welding station in this plant");return false;}
  if(State.WeldingStations[I].Stage){E=TEXT("Finish the headache rack on the bench before removing the station");return false;}
  if(State.Pallets.ContainsByPredicate([&](const auto& P){return P.Owner==Id&&(P.Place==Place::Buffer||P.Place==Place::StationIn||P.Place==Place::StationOut);})||State.Jobs.ContainsByPredicate([&](const auto& J){return J.Destination==Id;})||State.Commerce.Bookings.ContainsByPredicate([&](const auto& B){return B.StationId==Id&&B.Status!=EFoundrylineBookingState::Delivered;})){E=TEXT("Return the station's supplies and finish its transport before removing it");return false;}
  // Its welder goes back to the waiting area, unassigned.
  for(auto& W:State.Walkers)if(W.Station==Id){W.Station=W.StationSide=0;W.Path.Reset();W.Distance=0;W.Retry=0;}
- State.WeldingStations.RemoveAt(I);for(auto& R:State.Routes){R.Destinations.Remove(Id);R.Sources.Remove(Id);}++State.Revision;return true;
+ State.SupplyBins.RemoveAll([&](const auto& B){return B.Area==Id;});State.WeldingStations.RemoveAt(I);for(auto& R:State.Routes){R.Destinations.Remove(Id);R.Sources.Remove(Id);}++State.Revision;return true;
 }
 void FFoundrylineFactorySimulation::MigrateWeldingStations(){
  // Station stock positions are derived: it always sits on its IN supply pallet.
- for(const auto& S:State.WeldingStations)for(auto& P:State.Pallets)if(P.Owner==S.Id&&P.Place==Place::Buffer)P.Position=Layout::BinPoint(S,P.Part);
+
  if(State.Version==9)State.Version=10;
  if(State.Version==10){
  // Zone part ledgers grow to cover frame sections, light kits and finished racks; saved stations join existing routes.
@@ -94,6 +97,8 @@ void FFoundrylineFactorySimulation::MigrateWeldingStations(){
   for(auto& P:State.Pallets)if(P.Owner==S.Id&&P.Place==Place::StationOut)P.Position=Layout::OutPalletPoint(S,0);
   // Forklifts now collect from OUT, so every saved station becomes a source on every route too.
   for(auto& R:State.Routes)if(R.Sources.Num()<80)R.Sources.AddUnique(S.Id);}}
+ for(const auto& S:State.WeldingStations)for(auto& P:State.Pallets)if(P.Owner==S.Id&&P.Place==Place::Buffer)P.Position=Layout::BinPoint(S,P.Part);
+ MigrateAssemblySupply();
 }
 bool FFoundrylineFactorySimulation::ConfigureWeldingStation(int32 Id,int32 Recipe,int32 Batch,FString& E){
  auto* S=State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==Id;});if(!S){E=TEXT("Choose a welding station in this plant");return false;}

@@ -13,6 +13,7 @@ bool FFoundrylineFactorySimulation::IsStationStock(const FFoundrylineFactoryPall
 int32 FFoundrylineFactorySimulation::StationStock(const FFoundrylineWeldingStationRecord& S,Part P,bool IncludeIncoming)const{
  int V=0;for(const auto& A:State.Pallets)if(A.Part==P&&A.Owner==S.Id&&(A.Place==Place::Buffer||A.Place==Place::StationIn))V+=A.Quantity;
  if(!IncludeIncoming)return V;
+ V+=CollectorIncoming(S.Id,int32(P));
  V+=Incoming(P,S.Id);
  // A booked truck counts until its pallet is unloaded; then the pallet's unclaimed quantity does, then the forklift job.
  for(const auto& B:State.Commerce.Bookings)if(B.Inbound&&B.StationId==S.Id&&B.Part==uint8(P)&&B.Status!=EFoundrylineBookingState::Delivered){
@@ -24,7 +25,7 @@ int32 FFoundrylineFactorySimulation::StationTarget(const FFoundrylineWeldingStat
  return FMath::Min(R.Bill[int(P)]*FMath::Min(S.BatchRemaining,2),Layout::BinCapacity(P));
 }
 int32 FFoundrylineFactorySimulation::StationRackSupply(Part P)const{
- int Free=0;for(const auto& A:State.Pallets)if(A.Part==P&&A.Place==Place::Rack&&!A.BookingId)Free+=A.Quantity-A.Reserved;
+ int Free=0;for(const auto& A:State.Pallets)if(A.Part==P&&A.Place==Place::Rack&&!A.BookingId&&!State.StorageRacks.ContainsByPredicate([&](const auto& Rack){return Rack.FinishedGoods&&Rack.Slots.Contains(A.Owner);}))Free+=A.Quantity-A.Reserved;
  // Accepted customer orders keep first claim on cut plates and brackets still in the racks.
  for(const auto& O:State.Commerce.Orders)if(O.Status==EFoundrylineOrderState::Accepted&&O.Part==uint8(P)){int Open=O.Quantity-O.Delivered;
   for(const auto& A:State.Pallets)if(A.OrderId==O.Id&&A.Place!=Place::Rack)Open-=A.Quantity;for(const auto& J:State.Jobs)if(J.OrderId==O.Id&&J.Phase<3)Open-=J.Quantity;Free-=FMath::Max(0,Open);}
@@ -54,8 +55,8 @@ int32 FFoundrylineFactorySimulation::FinishedGoodsSlot(Part P,int32 Count)const{
  // A stack of finished racks needs the headroom up to the next shelf in the same rack bay (a 130 cm shelf pitch takes 4 racks,
  // the top level any number); racks only, other products have no stack height here.
  auto Headroom=[&](const FFoundrylineFactorySlot& S){double Room=TNumericLimits<double>::Max();for(const auto& O:State.Slots)if(O.Id!=S.Id&&FVector::Dist2D(O.Position,S.Position)<60&&O.Position.Z>S.Position.Z+1)Room=FMath::Min(Room,O.Position.Z-S.Position.Z-10);return Room;};
- auto Fits=[&](const FFoundrylineFactorySlot& S,int32 Total){return P!=Part::HeadacheRack||Layout::PalletTopCm+Total*Layout::RackSizeCm().Z<=Headroom(S);};
- for(const auto& S:State.Slots){const int Have=Available(P,Place::Rack,S.Id)+Incoming(P,S.Id);if(S.Part==P&&!S.bInputSupply&&Have+Count<=Catalog::Part(P).Capacity&&Fits(S,Have+Count)&&!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==Place::Rack&&A.Owner==S.Id&&A.Part!=P;}))return S.Id;}
+ auto Fits=[&](const FFoundrylineFactorySlot& S,int32 Total){if(State.StorageRacks.ContainsByPredicate([&](const auto& Rack){return Rack.Slots.Contains(S.Id)&&!Rack.FinishedGoods;}))return false;return P!=Part::HeadacheRack||Layout::PalletTopCm+Total*Layout::RackSizeCm().Z<=Headroom(S);};
+ for(const auto& S:State.Slots){const int Have=Available(P,Place::Rack,S.Id)+Incoming(P,S.Id);if(S.Part==P&&!S.bInputSupply&&Have+Count<=(Count==5?5:Catalog::Part(P).Capacity)&&Fits(S,Have+Count)&&!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==Place::Rack&&A.Owner==S.Id&&A.Part!=P;}))return S.Id;}
  for(const auto& S:State.Slots)if(!S.bInputSupply&&Fits(S,Count)&&!State.Pallets.ContainsByPredicate([&](const auto& A){return A.Place==Place::Rack&&A.Owner==S.Id;})&&!State.Jobs.ContainsByPredicate([&](const auto& J){return J.Destination==S.Id;}))return S.Id;
  return 0;
 }
@@ -69,7 +70,7 @@ void FFoundrylineFactorySimulation::PlanWeldingStations(){
   // An empty slot is only retagged for the product once the forklift job is actually booked.
   const Part Was=Slot->Part;Slot->Part=A.Part;if(!MakeJob(A.Id,Slot->Id,Place::Rack,A.Quantity,Slot->Dock,Slot->Position,85))Slot->Part=Was;break;}
  for(const auto& S:State.WeldingStations){if(StationPortBusy(S))continue;
-  TArray<TPair<float,Part>> Wanted;for(Part P:Catalog::AssemblyParts()){const int Target=StationTarget(S,P),Short=StationShortfall(S,P);if(Short>0&&StationRackSupply(P)>0)Wanted.Add({float(Short)/Target,P});}
+  TArray<TPair<float,Part>> Wanted;for(Part P:Catalog::AssemblyParts()){if(CollectorSupplies(S.Id,int32(P)))continue;const int Target=StationTarget(S,P),Short=StationShortfall(S,P);if(Short>0&&StationRackSupply(P)>0)Wanted.Add({float(Short)/Target,P});}
   Wanted.Sort([](const auto& A,const auto& B){return A.Key>B.Key;});bool Booked=false;
   for(const auto& W:Wanted){const int Short=FMath::Min(StationShortfall(S,W.Value),StationRackSupply(W.Value));
    for(const auto& A:State.Pallets)if(A.Part==W.Value&&A.Place==Place::Rack&&!A.BookingId&&A.Quantity>A.Reserved&&MakeJob(A.Id,S.Id,Place::StationIn,FMath::Min(Short,A.Quantity-A.Reserved),Layout::InPalletDock(S,Layout::InSlot(A.Part)),StationInDrop(S,A.Part),90)){Booked=true;break;}

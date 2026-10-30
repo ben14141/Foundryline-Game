@@ -6,7 +6,7 @@
 #include "FoundrylineFactoryPlant.generated.h"
 
 UENUM()
-enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation};
+enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,ConfigureSupplyBin,BuyPlanningEquipment,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation};
 
 USTRUCT()
 struct FFoundrylineFactoryCommand {
@@ -64,6 +64,11 @@ public:
 private:
  UPROPERTY() TObjectPtr<class AFoundrylineOperationsState> OperationsState;
  bool bCommerceRackBuilt=false;
+ void UpdateSupplyVisuals(float Dt);
+ UPROPERTY() TMap<int32,TObjectPtr<class UStaticMeshComponent>> SupplyBinVisuals;
+ UPROPERTY() TMap<int32,TObjectPtr<class UStaticMeshComponent>> PlanningRackVisuals;
+ UPROPERTY() TMap<int32,TObjectPtr<class UStaticMeshComponent>> CollectorCartVisuals;
+ UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> CollectorCartWheels;
  UPROPERTY() TArray<TObjectPtr<class USceneComponent>> CommerceRackComponents;
  UPROPERTY() TArray<TObjectPtr<class AFoundrylineCarrierSceneActor>> CarrierVisuals;
  float SimClock=0,PublishClock=0;

@@ -15,7 +15,7 @@ int32 FFoundrylineWeldingStationLayout::BinCapacity(EFoundrylinePart P){switch(P
 // brackets side by side on the other pallet.
 FVector FFoundrylineWeldingStationLayout::BinPoint(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart P){
  const double Across=P==EFoundrylinePart::FrameSection?-22:P==EFoundrylinePart::LightKit?35:P==EFoundrylinePart::MountingPlate?-28:28;
- const int32 Slot=InSlot(P);return Point(S,PortForkX(S,false),(Slot?8.5:4.5)+Across/Foot,PalletTopCm);
+ const int32 Slot=InSlot(P);return Point(S,PortForkX(S,false),(Slot?8.5:(S.bSwapSides?8.5:4.5))+Across/Foot,PalletTopCm);
 }
 FTransform FFoundrylineWeldingStationLayout::ProductOnBench(){
 return FTransform(FRotator(0,0,90),FVector(0,-30.48,RackDatumZ()));}

@@ -1,5 +1,7 @@
 # Economy review: the welding chain (29 October 2026)
 
+> Later collector-era prices supersede this historical review: see [Pricing Collector Update](PRICING_COLLECTOR_UPDATE.md). The later adjustment was not rebuilt or retested.
+
 Ben: "Check pricing. I have not at all. So economy is not set at all." This review reads the current numbers from code, works out what one headache rack really costs and earns, and proposes a coherent price set.
 
 **Status: the full proposed set was applied on 29 October 2026 at Ben's choice** (branch `welding/economy-v1`). The values now live in `Public/Economy/FoundrylineEconomyTuning.h`, and wages are paid by `FFoundrylinePayroll`. Sections 1–2 describe the numbers *before* the change. See "Result after applying" at the end.

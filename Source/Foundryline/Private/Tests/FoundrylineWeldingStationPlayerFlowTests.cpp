@@ -21,7 +21,7 @@ struct FFlow {
  // brackets the order still needs on the plasma, and book a truck for staged racks.
  int PlatesQueued=0,BracketsQueued=0,PlatesWanted=0,BracketsWanted=0;
  void Operate(int OrderId){
-  for(Part P:{Part::FrameSection,Part::LightKit}){const int Short=M.StationShortfall(S(),P);if(Short>0&&!M.State.Commerce.Bookings.ContainsByPredicate([&](const auto& B){return B.Inbound&&B.StationId==Station&&B.Part==uint8(P)&&B.Status!=EFoundrylineBookingState::Delivered;}))
+  for(Part P:{Part::FrameSection,Part::LightKit}){const int Short=FMath::Max(0,M.StationShortfall(S(),P)-M.StationRackSupply(P));if(Short>0&&!M.State.Commerce.Bookings.ContainsByPredicate([&](const auto& B){return B.Inbound&&B.StationId==Station&&B.Part==uint8(P)&&B.Status!=EFoundrylineBookingState::Delivered;}))
    Do(Cmd(Act::BuyParts,Station,int(P),FMath::Min(Short,FFoundrylineFactoryCatalog::Part(P).Capacity)),TEXT("Buy station parts"));}
   const auto* Plasma=M.State.Machines.FindByPredicate([](const auto& V){return V.Id==1;});const bool Idle=Plasma&&Plasma->BatchRemaining<=0&&Plasma->Remaining<=0;
   FString E;if(Idle&&PlatesQueued<PlatesWanted){const int N=PlatesWanted-PlatesQueued;if(M.Program(1,Part::MountingPlate,N,false,E))PlatesQueued+=N;else Log.Add(TEXT("Program plates: ")+E);}
@@ -50,6 +50,8 @@ bool FWeldingStationPlayerFlow::RunTest(const FString&){using namespace WeldingP
  TestTrue(TEXT("Paint the walkway: ")+E,M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E));
  TestTrue(TEXT("Paint the aisle crossing: ")+E,M.PaintLane(EFoundrylineFloorLane::Crossing,{-1370,1450,20},{-1370,1450,20},200,0,E));
  if(!TestTrue(TEXT("Place the welding station: ")+E,M.AddWeldingStation({-1768.02,1823.12,20},0,false,E)))return false;F.Station=M.State.WeldingStations[0].Id;
+ if(!TestTrue(TEXT("Hire parts collector"),M.HireEmployee(Role::Unassigned,FGuid::NewGuid(),E)))return false;
+ if(!TestTrue(TEXT("Assign collector to assembly area: ")+E,M.AssignEmployee(M.State.UnassignedEmployees.Last().Id,Role::PartsCollector,F.Station,E)))return false;
  M.State.Running=true;M.State.Speed=8;M.Step(.1f);
  // One welder.
  if(!TestTrue(TEXT("Hire a welder: ")+E,M.HireEmployee(Role::Welder,FGuid::NewGuid(),E)))return false;const int WelderA=M.State.UnassignedEmployees.Last().Id;
@@ -63,7 +65,7 @@ bool FWeldingStationPlayerFlow::RunTest(const FString&){using namespace WeldingP
  const int First=F.TakeOrder();if(!TestTrue(TEXT("Take the first rack order: ")+FString::Join(F.Log,TEXT("; ")),First!=0))return false;
  const int FirstQty=F.Order(First)->Quantity;
  const bool FirstDone=Run(First,120000);TestTrue(TEXT("First order built, shipped and completed with one welder: ")+FString::Join(F.Log,TEXT("; "))+TEXT(" / ")+M.WeldingStationStatus(F.S()),FirstDone);
- if(!FirstDone)return false;
+ if(!FirstDone){for(const auto& C:M.State.Collectors){AddInfo(FString::Printf(TEXT("Collector %d %s pos %s yaw %.1f path %d distance %.1f"),C.Id,*C.Status,*C.Position.ToString(),C.Yaw,C.Path.Num(),C.Distance));for(const auto& L:C.Load)AddInfo(FString::Printf(TEXT("Load part%d qty%d picked%d source%d pickup%s"),L.Part,L.Quantity,L.Picked,L.SourcePallet,*L.Pickup.ToString()));}for(const auto& D:M.State.Drivers)AddInfo(FString::Printf(TEXT("Driver %d pos%s job%d waiting%d"),D.Id,*D.Position.ToString(),D.Job,D.Waiting));for(const auto& W:M.State.Walkers)AddInfo(FString::Printf(TEXT("Welder %d pos%s"),W.Id,*W.Position.ToString()));AddInfo(M.SupplyReport(F.Station));return false;}
  const auto* O1=F.Order(First);TestTrue(TEXT("First order paid exactly once"),O1->PaidCents==int64(FirstQty)*O1->UnitPriceCents&&O1->Delivered==FirstQty);
  TestTrue(TEXT("Plates and brackets were cut on the plasma, frames and lights bought at the station"),M.State.Commerce.Bookings.ContainsByPredicate([](const auto& B){return B.Inbound&&B.Part==uint8(Part::FrameSection);})&&M.State.Commerce.Bookings.ContainsByPredicate([](const auto& B){return B.Inbound&&B.Part==uint8(Part::LightKit);})&&F.PlatesQueued>0&&F.BracketsQueued>0);
  TestTrue(TEXT("Plant validates after the first order: ")+E,M.Valid(E));
@@ -74,6 +76,7 @@ bool FWeldingStationPlayerFlow::RunTest(const FString&){using namespace WeldingP
  F.Log.Reset();const int Second=F.TakeOrder();if(!TestTrue(TEXT("Take the second rack order: ")+FString::Join(F.Log,TEXT("; ")),Second!=0))return false;
  const int SecondQty=F.Order(Second)->Quantity;
  const bool SecondDone=Run(Second,120000);TestTrue(TEXT("Second order completed with two welders: ")+FString::Join(F.Log,TEXT("; "))+TEXT(" / ")+M.WeldingStationStatus(F.S()),SecondDone);
+ if(!SecondDone){for(const auto& C:M.State.Collectors){AddInfo(FString::Printf(TEXT("Second collector %s pos%s path%d retry%.1f release%d"),*C.Status,*C.Position.ToString(),C.Path.Num(),C.Retry,C.ReleaseRequested));for(const auto& L:C.Load)AddInfo(FString::Printf(TEXT("Second load part%d qty%d picked%d"),L.Part,L.Quantity,L.Picked));}for(const auto& D:M.State.Drivers)AddInfo(FString::Printf(TEXT("Second driver pos%s yaw%.1f job%d wait%d"),*D.Position.ToString(),D.Yaw,D.Job,D.Waiting));AddInfo(M.SupplyReport(F.Station));}
  if(SecondDone){const auto* O2=F.Order(Second);TestTrue(TEXT("Second order paid exactly once"),O2->PaidCents==int64(SecondQty)*O2->UnitPriceCents&&O2->Delivered==SecondQty);}
  auto Mean=[](const TArray<float>& V){float S=0;for(float X:V)S+=X;return V.Num()?S/V.Num():0.f;};
  const float One=Mean(UnitSeconds[1]),Two=Mean(UnitSeconds[2]);

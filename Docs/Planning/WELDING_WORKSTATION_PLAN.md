@@ -8,6 +8,8 @@
 
 **Goal:** Replace small-product work-zone setup with one clear, placeable assembly workstation that one or two assigned welders can operate.
 
+> **Supply update:** The [Assembly Supply Collector Plan](ASSEMBLY_SUPPLY_COLLECTOR_PLAN.md) supersedes small-part IN pallets: a 4/6/8-compartment supply bin receives collector deliveries, bulky frames retain their pallet, and new headache-rack OUT pallets hold four products. Other workstation design remains applicable.
+
 ## 1. Agreed direction
 
 - Place one complete welding station instead of drawing separate product, supply and output zones.

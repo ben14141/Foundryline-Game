@@ -14,6 +14,7 @@ bool FFoundrylineFactorySimulation::TryEmployeePassing(FVector From,FVector To,i
  bool HumanBlocked=false;
  auto Human=[&](int32 Id,FVector P,bool Moving){if(Id==EmployeeId)return;const float Before=FVector::Dist2D(From,P),After=FVector::Dist2D(To,P);if(Moving&&After<52&&After<=Before+.01)HumanBlocked=true;};
  for(const auto& O:State.Operators)Human(O.Id,O.Position,O.Path.Num()>1&&O.Distance<Length(O.Path)-1);
+ for(const auto& C:State.Collectors)Human(C.Id,C.Position,C.Speed>.1);
  for(const auto& W:State.Walkers)Human(W.Id,W.Position,W.Path.Num()>1&&W.Distance<Length(W.Path)-1);
  if(!HumanBlocked)return false;
  // Passing is never a way around forklift priority. Be deliberately conservative
@@ -31,6 +32,7 @@ bool FFoundrylineFactorySimulation::TryEmployeePassing(FVector From,FVector To,i
  if(!WidePaint||!CanEmployeeAdvance(From,Side,EmployeeId))return false;
  auto PersonClear=[&](int32 Id,FVector P){return Id==EmployeeId||FMath::PointDistToSegment(FVector(P.X,P.Y,0),FVector(From.X,From.Y,0),FVector(Side.X,Side.Y,0))>=52-.01;};
  for(const auto& O:State.Operators)if(!PersonClear(O.Id,O.Position))return false;
+ for(const auto& C:State.Collectors)if(!PersonClear(C.Id,C.Position))return false;
  for(const auto& W:State.Walkers)if(!PersonClear(W.Id,W.Position))return false;
  for(const auto& E:State.UnassignedEmployees)if(!PersonClear(E.Id,E.Position))return false;
  TArray<FVector> Candidate{From,Side,Parallel,Rejoin};float Accumulated=0;

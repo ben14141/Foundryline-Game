@@ -94,6 +94,10 @@ public:
  bool bFactoryInputLocked=false;
  UPROPERTY(Transient) TObjectPtr<class AStaticMeshActor> FactoryProductPreview;
  UPROPERTY(Transient) TObjectPtr<class AStaticMeshActor> FactoryWelderPreview;
+ UPROPERTY(Transient) TObjectPtr<class AStaticMeshActor> FactorySupplyPreview;
+ UPROPERTY(Transient) TObjectPtr<class AStaticMeshActor> FactoryEquipmentPreview;
+ UPROPERTY(Transient) TObjectPtr<class AStaticMeshActor> FactoryEquipmentAccessPreview;
+ int32 FactoryEquipmentChoice=1,FactoryRackLevels=1;
 	AFoundrylinePlayerController();
  void ToggleMaterialHandling();
  void TickMaterialHandling(float Dt);

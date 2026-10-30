@@ -2,6 +2,8 @@
 #include "CoreMinimal.h"
 #include "Orders/FoundrylineCommerceTypes.h"
 #include "Employees/FoundrylineEmployeeTypes.h"
+#include "Inventory/FoundrylineAssemblySupply.h"
+#include "Construction/FoundrylinePlanningEquipment.h"
 #include "FoundrylineFactoryTypes.generated.h"
 
 UENUM(BlueprintType)
@@ -20,6 +22,7 @@ struct FFoundrylineFactoryPallet {
  UPROPERTY(SaveGame) int32 Reserved=0;
  UPROPERTY(SaveGame) int32 OrderId=0;
  UPROPERTY(SaveGame) int32 BookingId=0;
+ UPROPERTY(SaveGame) bool bLegacyFiveStack=false;
  UPROPERTY(SaveGame) EFoundrylinePalletPlace Place=EFoundrylinePalletPlace::Receiving;
  UPROPERTY(SaveGame) int32 Owner=0;
  UPROPERTY(SaveGame) FVector Position=FVector::ZeroVector;
@@ -140,6 +143,7 @@ struct FFoundrylineFactoryDriver {
  UPROPERTY(SaveGame) int32 Job=0;
  UPROPERTY(SaveGame) FVector Position=FVector::ZeroVector;
  UPROPERTY(SaveGame) FVector Parking=FVector::ZeroVector;
+ UPROPERTY(SaveGame) float ParkingYaw=90;
  UPROPERTY(SaveGame) TArray<FVector> Path;
  UPROPERTY(SaveGame) float Distance=0;
  UPROPERTY(SaveGame) float Yaw=0;
@@ -199,7 +203,7 @@ struct FFoundrylineWeldingStationRecord {
 USTRUCT()
 struct FFoundrylineFactoryState {
  GENERATED_BODY()
- UPROPERTY(SaveGame) int32 Version=14;
+ UPROPERTY(SaveGame) int32 Version=15;
  UPROPERTY(SaveGame,NotReplicated) FFoundrylineCommerceState Commerce;
  UPROPERTY(SaveGame) bool bCutPartsStarter=false;
  UPROPERTY(SaveGame) FGuid CompanyId=FGuid(0xF001,1,1,1);
@@ -232,6 +236,9 @@ struct FFoundrylineFactoryState {
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryProgram> Programs;
  // Schema 10: welding stations. Schema 9 saves load with none. Schema 11 adds station recipes and supply buffers.
  UPROPERTY(SaveGame) TArray<FFoundrylineWeldingStationRecord> WeldingStations;
+ UPROPERTY(SaveGame) TArray<FFoundrylineAssemblySupplyBin> SupplyBins;
+ UPROPERTY(SaveGame) TArray<FFoundrylinePartsCollector> Collectors;
+ UPROPERTY(SaveGame) TArray<FFoundrylinePlacedStorageRack> StorageRacks;
  UPROPERTY(SaveGame) FString Status;
 };
 
