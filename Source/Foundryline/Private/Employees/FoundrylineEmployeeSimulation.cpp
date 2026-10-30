@@ -52,6 +52,7 @@ bool FFoundrylineFactorySimulation::EmployeesValid(FString& E)const{
  // Operators and welders have already entered the object-ID set above.
  for(const auto& O:State.Operators)if(!Person(O.Id,O.DisplayName,true))return Fail();for(const auto& W:State.Walkers)if(!Person(W.Id,W.DisplayName,true))return Fail();
  for(const auto& D:State.Drivers){if(!D.EmployeeId){if(D.Job||!D.DisplayName.IsEmpty())return Fail();continue;}if(!Person(D.EmployeeId,D.DisplayName,VehicleIds.Contains(D.EmployeeId)))return Fail();}
+ for(const auto& C:State.Collectors)if(!Person(C.Id,C.DisplayName,VehicleIds.Contains(C.Id)))return Fail();
  for(const auto& D:State.UnassignedEmployees){if(!Person(D.Id,D.DisplayName,VehicleIds.Contains(D.Id))||D.Position.ContainsNaN()||D.Home.ContainsNaN()||!FMath::IsFinite(D.Yaw))return Fail();}
  TSet<FGuid> Requests;for(const auto& Request:State.HireRequests){if(!Request.IsValid()||Requests.Contains(Request))return Fail();Requests.Add(Request);}return true;
 }

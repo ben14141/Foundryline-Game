@@ -41,7 +41,7 @@ bool FWeldingStationOutPallets::RunTest(const FString&){using namespace WeldingO
  Stack(1)->Quantity=Layout::RacksPerOutPallet;TestTrue(TEXT("Ten racks at OUT validate: ")+E,M.Valid(E));
  TestTrue(TEXT("One more rack: ")+E,M.ConfigureWeldingStation(Id,1,1,E));for(int I=0;I<300;++I)M.Step(.1f);
  TestEqual(TEXT("No unit starts while both OUT pallets are full"),Station(M).Stage,0);TestEqual(TEXT("The kit stays in the IN stock"),KitStockOf(M,Id,Part::FrameSection),6);
- TestTrue(TEXT("Status reports OUT full: ")+M.WeldingStationStatus(Station(M)),M.WeldingStationStatus(Station(M)).Contains(TEXT("OUT full (10 on 2 pallets)")));
+ TestTrue(TEXT("Status reports OUT full: ")+M.WeldingStationStatus(Station(M)),M.WeldingStationStatus(Station(M)).Contains(TEXT("OUT full (8 on 2 pallets)")));
 
  // A collected pallet frees its position (an empty pallet takes its place), and the first position with room fills first.
  const int Collected=Stack(0)->Id;M.State.Pallets.RemoveAll([&](const auto& A){return A.Id==Collected;});
@@ -58,7 +58,7 @@ bool FWeldingStationOutPallets::RunTest(const FString&){using namespace WeldingO
   else AddError(TEXT("Stacks save did not load"));}
 
  // Hostile or corrupt OUT records are rejected.
- {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut&&A.Quantity==5)A.Quantity=6;TestFalse(TEXT("Six racks on one pallet rejected"),T.Valid(E));}
+ {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut&&A.Quantity==Layout::RacksPerOutPallet)A.Quantity=Layout::RacksPerOutPallet+1;TestFalse(TEXT("More than four racks on one new pallet rejected"),T.Valid(E));}
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Position=Layout::OutPalletPoint(T.State.WeldingStations[0],1);TestFalse(TEXT("Two stacks on one pallet rejected"),T.Valid(E));}
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Position=Layout::PortCenter(T.State.WeldingStations[0],true);TestFalse(TEXT("A stack off the pallet positions rejected"),T.Valid(E));}
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Reserved=A.Quantity+1;TestFalse(TEXT("More reserved than stacked rejected"),T.Valid(E));}
@@ -70,7 +70,7 @@ bool FWeldingStationOutPallets::RunTest(const FString&){using namespace WeldingO
   const FVector Bench=Layout::BenchTransform(T.State.WeldingStations[0]).GetLocation(),InDock=Layout::Dock(T.State.WeldingStations[0],false);
   T.State.Version=13;auto& S=T.State.WeldingStations[0];S.Center-=Layout::Schema14Shift(S);for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Position=S.Center+FVector(200,0,0);
   T.MigrateWeldingStations();const auto& After=T.State.WeldingStations[0];
-  TestEqual(TEXT("Schema 13 migrates to 14"),T.State.Version,14);TestTrue(TEXT("Migrated schema 13 plant validates: ")+E,T.Valid(E));
+  TestEqual(TEXT("Schema 13 migrates to 14"),T.State.Version,15);TestTrue(TEXT("Migrated schema 13 plant validates: ")+E,T.Valid(E));
   TestTrue(TEXT("Migrated station keeps its bench and IN dock where they were"),Layout::BenchTransform(After).GetLocation().Equals(Bench,.01)&&Layout::Dock(After,false).Equals(InDock,.01));
   TestEqual(TEXT("The cradle rack is now on pallet 1"),Layout::OutCount(After,T.State.Pallets,0),1);}
  return true;

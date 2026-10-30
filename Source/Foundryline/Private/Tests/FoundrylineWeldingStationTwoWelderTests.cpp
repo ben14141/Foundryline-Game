@@ -70,7 +70,7 @@ bool FWeldingStationTwoWelders::RunTest(const FString&){using namespace WeldingT
  }else AddError(TEXT("Two-welder save did not load"));
 
  // Schema 12 plants load with every station welder as Welder A.
- {auto T=M;T.State.Version=12;for(auto& S:T.State.WeldingStations)S.Center-=FFoundrylineWeldingStationLayout::Schema14Shift(S);T.MigrateWeldingStations();TestEqual(TEXT("Schema 12 migrates to 14"),T.State.Version,14);TestTrue(TEXT("Migrated schema 12 plant validates: ")+E,T.Valid(E));}
+ {auto T=M;T.State.Version=12;for(auto& S:T.State.WeldingStations)S.Center-=FFoundrylineWeldingStationLayout::Schema14Shift(S);T.MigrateWeldingStations();TestEqual(TEXT("Schema 12 migrates to 14"),T.State.Version,15);TestTrue(TEXT("Migrated schema 12 plant validates: ")+E,T.Valid(E));}
  return true;
 }
 #endif

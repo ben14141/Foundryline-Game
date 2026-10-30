@@ -16,4 +16,5 @@ void AFoundrylineFactoryPlant::UpdateEmployees(float Dt){
   else{auto& P=EmployeeDisplayPositions.FindOrAdd(E.Key,E.Position);const FVector Previous=P;P=FMath::VInterpTo(P,E.Position,Dt,10);const float Travel=FVector::Dist2D(P,Previous);auto& Distance=EmployeeDisplayDistance.FindOrAdd(E.Key,0);Distance+=Travel;Display.Distance=Distance;Display.bMoving=E.bMoving&&Travel>.01f;Display.Speed=Dt>0?Travel/Dt:0;Position=P;auto& A=EmployeeDisplayYaw.FindOrAdd(E.Key,E.Yaw);A+=FMath::FindDeltaAngleDegrees(A,E.Yaw)*FMath::Min(1.f,Dt*10);Yaw=A;}
   if(V->GetAttachParent()!=Parent)V->AttachToComponent(Parent,FAttachmentTransformRules::KeepRelativeTransform);V->SetRelativeLocationAndRotation(Position,FRotator(0,Yaw,0));V->Present(Display,Dt);
  }
+ UpdateSupplyVisuals(Dt);
 }

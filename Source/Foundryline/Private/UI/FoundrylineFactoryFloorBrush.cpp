@@ -13,7 +13,8 @@ bool AFoundrylinePlayerController::PreviewFactoryFloor(FVector Cursor){
  if(!Plant->HasAuthority())Check.Solids=FFoundrylineWorkshopLayout::PlantSolids(Check.State);
  TArray<FBox2D> Targets=Check.Solids;for(const auto& Z:Check.State.Zones)Targets.Add(FFoundrylineWorkZoneLayout::Bounds(Z));for(const auto& S:Check.State.WeldingStations)Targets.Add(FFoundrylineWeldingStationLayout::Bounds(S));if(FactoryTool!=TEXT("Zone"))for(const auto& L:Check.State.Lanes)Targets.Emplace(L.Min,L.Max);
  const FBox2D Floor(Check.State.FloorMin,Check.State.FloorMax);const double Step=FactoryGridStep(),Gap=FactoryGapIndex==0?0:FactoryGapIndex==1?15.24:30.48;FString Error;bFactorySnapped=false;
- if(FactoryTool==TEXT("Station")){
+ if(FactoryTool==TEXT("Equipment")){FactoryPreviewA=FactoryPreviewB=FVector(FMath::GridSnap(Cursor.X,Step),FMath::GridSnap(Cursor.Y,Step),20);FactoryPreviewBounds=FFoundrylinePlanningEquipment::Bounds(FactoryPreviewA,FactoryStationQuarter,FFoundrylinePlanningEquipment::Size(FactoryEquipmentChoice,FactoryRackLevels));bFactoryPresetValid=Check.CanBuyPlanningEquipment(FactoryEquipmentChoice,FactoryPreviewA,FactoryStationQuarter,FactoryRackLevels,Error);}
+ else if(FactoryTool==TEXT("Station")){
   const auto Size=FFoundrylineWeldingStationLayout::FootprintCm(FactoryStationQuarter);
   const auto Center=FFoundrylineFloorPlacement::Snap(FVector2D(Cursor),Size/2,Step,Floor,Targets,Gap,bFactoryEdgeSnap,bFactorySnapped);
   FactoryPreviewA=FactoryPreviewB=FVector(Center,20);FactoryPreviewBounds=FBox2D(Center-Size/2,Center+Size/2);
@@ -57,6 +58,7 @@ bool AFoundrylinePlayerController::PreviewFactoryFloor(FVector Cursor){
 
 bool AFoundrylinePlayerController::CommitFactoryFloorBrush(){
  if(!bFactoryPresetValid)return false;FFoundrylineFactoryCommand C;const bool Zone=FactoryTool==TEXT("Zone");
+ if(FactoryTool==TEXT("Equipment")){auto* Plant=FactoryPlant();if(!Plant)return false;C.Action=EFoundrylineFactoryAction::BuyPlanningEquipment;C.TargetPlantId=Plant->BusinessPlantId;C.Id=FactoryEquipmentChoice;C.Count=FactoryRackLevels;C.QuarterTurns=FactoryStationQuarter;C.A=FactoryPreviewA;SendFactory(C);return true;}
  if(FactoryTool==TEXT("Station")){auto* Plant=FactoryPlant();if(!Plant)return false;C.Action=EFoundrylineFactoryAction::AddWeldingStation;C.A=FactoryPreviewA;C.QuarterTurns=FactoryStationQuarter;C.SupplySide=bFactoryStationSwap?-1:1;C.TargetPlantId=Plant->BusinessPlantId;FactoryStationCheckKey.Reset();SendFactory(C);return true;}
  C.Action=Zone?EFoundrylineFactoryAction::AddPresetZone:EFoundrylineFactoryAction::PaintLane;C.A=FactoryPreviewA;C.B=FactoryPreviewB;C.Id=Zone?FactoryZonePreset:FactoryTool==TEXT("Pedestrian")?1:FactoryTool==TEXT("Crossing")?2:0;C.WidthCm=FactoryWidth;C.QuarterTurns=FactoryZoneQuarter;C.SupplySide=FactoryZoneSide;C.Other=Zone?FactoryRoute:FactoryDirection;SendFactory(C);return true;
 }

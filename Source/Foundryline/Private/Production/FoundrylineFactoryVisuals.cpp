@@ -74,12 +74,13 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
    PartMeshes[Part]->AddInstance(FTransform(Rot,Pos+Rot.RotateVector(Offset)));}
  }
  // Station supply pallets on IN, each drawn while it holds stock (an emptied pallet is gone).
- for(const auto& S:Snapshot.WeldingStations)for(int Slot=0;Slot<2;++Slot)if(Snapshot.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==EFoundrylinePalletPlace::Buffer&&A.Quantity>0&&StationLayout::InSlot(A.Part)==Slot;}))
+ for(const auto& S:Snapshot.WeldingStations)for(int Slot=0;Slot<1;++Slot)if(Snapshot.Pallets.ContainsByPredicate([&](const auto& A){return A.Owner==S.Id&&A.Place==EFoundrylinePalletPlace::Buffer&&A.Quantity>0&&A.Part==EFoundrylinePart::FrameSection&&StationLayout::InSlot(A.Part)==Slot;}))
   Pallets->AddInstance(FTransform(StationLayout::Rotation(S),StationLayout::InPalletPoint(S,Slot)));
  // Representative station stock on those pallets: each item scaled down (never up) to fit its cell, long stock along the station length.
  for(const auto& P:Snapshot.Pallets){const auto* S=StationOf(P);if(!S||P.Place==EFoundrylinePalletPlace::StationIn||!PartMeshes.IsValidIndex(int(P.Part)))continue;auto* Ism=PartMeshes[int(P.Part)].Get();if(!Ism||!Ism->GetStaticMesh())continue;
   const FBox B=Ism->GetStaticMesh()->GetBoundingBox();const FRotator Yaw=StationLayout::Rotation(*S);
   if(P.Place==EFoundrylinePalletPlace::StationOut){const int Slot=StationLayout::OutSlot(*S,P.Position);if(Slot>=0)for(int Level=0;Level<P.Quantity;++Level)Ism->AddInstance(StationLayout::RackOnOut(*S,Slot,Level));continue;}
+  if(Snapshot.SupplyBins.ContainsByPredicate([&](const auto& Bin){return Bin.Area==S->Id&&Bin.Slots.ContainsByPredicate([&](const auto& Compartment){return Compartment.Part==int32(P.Part);});}))continue;
   const bool Frames=P.Part==EFoundrylinePart::FrameSection,Plates=P.Part==EFoundrylinePart::MountingPlate;const FVector BinCell=Frames?FVector(110,10,10):Plates?FVector(36,40,4):FVector(16,18,13);
   const bool Turn=B.GetSize().Y>B.GetSize().X;const FVector Size=Turn?FVector(B.GetSize().Y,B.GetSize().X,B.GetSize().Z):B.GetSize();
   const float Scale=FMath::Min(1.f,float(FMath::Min3(BinCell.X/FMath::Max(1.,Size.X),BinCell.Y/FMath::Max(1.,Size.Y),BinCell.Z/FMath::Max(1.,Size.Z))));const FRotator ItemYaw(0,Yaw.Yaw+(Turn?90:0),0);

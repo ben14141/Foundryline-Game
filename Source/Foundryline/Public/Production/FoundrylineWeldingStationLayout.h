@@ -35,7 +35,7 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  static FBox2D Worker(const FFoundrylineWeldingStationRecord& S,int32 Side){return Side?CoreRect(S,4.5,8.5,12.5,13):CoreRect(S,4.5,0,12.5,4.5);}
  static double PortFt(bool Out){return Out?OutBayFt:InBayFt;}
  static double PortCenterX(const FFoundrylineWeldingStationRecord& S,bool Out){return PortOnLeft(S,Out)?PortFt(Out)/2:LengthFt-PortFt(Out)/2;}
- static FBox2D Port(const FFoundrylineWeldingStationRecord& S,bool Out){return PortOnLeft(S,Out)?Rect(S,0,2.5,PortFt(Out),10.5):Rect(S,LengthFt-PortFt(Out),2.5,LengthFt,10.5);}
+ static FBox2D Port(const FFoundrylineWeldingStationRecord& S,bool Out){return PortOnLeft(S,Out)?Rect(S,0,2.5,PortFt(Out),Out?10.5:13):Rect(S,LengthFt-PortFt(Out),Out?2.5:0,LengthFt,10.5);}
  static FVector PortCenter(const FFoundrylineWeldingStationRecord& S,bool Out){return Point(S,PortCenterX(S,Out),6.5);}
  // Both ports set pallets down 2 ft in from the station end, so the forklift stops the same distance outside either one.
  static double PortForkX(const FFoundrylineWeldingStationRecord& S,bool Out){return PortOnLeft(S,Out)?2:LengthFt-2;}
@@ -47,7 +47,7 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  // Reserved 4 ft access ring outside the station. Forklifts dock from the 4 x 8 ft space at each port end;
  // people walk the whole ring, so one connected walkway reaches both welder sides around the bench.
  static constexpr double AccessFt=4;
- static FBox2D ForkApproach(const FFoundrylineWeldingStationRecord& S,bool Out){return PortOnLeft(S,Out)?Rect(S,-AccessFt,2.5,0,10.5):Rect(S,LengthFt,2.5,LengthFt+AccessFt,10.5);}
+ static FBox2D ForkApproach(const FFoundrylineWeldingStationRecord& S,bool Out){return PortOnLeft(S,Out)?Rect(S,-AccessFt,2.5,0,Out?10.5:13):Rect(S,LengthFt,Out?2.5:0,LengthFt+AccessFt,10.5);}
  static FBox2D EndAccess(const FFoundrylineWeldingStationRecord& S,bool Out){return PortOnLeft(S,Out)?Rect(S,-AccessFt,0,0,WidthFt):Rect(S,LengthFt,0,LengthFt+AccessFt,WidthFt);}
  static FBox2D WorkerApproach(const FFoundrylineWeldingStationRecord& S,int32 Side){return Side?Rect(S,-AccessFt,WidthFt,LengthFt+AccessFt,WidthFt+AccessFt):Rect(S,-AccessFt,-AccessFt,LengthFt+AccessFt,0);}
  static TArray<FBox2D> AccessRing(const FFoundrylineWeldingStationRecord& S){return {EndAccess(S,false),EndAccess(S,true),WorkerApproach(S,0),WorkerApproach(S,1)};}
@@ -95,9 +95,9 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  // each kit straight from them. Bought parts (frame sections, light kits) share one pallet, cut parts (plates, brackets) the
  // other. A delivery is set down on its pallet and unloaded onto it; a stock pallet is gone once it is empty.
  static int32 InSlot(EFoundrylinePart Part){return Part==EFoundrylinePart::FrameSection||Part==EFoundrylinePart::LightKit?0:1;}
- static FVector InPalletPoint(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,false),Slot?8.5:4.5);}
- static FBox2D InPalletRect(const FFoundrylineWeldingStationRecord& S,int32 Slot){const FVector2D H(PalletSizeCm().X/2/Foot,PalletSizeCm().Y/2/Foot);const double X=PortForkX(S,false),Y=Slot?8.5:4.5;return Rect(S,X-H.X,Y-H.Y,X+H.X,Y+H.Y);}
- static FVector InPalletDock(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,false)+(PortOnLeft(S,false)?-1:1)*DockReachCm/Foot,Slot?8.5:4.5);}
+ static FVector InPalletPoint(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,false),Slot?8.5:(S.bSwapSides?8.5:4.5));}
+ static FBox2D InPalletRect(const FFoundrylineWeldingStationRecord& S,int32 Slot){const FVector2D H(PalletSizeCm().X/2/Foot,PalletSizeCm().Y/2/Foot);const double X=PortForkX(S,false),Y=Slot?8.5:(S.bSwapSides?8.5:4.5);return Rect(S,X-H.X,Y-H.Y,X+H.X,Y+H.Y);}
+ static FVector InPalletDock(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,false)+(PortOnLeft(S,false)?-1:1)*DockReachCm/Foot,Slot?8.5:(S.bSwapSides?8.5:4.5));}
  // Where a delivery is set down: on the pallet deck, above the stock already there.
  static FVector InDrop(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart Part,bool OnStock){return InPalletPoint(S,InSlot(Part))+FVector(0,0,OnStock?PalletTopCm+22:0);}
  // IN stock capacity per assembly category (BinCapacity): two full headache-rack kits, so one kit can be in work while the next waits.
@@ -111,7 +111,7 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  // flush with the pallet's outer edge and runs on 2 ft 7 in past its inner edge, stacked RacksPerOutPallet high.
  // Welders fill the first pallet with room, then the second; the station waits when both are full.
  static constexpr int32 OutPallets=2;
- static constexpr int32 RacksPerOutPallet=5;
+ static constexpr int32 RacksPerOutPallet=4;
  static constexpr double PalletTopCm=17.557;
  static FVector PalletSizeCm(){return {115.706,117.974,PalletTopCm};}
  static FVector OutPalletPoint(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,true),Slot?8.5:4.5);}
@@ -119,7 +119,7 @@ struct FOUNDRYLINE_API FFoundrylineWeldingStationLayout {
  // Pallet frame: +X points into the station, away from the forklift that serves it.
  static FTransform OutPalletTransform(const FFoundrylineWeldingStationRecord& S,int32 Slot){return FTransform(FRotator(0,Rotation(S).Yaw+(PortOnLeft(S,true)?0:180),0),OutPalletPoint(S,Slot));}
  // Forklift stop for one OUT pallet: on the fork line's normal through that pallet, as for IN.
- static FVector OutPalletDock(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,true)+(PortOnLeft(S,true)?-1:1)*DockReachCm/Foot,Slot?8.5:4.5);}
+ static FVector OutPalletDock(const FFoundrylineWeldingStationRecord& S,int32 Slot){return Point(S,PortForkX(S,true)+(PortOnLeft(S,true)?-1:1)*DockReachCm/Foot,Slot?8.5:(S.bSwapSides?8.5:4.5));}
  // Which OUT pallet a stored position belongs to (-1 if neither).
  static int32 OutSlot(const FFoundrylineWeldingStationRecord& S,const FVector& At){for(int32 I=0;I<OutPallets;++I)if(FVector::Dist2D(At,OutPalletPoint(S,I))<1)return I;return -1;}
  // Rack Level (0 = on the pallet deck) of a stack, relative to its pallet: bed-rail datum turned onto its back as on the jig.

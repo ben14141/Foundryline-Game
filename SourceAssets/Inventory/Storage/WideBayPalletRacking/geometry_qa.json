@@ -1,0 +1,58 @@
+{
+  "checks": {
+    "PalletRack_1Level_expected_height": true,
+    "PalletRack_1Level_two_positions_per_level": true,
+    "PalletRack_1Level_pallets_clear_uprights": true,
+    "PalletRack_1Level_pallets_do_not_overlap": true,
+    "PalletRack_1Level_rear_brace_clear": true,
+    "PalletRack_1Level_fork_envelope_clear": true,
+    "PalletRack_1Level_fork_top_deck_accessible": true,
+    "PalletRack_1Level_loaded_pallet_has_lift_clearance": true,
+    "PalletRack_2Levels_expected_height": true,
+    "PalletRack_2Levels_two_positions_per_level": true,
+    "PalletRack_2Levels_pallets_clear_uprights": true,
+    "PalletRack_2Levels_pallets_do_not_overlap": true,
+    "PalletRack_2Levels_rear_brace_clear": true,
+    "PalletRack_2Levels_fork_envelope_clear": true,
+    "PalletRack_2Levels_fork_top_deck_accessible": true,
+    "PalletRack_2Levels_loaded_pallet_has_lift_clearance": true,
+    "PalletRack_3Levels_expected_height": true,
+    "PalletRack_3Levels_two_positions_per_level": true,
+    "PalletRack_3Levels_pallets_clear_uprights": true,
+    "PalletRack_3Levels_pallets_do_not_overlap": true,
+    "PalletRack_3Levels_rear_brace_clear": true,
+    "PalletRack_3Levels_fork_envelope_clear": true,
+    "PalletRack_3Levels_fork_top_deck_accessible": true,
+    "PalletRack_3Levels_loaded_pallet_has_lift_clearance": true,
+    "all_variants_same_width_depth": true
+  },
+  "dimensions_cm": {
+    "PalletRack_1Level": [
+      465.0,
+      148.03,
+      152.4
+    ],
+    "PalletRack_2Levels": [
+      465.0,
+      148.03,
+      304.8
+    ],
+    "PalletRack_3Levels": [
+      465.0,
+      148.03,
+      457.2
+    ]
+  },
+  "pallet_cm": [
+    117.974,
+    115.706,
+    17.557
+  ],
+  "payload_max_height_cm": 100,
+  "fork_lift_clearance_cm": 8,
+  "fork_blade_centres_cm": 101.702,
+  "fork_blade_width_cm": 11.677,
+  "fork_max_lift_cm": 330,
+  "minimum_vertical_lift_gap_cm": 14.843,
+  "fork_blade_envelope_cm": 113.379
+}

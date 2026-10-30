@@ -23,6 +23,7 @@ public:
  void Present(const FFoundrylineEmployeeRecord& Record,float DeltaSeconds);
  // Call after the zone gun has moved, using its real grip and barrel-support points.
  void PresentWeldingGrip(FVector WorldGrip,FVector WorldSupport);
+ void PresentCollectorGrip(FVector WorldLeft,FVector WorldRight);
  UFUNCTION(BlueprintPure) FString GetPresentationReport() const;
  static FVector LegAngles(float HipHeight,float FootX,float FootHeight);
  // Measured seat cushion top141cm, cabin floor83cm in authored forklift.

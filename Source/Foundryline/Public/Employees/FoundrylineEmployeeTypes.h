@@ -1,7 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "FoundrylineEmployeeTypes.generated.h"
-UENUM(BlueprintType) enum class EFoundrylineEmployeeRole:uint8 {Operator,Welder,ForkliftDriver,Unassigned};
+UENUM(BlueprintType) enum class EFoundrylineEmployeeRole:uint8 {Operator,Welder,ForkliftDriver,Unassigned,PartsCollector};
 UENUM(BlueprintType) enum class EFoundrylineEmployeeActivity:uint8 {Idle,Walking,Waiting,Operating,Welding,Driving,Handling,Paused};
 UENUM(BlueprintType) enum class EFoundrylineEmployeeWait:uint8 {None,Unassigned,NoRoute,Traffic,Materials,OutputFull,Paused};
 USTRUCT() struct FFoundrylineFactoryOperator {

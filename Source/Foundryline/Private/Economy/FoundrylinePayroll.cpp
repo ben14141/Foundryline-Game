@@ -7,6 +7,7 @@ int64 FFoundrylinePayroll::RateCentsPerHour(EFoundrylineEmployeeRole Role){
  switch(Role){
   case EFoundrylineEmployeeRole::Welder:return Tuning::WelderWageCentsPerHour;
   case EFoundrylineEmployeeRole::Operator:return Tuning::OperatorWageCentsPerHour;
+  case EFoundrylineEmployeeRole::PartsCollector:
   case EFoundrylineEmployeeRole::ForkliftDriver:return Tuning::DriverWageCentsPerHour;
   default:return 0;
  }
@@ -16,6 +17,7 @@ int64 FFoundrylinePayroll::PlantCentsPerHour(const FFoundrylineFactoryState& Sta
  for(const auto& O:State.Operators)if(O.Machine)Cents+=RateCentsPerHour(EFoundrylineEmployeeRole::Operator);
  for(const auto& W:State.Walkers)if(W.Station||W.Zone)Cents+=RateCentsPerHour(EFoundrylineEmployeeRole::Welder);
  for(const auto& D:State.Drivers)if(D.EmployeeId)Cents+=RateCentsPerHour(EFoundrylineEmployeeRole::ForkliftDriver);
+ for(const auto& Collector:State.Collectors)if(Collector.Area)Cents+=RateCentsPerHour(EFoundrylineEmployeeRole::PartsCollector);
  return Cents;
 }
 int64 FFoundrylinePayroll::Accrue(FFoundrylineFactoryState& State,float Minutes){

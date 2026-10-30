@@ -13,6 +13,17 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void MigrateEmployees();
  void MigrateEmployeeNames();
  void MigrateGenericEmployees();
+ void MigrateAssemblySupply();
+ bool CanBuyPlanningEquipment(int32 Item,FVector At,int32 Quarter,int32 Levels,FString& Error,bool Swap=false)const;
+ bool BuyPlanningEquipment(int32 Item,FVector At,int32 Quarter,int32 Levels,FString& Error,bool Swap=false);
+ bool AssignCollector(int32 Employee,int32 Area,FString& Error);
+ bool ConfigureSupplyBin(int32 Area,int32 Compartments,FString& Error);
+ bool SupplyValid(FString& Error)const;
+ void UpdateCollectors(float Dt);
+ bool CollectorSupplies(int32 Area,int32 Part)const;
+ int32 CollectorIncoming(int32 Area,int32 Part)const;
+ int32 CollectorReserved(int32 Pallet)const;
+ FString SupplyReport(int32 Area)const;
  // Schema 9 gains welding stations; schema 10 gains bought assembly parts (zone part arrays grow) and station supplies.
  void MigrateWeldingStations();
  static constexpr int32 HireLimitTotal=12;
@@ -93,7 +104,7 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  bool AddDriver(int32 Route,FString& Error,bool Staff=true);
  bool AddWelder(int32 Zone,FString& Error);
  bool Program(int32 Machine,EFoundrylinePart Part,int32 Batch,bool Auto,FString& Error);
- TArray<FVector> Path(FVector Start,FVector End,bool Pedestrian=false)const;
+ TArray<FVector> Path(FVector Start,FVector End,bool Pedestrian=false,bool Cart=false)const;
  int32 Available(EFoundrylinePart Part,EFoundrylinePalletPlace Place,int32 Owner=0)const;
  int32 Incoming(EFoundrylinePart Part,int32 Owner)const;
  int32 Total(EFoundrylinePart Part)const;
@@ -124,5 +135,5 @@ private:
  int32 AddPallet(EFoundrylinePart Part,int32 Count,EFoundrylinePalletPlace Place,int32 Owner,FVector Position,float UnitLb=0);
  bool Consume(EFoundrylinePart Part,int32 Count,EFoundrylinePalletPlace Place,int32 Owner,float* Mass=nullptr);
  int32 Wanted(EFoundrylinePart Part)const;
- bool Walkable(FVector2D Point,bool Pedestrian)const;
+ bool Walkable(FVector2D Point,bool Pedestrian,bool Cart=false)const;
 };

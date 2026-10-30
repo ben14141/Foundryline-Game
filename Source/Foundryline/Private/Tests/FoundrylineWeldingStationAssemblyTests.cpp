@@ -102,7 +102,7 @@ bool FWeldingStationAssembly::RunTest(const FString&){using namespace WeldingAss
  {auto T=M;T.State.WeldingStations[0].ReservedLb=50;TestFalse(TEXT("Empty bench holding mass rejected"),T.Valid(E));}
  {auto T=M;if(auto* V=T.State.Walkers.FindByPredicate([&](const auto& X){return X.Id==Welder;})){V->Station=999999;TestFalse(TEXT("Welder at an unknown station rejected"),T.Valid(E));}}
  // Schema 11 plants load with an empty bench.
- {auto T=M;T.State.Version=11;T.State.WeldingStations[0].Reserved.Reset();for(auto& S:T.State.WeldingStations)S.Center-=Layout::Schema14Shift(S);T.MigrateWeldingStations();TestEqual(TEXT("Schema 11 migrates to 14"),T.State.Version,14);TestTrue(TEXT("Migrated schema 11 plant validates: ")+E,T.Valid(E));}
+ {auto T=M;T.State.Version=11;T.State.WeldingStations[0].Reserved.Reset();for(auto& S:T.State.WeldingStations)S.Center-=Layout::Schema14Shift(S);T.MigrateWeldingStations();TestEqual(TEXT("Schema 11 migrates to 14"),T.State.Version,15);TestTrue(TEXT("Migrated schema 11 plant validates: ")+E,T.Valid(E));}
  return true;
 }
 #endif

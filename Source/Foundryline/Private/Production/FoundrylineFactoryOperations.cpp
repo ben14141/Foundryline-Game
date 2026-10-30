@@ -61,7 +61,7 @@ bool FFoundrylineFactorySimulation::MakeJob(int Source,int Destination,Place Whe
  if(Count<=0||State.Jobs.Num()>=32||State.Pallets.Num()>=63)return false;
  auto* A=State.Pallets.FindByPredicate([&](const auto& P){return P.Id==Source;});if(!A||A->Quantity-A->Reserved<Count||A->BookingId&&Where!=Place::Outbound&&A->Place!=Place::Inbound)return false;
  int Physical=0;for(const auto& P:State.Pallets)if(P.Place==Where&&P.Owner==Destination&&(Where!=Place::Buffer||P.Part==A->Part)){if(P.Part!=A->Part||!FMath::IsNearlyEqual(P.UnitLb,A->UnitLb,.01f))return false;Physical+=P.Quantity;}
- if(Where!=Place::Outbound&&Physical+Incoming(A->Part,Destination)+Count>FFoundrylineFactoryCatalog::Part(A->Part).Capacity)return false;
+ if(Where!=Place::Outbound&&Physical+Incoming(A->Part,Destination)+Count>(A->bLegacyFiveStack&&Count==5?5:FFoundrylineFactoryCatalog::Part(A->Part).Capacity))return false;
  if(State.Jobs.ContainsByPredicate([&](const auto& J){return J.SourcePallet==Source||(J.Destination==Destination&&J.Part==A->Part);}))return false;
  bool Allowed=false;for(const auto& R:State.Routes)if(R.Enabled&&R.Sources.Contains(A->Owner)&&(R.Destinations.Contains(Destination)||Where==Place::Outbound&&R.Destinations.Contains(12)))Allowed=true;if(!Allowed)return false;
  FFoundrylineFactoryJob J;J.Id=State.NextId++;J.SourcePallet=Source;J.Part=A->Part;J.Quantity=Count;J.Destination=Destination;J.DestinationPlace=Where;J.Drop=Dock;J.StoredAt=Store;J.Priority=Priority;J.Task=Where==Place::MachineInput?EFoundrylineForkTask::Machine:EFoundrylineForkTask::Storage;
@@ -149,10 +149,10 @@ void FFoundrylineFactorySimulation::Travel(float Dt){
  auto DrivingSpeed=[&](const FFoundrylineFactoryDriver& D){float Ahead=D.Yaw;Along(D.Path,FMath::Min(Length(D.Path),D.Distance+100),&Ahead);const float Turn=FMath::Abs(FMath::FindDeltaAngleDegrees(D.Yaw,Ahead));return FMath::Lerp(150.f,65.f,FMath::Clamp(Turn/90.f,0.f,1.f));};
  const auto& Crossings=FloorCrossings();
  auto ForkApproaching=[&](const FFoundrylineFloorCrossing& C){for(const auto& D:State.Drivers){if(C.Bounds.ExpandBy(200).IsInside(FVector2D(D.Position)))return true;if(D.Path.Num()>1){const float End=FMath::Min(Length(D.Path),D.Distance+900);for(float At=D.Distance;At<=End;At+=50)if(C.Bounds.ExpandBy(120).IsInside(FVector2D(Along(D.Path,At))))return true;}}return false;};
- auto PeopleBlock=[&](FVector From,FVector To){auto Blocks=[&](FVector Person){const float Before=FVector::Dist2D(From,Person),After=FVector::Dist2D(To,Person),Closest=FMath::PointDistToSegment(Person,From,To);return Closest<120&&!(Before<120&&After>Before+.01&&Closest>=Before-.01);};for(const auto& W:State.Walkers)if(Blocks(W.Position))return true;for(const auto& O:State.Operators)if(Blocks(O.Position))return true;for(const auto& D:State.UnassignedEmployees)if(Blocks(D.Position))return true;return false;};
+ auto PeopleBlock=[&](FVector From,FVector To){auto Blocks=[&](FVector Person){const float Before=FVector::Dist2D(From,Person),After=FVector::Dist2D(To,Person),Closest=FMath::PointDistToSegment(Person,From,To);return Closest<120&&!(Before<120&&After>Before+.01&&Closest>=Before-.01);};for(const auto& C:State.Collectors)if(Blocks(C.Position)||Blocks(C.Position-FRotator(0,C.Yaw,0).RotateVector(FVector(90,0,0))))return true;for(const auto& W:State.Walkers)if(Blocks(W.Position))return true;for(const auto& O:State.Operators)if(Blocks(O.Position))return true;for(const auto& D:State.UnassignedEmployees)if(Blocks(D.Position))return true;return false;};
  TArray<int> Done;
  for(auto& D:State.Drivers){D.Waiting=false;if(!D.EmployeeId)continue;if(!D.Job){
-  if(FVector::Dist2D(D.Position,D.Parking)<20){D.Path.Reset();D.Yaw=FMath::FixedTurn(D.Yaw,90,120*Dt);continue;}
+  if(FVector::Dist2D(D.Position,D.Parking)<20){D.Path.Reset();D.Yaw=FMath::FixedTurn(D.Yaw,D.ParkingYaw,120*Dt);continue;}
   if(D.Path.IsEmpty()){D.WaitFor+=Dt;if(D.WaitFor>3)ReplanYield(D,D.Parking);continue;}
   const float Next=FMath::Min(Length(D.Path),D.Distance+DrivingSpeed(D)*Dt);float Yaw=D.Yaw;const FVector P=Along(D.Path,Next,&Yaw);
   if(PeopleBlock(D.Position,P))D.Waiting=true;

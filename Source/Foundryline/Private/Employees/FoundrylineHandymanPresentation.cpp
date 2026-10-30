@@ -32,6 +32,14 @@ void UFoundrylineEmployeeVisualComponent::HandymanPalm(int32 I,FVector Palm,bool
 void UFoundrylineEmployeeVisualComponent::CommitHandymanPose(){
  if(!HandymanBody||HandymanPose.Num()!=HandymanParents.Num())return;HandymanBody->BoneSpaceTransforms.SetNum(HandymanPose.Num());for(int I=0;I<HandymanPose.Num();++I)HandymanBody->BoneSpaceTransforms[I]=HandymanParents[I]>=0?HandymanPose[I].GetRelativeTransform(HandymanPose[HandymanParents[I]]):HandymanPose[I];HandymanBody->MarkRefreshTransformDirty();HandymanBody->RefreshBoneTransforms();HandymanBody->UpdateBounds();
 }
+void UFoundrylineEmployeeVisualComponent::PresentCollectorGrip(FVector Left,FVector Right){
+ if(!HandymanBody||HandymanPose.IsEmpty())return;
+ const FVector LocalRight=GetComponentTransform().InverseTransformPosition(Right);
+ const float Lean=FMath::Clamp(float((99-LocalRight.Z)/15),0.f,1.f)*35.f;
+ if(Lean>0&&HandymanBones.Contains(TEXT("spine_01")))HandymanRotate(HandymanBones[TEXT("spine_01")],FQuat(HandymanBody->GetRelativeTransform().InverseTransformVectorNoScale(FVector::RightVector),FMath::DegreesToRadians(Lean)));
+ HandymanPalm(0,GetComponentTransform().InverseTransformPosition(Left),true);
+ HandymanPalm(1,GetComponentTransform().InverseTransformPosition(Right),true);CommitHandymanPose();
+}
 void UFoundrylineEmployeeVisualComponent::PresentHandyman(const FFoundrylineEmployeeRecord& R,float Dt){
  const auto& Variants=Appearance->RuntimeVariants.IsEmpty()?Appearance->Variants:Appearance->RuntimeVariants;
  if(HandymanVariant<0)HandymanVariant=Variants.IsEmpty()?0:int(FCrc::StrCrc32(*R.Key)%Variants.Num());

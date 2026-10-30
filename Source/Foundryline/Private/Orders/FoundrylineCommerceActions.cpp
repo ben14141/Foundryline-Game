@@ -60,7 +60,7 @@ bool FFoundrylineFactorySimulation::CommerceCommand(const FFoundrylineCommerceCo
  // Bought frame sections or light kits for one welding station: at most what its bins still lack and one bundle or crate.
  if(A.Action==Act::BuyParts){const auto* S=State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==A.Id;});FFoundrylineBoughtPart Bought;
   if(!S||A.Choice<0||A.Choice>=FFoundrylineFactoryCatalog::PartCount||!FFoundrylineFactoryCatalog::Bought(Part(A.Choice),&Bought)||C.Bookings.Num()>=96){E=TEXT("Choose a welding station and a part to buy");return false;}
-  const Part P=Part(A.Choice);const int Room=FMath::Min(StationShortfall(*S,P),FFoundrylineFactoryCatalog::Part(P).Capacity);
+  const Part P=Part(A.Choice);const int Room=FMath::Min(FMath::Max(0,StationShortfall(*S,P)-StationRackSupply(P)),FFoundrylineFactoryCatalog::Part(P).Capacity);
   if(Room<1){E=TEXT("This station already has or is expecting enough ")+FString(FFoundrylineFactoryCatalog::AssemblyName(P)).ToLower();return false;}
   if(A.Quantity<1||A.Quantity>Room){E=FString::Printf(TEXT("Buy 1 to %d for this station"),Room);return false;}
   const int64 Cost=A.Quantity*Bought.PriceCents;if(C.UnpaidCents||C.CashCents<Cost+FFoundrylineEconomyTuning::SupplierFreightCents){E=TEXT("Insufficient available cash for parts and delivery");return false;}
