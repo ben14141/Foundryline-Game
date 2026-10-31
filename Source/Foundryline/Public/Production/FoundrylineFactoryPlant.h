@@ -6,7 +6,7 @@
 #include "FoundrylineFactoryPlant.generated.h"
 
 UENUM()
-enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,ConfigureSupplyBin,BuyPlanningEquipment,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation};
+enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,ConfigureSupplyBin,BuyPlanningEquipment,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation,EditPlanningItem};
 
 USTRUCT()
 struct FFoundrylineFactoryCommand {
@@ -111,6 +111,8 @@ private:
  void RefreshSnapshot();
  void SetupVisuals();
  void RebuildVisuals();
+ void RebuildPlanningLayout();
+ FString PlanningLayoutKey;
  void RebuildZoneWeldingEquipment();
  void Animate(float Dt);
  void UpdateEmployees(float Dt);

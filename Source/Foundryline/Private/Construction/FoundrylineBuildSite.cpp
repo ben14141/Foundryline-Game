@@ -1,3 +1,8 @@
+#include "Buildings/FoundrylineRoofLayout.h"
+#include "Buildings/FoundrylineExteriorKit.h"
+#include "Logistics/FoundrylineCarrierSceneActor.h"
+#include "Construction/FoundrylineLoadingBayLayout.h"
+#include "Construction/FoundrylinePavementGeometry.h"
 #include "Construction/FoundrylineBuildSite.h"
 #include "Construction/FoundrylineEquipmentCollision.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
@@ -50,6 +55,7 @@ void AFoundrylineBuildSite::BeginPlay()
 		const FString Path=FString::Printf(TEXT("/Game/Foundryline/Construction/Materials/M_%s.M_%s"),Name,Name);
 		Materials.Add(FName(Name),LoadObject<UMaterialInterface>(nullptr,*Path));
 	}
+	const TCHAR* SurfaceNames[]={TEXT("Asphalt"),TEXT("White"),TEXT("Yellow")};const TCHAR* SurfaceAssets[]={TEXT("M_PavementAsphalt"),TEXT("M_RoadPaintWhite"),TEXT("M_RoadPaintYellow")};for(int I=0;I<3;++I){const FString Path=FString::Printf(TEXT("/Game/Foundryline/Construction/Materials/%s.%s"),SurfaceAssets[I],SurfaceAssets[I]);if(auto* M=LoadObject<UMaterialInterface>(nullptr,*Path))Materials.Add(FName(SurfaceNames[I]),M);}
 	Materials.Add(TEXT("Glass"),LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Construction/Materials/M_WindowGlass.M_WindowGlass")));
 	Materials.Add(TEXT("OfficeFloor"),LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Construction/Materials/M_OfficeFloor.M_OfficeFloor")));
 	Materials.Add(TEXT("Landscape"),LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/World/Materials/M_FlatForestGround.M_FlatForestGround")));
@@ -119,6 +125,8 @@ TArray<FFoundrylineGridBounds> AFoundrylineBuildSite::SnapTargets(bool bBuilding
 bool AFoundrylineBuildSite::RectangleRequest(FName Tool,FIntVector Start,FIntVector End,FFoundrylinePlacementRequest& Out,uint8 SnapEdges,bool bExtend)
 {
 	bConnected=false;
+
+ if(Tool==TEXT("Sign")&&bReady){if(!Placement->EnsureGeneratedDefinition(TEXT("ManufacturingSign")))return false;Out.DefinitionId=TEXT("ManufacturingSign");FFoundrylineGrid::SnapWorld(FVector(Start),EFoundrylineSnap::Fine25cm,Out.Anchor);Out.QuarterTurns=DraftAreaRotation;Out.Anchor-=FIntVector(FRotator(0,Out.QuarterTurns*90,0).RotateVector(FVector(200,200,0)));Out.ExpectedRevision=Placement->GetRevision();Out.SignName=TEXT("YOUR COMPANY");if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld())){const auto C=LocalContext();const auto Name=R->GetCompanyName(C.CompanyId);if(!Name.IsEmpty())Out.SignName=Name.Left(40);}Out.Colors.Exterior=FLinearColor(FColor::FromHex(TEXT("30373D")));Out.Colors.Trim=FLinearColor(FColor::FromHex(TEXT("ED7B2D")));return true;}
 	if(!bReady || (!IsBuilding(Tool) && Tool!=TEXT("Parking") && Tool!=TEXT("FreightYard") && Tool!=TEXT("Walkway") && !IsRoad(Tool))) return false;
 	if(!FFoundrylineGrid::SnapWorld(FVector(Start),EFoundrylineSnap::Structural100cm,Start) || !FFoundrylineGrid::SnapWorld(FVector(End),EFoundrylineSnap::Structural100cm,End)) {Status=TEXT("Outside the supported grid range");return false;}
 	int32 W=0,D=0;
@@ -309,7 +317,7 @@ bool AFoundrylineBuildSite::BuildRectangle(FName Tool,FIntVector Start,FIntVecto
 	if(SentToHost(Result.Error)) return true;
 	if(!Result.IsSuccess()) { Status=ErrorText(Result.Error); return false; }
 	R.Action=EFoundrylinePlacementAction::Remove; R.ObjectId=Result.ObjectId; RecordUndo(R);
-	Status=Tool==TEXT("Office")?(bConnected?TEXT("Office built with a door into the joined building. Draw rooms in the Office tab."):TEXT("Office built. Draw rooms in the Office tab.")):IsBuilding(Tool)?(bConnected?TEXT("Building expanded. Shared walls removed."):TEXT("Building placed. Add personnel and garage doors.")):Tool==TEXT("Parking")?TEXT("Parking lot placed"):TEXT("Road placed");
+	Status=Tool==TEXT("Sign")?TEXT("Manufacturing sign placed / Select it to edit the name and colors"):Tool==TEXT("Office")?(bConnected?TEXT("Office built with a door into the joined building. Draw rooms in the Office tab."):TEXT("Office built. Draw rooms in the Office tab.")):IsBuilding(Tool)?(bConnected?TEXT("Building expanded. Shared walls removed."):TEXT("Building placed. Add personnel and garage doors.")):Tool==TEXT("Parking")?TEXT("Parking lot placed"):TEXT("Road placed");
 	HidePreview(); return true;
 }
 
@@ -318,7 +326,7 @@ void AFoundrylineBuildSite::PreviewRectangle(FName Tool,FIntVector Start,FIntVec
 	FFoundrylinePlacementRequest R;
 	if(!RectangleRequest(Tool,Start,End,R)) {HidePreview();DraftBlocked(Status);return;}
 	const auto Result=ValidateConstruction(R);
-	FFoundrylinePlacedObject O; O.DefinitionId=R.DefinitionId; O.Anchor=R.Anchor; O.QuarterTurns=R.QuarterTurns; O.Openings=R.Openings;O.bOfficeAnnex=R.bOfficeAnnex;O.OfficeAreas=R.OfficeAreas;
+	FFoundrylinePlacedObject O; O.DefinitionId=R.DefinitionId; O.Anchor=R.Anchor; O.QuarterTurns=R.QuarterTurns; O.Openings=R.Openings;O.bOfficeAnnex=R.bOfficeAnnex;O.OfficeAreas=R.OfficeAreas;O.SignName=R.SignName;O.SignFacingDegrees=R.SignFacingDegrees;O.Colors=R.Colors;
 	const auto Local=LocalContext();O.CompanyId=Local.CompanyId; O.PlantId=Local.PlantId;
 	const auto* Def=Placement->FindDefinition(O.DefinitionId);
 	Status=FString::Printf(TEXT("%d x %d m  |  %d m high  |  %s%s"),Def->Footprint.Max.X/100,Def->Footprint.Max.Y/100,(Def->Footprint.Max.Z-SlabHeightCm)/100,*ErrorText(Result.Error),bConnected?TEXT("  |  Connected expansion"):TEXT(""));
@@ -346,12 +354,12 @@ void AFoundrylineBuildSite::PreviewRectangle(FName Tool,FIntVector Start,FIntVec
 
 bool AFoundrylineBuildSite::DoorRequest(FName Tool,FIntVector Cursor,FFoundrylinePlacementRequest& Out) const
 {
-	if(!bReady || (Tool!=TEXT("Personnel") && Tool!=TEXT("Garage") && Tool!=TEXT("TruckDoor") && Tool!=TEXT("LoadingDock"))) return false;
+	if(!bReady || (Tool!=TEXT("Personnel") && Tool!=TEXT("Garage") && Tool!=TEXT("TruckDoor") && Tool!=TEXT("LoadingDock") && Tool!=TEXT("LoadingBay") && Tool!=TEXT("OfficeGlass"))) return false;
 	double Closest=151;
 	for(const auto& O:Placement->GetObjects())
 	{
 		const auto* Def=Placement->FindDefinition(O.DefinitionId);
-		if(!Def || Def->FunctionId!=TEXT("BuildingShell") || (O.bOfficeAnnex && Tool==TEXT("LoadingDock"))) continue;
+		if(!Def || Def->FunctionId!=TEXT("BuildingShell") || (Tool==TEXT("OfficeGlass")&&!O.bOfficeAnnex) || (O.bOfficeAnnex && (Tool==TEXT("LoadingDock")||Tool==TEXT("LoadingBay")))) continue;
 		const FVector P=FRotator(0,O.QuarterTurns*90,0).UnrotateVector(FVector(Cursor-O.Anchor));
 		const int32 W=Def->Footprint.Max.X,D=Def->Footprint.Max.Y;
 		if(P.X < -150 || P.Y < -150 || P.X>W+150 || P.Y>D+150) continue;
@@ -360,12 +368,22 @@ bool AFoundrylineBuildSite::DoorRequest(FName Tool,FIntVector Cursor,FFoundrylin
 		{
 			if(Distances[Edge]>=Closest) continue;
 			Closest=Distances[Edge]; Out.ObjectId=O.ObjectId;
-			Out.Opening.Edge=Edge; Out.Opening.Kind=Tool==TEXT("LoadingDock")?EFoundrylineOpeningKind::LoadingDock:Tool==TEXT("TruckDoor")?EFoundrylineOpeningKind::TruckGarage:Tool==TEXT("Garage")?EFoundrylineOpeningKind::Garage:O.bOfficeAnnex?EFoundrylineOpeningKind::OfficeDoor:EFoundrylineOpeningKind::Personnel;
+			Out.Opening.Edge=Edge; Out.Opening.Kind=Tool==TEXT("OfficeGlass")?EFoundrylineOpeningKind::OfficeGlassWall:(Tool==TEXT("LoadingDock")||Tool==TEXT("LoadingBay"))?EFoundrylineOpeningKind::LoadingDock:Tool==TEXT("TruckDoor")?EFoundrylineOpeningKind::TruckGarage:Tool==TEXT("Garage")?EFoundrylineOpeningKind::Garage:O.bOfficeAnnex?EFoundrylineOpeningKind::OfficeDoor:EFoundrylineOpeningKind::Personnel;
+			Out.Opening.LoadingTier=Tool==TEXT("LoadingBay")?1:0;
 			const double U=Edge%2==0?P.X:P.Y;
 			Out.Opening.OffsetCm=FMath::RoundToInt((U-Out.Opening.WidthCm()/2)/100)*100;
 		}
 	}
 	if(!Out.ObjectId.IsValid()) return false;
+ if(Tool==TEXT("OfficeGlass")){
+  const auto* Host=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==Out.ObjectId;});const auto* Def=Placement->FindDefinition(Host->DefinitionId);const auto P=FRotator(0,Host->QuarterTurns*90,0).UnrotateVector(FVector(Cursor-Host->Anchor));const double U=Out.Opening.Edge%2==0?P.X:P.Y;const int Length=Out.Opening.Edge%2==0?Def->Footprint.Max.X:Def->Footprint.Max.Y;
+  int Low=25,High=Length-25;
+  for(const auto& V:Host->Openings)if(V.Edge==Out.Opening.Edge&&!V.IsGlazing()){if(U>=V.OffsetCm&&U<=V.OffsetCm+V.WidthCm())return false;if(U<V.OffsetCm)High=FMath::Min(High,FMath::FloorToInt((V.OffsetCm-30)/25.)*25);else Low=FMath::Max(Low,FMath::CeilToInt((V.OffsetCm+V.WidthCm()+30)/25.)*25);}
+  if(High-Low<100)return false;
+  Out.Opening.OffsetCm=Low;Out.Opening.PanelWidthCm=High-Low;Out.Opening.OpeningId=FGuid::NewGuid();Out.Action=EFoundrylinePlacementAction::ReplaceObject;Out.ExpectedRevision=Placement->GetRevision();Out.Replacement=*Host;Out.Replacement.Openings.RemoveAll([&](const auto& V){return V.Edge==Out.Opening.Edge&&V.IsGlazing()&&V.OffsetCm<High&&V.OffsetCm+V.WidthCm()>Low;});Out.Replacement.Openings.Add(Out.Opening);return true;
+ }
+
+ if(Tool==TEXT("LoadingBay")){const auto* Host=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==Out.ObjectId;});const auto* Old=Host->Openings.FindByPredicate([&](const auto& V){return V.Edge==Out.Opening.Edge&&(V.Kind==EFoundrylineOpeningKind::Garage||V.Kind==EFoundrylineOpeningKind::TruckGarage||V.Kind==EFoundrylineOpeningKind::LoadingDock&&!V.LoadingTier)&&FMath::Abs(V.OffsetCm+V.WidthCm()*.5-Out.Opening.OffsetCm-Out.Opening.WidthCm()*.5)<=200;});if(Old){Out.Opening.OpeningId=Old->OpeningId;Out.Opening.OffsetCm=FMath::RoundToInt((Old->OffsetCm+Old->WidthCm()*.5-Out.Opening.WidthCm()*.5)/100)*100;Out.Action=EFoundrylinePlacementAction::ReplaceObject;Out.ExpectedRevision=Placement->GetRevision();Out.Replacement=*Host;auto* Changed=Out.Replacement.Openings.FindByPredicate([&](const auto& V){return V.OpeningId==Old->OpeningId;});*Changed=Out.Opening;return true;}}
 	Out.Action=EFoundrylinePlacementAction::AddOpening; Out.ExpectedRevision=Placement->GetRevision();
 	Out.Opening.OpeningId=FGuid::NewGuid(); return true;
 }
@@ -380,7 +398,7 @@ bool AFoundrylineBuildSite::PlaceDoor(FName Tool,FIntVector Cursor)
 	if(SentToHost(Result.Error)) return true;
 	if(!Result.IsSuccess()) { Status=ErrorText(Result.Error); return false; }
 	R.Action=EFoundrylinePlacementAction::ReplaceOpenings; R.Openings=PreviousOpenings; RecordUndo(R);
-	Status=TEXT("Door opening installed"); HidePreview(); return true;
+	Status=Tool==TEXT("LoadingBay")?TEXT("Small flatbed bay installed / Select it to upgrade"):Tool==TEXT("OfficeGlass")?TEXT("Full-height office glazing installed"):TEXT("Door opening installed"); HidePreview(); return true;
 }
 
 void AFoundrylineBuildSite::PreviewDoor(FName Tool,FIntVector Cursor)
@@ -391,8 +409,8 @@ void AFoundrylineBuildSite::PreviewDoor(FName Tool,FIntVector Cursor)
 	const auto* Existing=Placement->GetObjects().FindByPredicate([&](const FFoundrylinePlacedObject& O){return O.ObjectId==R.ObjectId;});
 	if(!Existing) return;
 	FFoundrylinePlacedObject O=*Existing; O.Openings={R.Opening};
-	Status=Valid?TEXT("Click to install door"):*PlacementErrorText(Validation.Error);
-	ShowPreview(O,Valid,FString::Printf(TEXT("Door_%s_%d_%d_%d_%lld"),*R.ObjectId.ToString(),R.Opening.Edge,R.Opening.OffsetCm,int32(R.Opening.Kind),Placement->GetRevision()));
+	Status=Valid?(Tool==TEXT("LoadingBay")?TEXT("Click to place complete small flatbed bay"):Tool==TEXT("OfficeGlass")?TEXT("Click to glaze this office wall span / Doors remain clear"):TEXT("Click to install door")):*PlacementErrorText(Validation.Error);
+	ShowPreview(O,Valid,FString::Printf(TEXT("Door_%s_%d_%d_%d_%lld"),*R.ObjectId.ToString(),R.Opening.Edge,R.Opening.OffsetCm,int32(R.Opening.Kind)+100*R.Opening.LoadingTier,Placement->GetRevision()));
 }
 
 void AFoundrylineBuildSite::PreviewColumns(FIntVector Cursor)
@@ -443,13 +461,13 @@ void AFoundrylineBuildSite::ShowPreview(const FFoundrylinePlacedObject& O,bool V
 	const FString StateKey=Key+(Valid?TEXT("_Ready"):TEXT("_Blocked"));
  if(PreviewActor && PreviewKey==StateKey) return;
 	const bool HadFeedback=bHasPreviewFeedback;const auto Error=PreviewError;const FString Reason=DraftReason;
- HidePreview();bHasPreviewFeedback=HadFeedback;PreviewError=Error;DraftReason=Reason; PreviewActor=Render(O,true,Valid,Key.StartsWith(TEXT("Door_")),Key.StartsWith(TEXT("Columns_")),Key.StartsWith(TEXT("Office_Office")) || Key.StartsWith(TEXT("OfficeOpening_"))); PreviewKey=StateKey;
+ HidePreview();if(!O.Pavement.Polygons.IsEmpty()){LastPavementPreview=O;bPavementPreviewActive=true;}bHasPreviewFeedback=HadFeedback;PreviewError=Error;DraftReason=Reason; PreviewActor=Render(O,true,Valid,Key.StartsWith(TEXT("Door_"))||Key.StartsWith(TEXT("PavePaint_")),Key.StartsWith(TEXT("Columns_")),Key.StartsWith(TEXT("Office_Office")) || Key.StartsWith(TEXT("OfficeOpening_"))); PreviewKey=StateKey;
  if(const auto* D=Placement->FindDefinition(O.DefinitionId)) {PreviewBounds=FFoundrylineGrid::RotateBounds(D->Footprint,O.Anchor,O.QuarterTurns);bHasPreviewBounds=true;}
 }
 
 void AFoundrylineBuildSite::HidePreview()
 {
-	PreviewJoinLines.Reset();
+	PreviewJoinLines.Reset();bPavementPreviewActive=false;
 	if(IsValid(PreviewActor)) PreviewActor->Destroy();
 	bHasPreviewBounds=false;PreviewActor=nullptr; PreviewKey.Reset();bHasPreviewFeedback=false;DraftReason.Empty();
 }
@@ -458,6 +476,8 @@ AActor* AFoundrylineBuildSite::Render(const FFoundrylinePlacedObject& O,bool bPr
 {
 	const auto* Def=Placement->FindDefinition(O.DefinitionId);
 	if(!Def) return nullptr;
+ if(Def->FunctionId==TEXT("Pavement"))return RenderPavement(O,bPreview,bValid,bOpeningOnly);
+ if(Def->FunctionId==TEXT("ManufacturingSign"))return RenderManufacturingSign(O,bPreview,bValid);
 	auto* Actor=GetWorld()->SpawnActor<AActor>();
 	Actor->Tags.Add(TEXT("FoundrylinePropertyVisual"));
 	if(bPreview) Actor->Tags.Add(TEXT("FoundrylinePlacementPreview"));
@@ -478,10 +498,17 @@ AActor* AFoundrylineBuildSite::Render(const FFoundrylinePlacedObject& O,bool bPr
  if(!bPreview) for(const auto Key:{FName(TEXT("Wall")),FName(TEXT("Interior")),FName(TEXT("Metal"))})
  {
   auto* Base=Materials.FindRef(Key==TEXT("Interior")?FName(TEXT("Wall")):Key).Get();
+  const TCHAR* Finish=Key==TEXT("Wall")?TEXT("M_WallCladding"):Key==TEXT("Interior")?TEXT("M_InteriorFinish"):TEXT("M_ArchitecturalTrim");
+  const FString FinishPath=FString::Printf(TEXT("/Game/Foundryline/Construction/Materials/%s.%s"),Finish,Finish);
+  if(auto* Detailed=LoadObject<UMaterialInterface>(nullptr,*FinishPath))Base=Detailed;
   auto* Mat=UMaterialInstanceDynamic::Create(Base,Actor);
   Mat->SetVectorParameterValue(TEXT("Tint"),Key==TEXT("Wall")?O.Colors.Exterior:Key==TEXT("Interior")?O.Colors.Interior:O.Colors.Trim);
   Painted.Add(Key,Mat);
  }
+ if(!bPreview && Def->FunctionId==TEXT("BuildingShell")){
+  for(const auto Key:{FName(TEXT("Hardware")),FName(TEXT("Rubber"))}){auto* Parent=LoadObject<UMaterialInterface>(nullptr,Key==TEXT("Hardware")?TEXT("/Game/Foundryline/Construction/Materials/M_ArchitecturalTrim.M_ArchitecturalTrim"):TEXT("/Game/Foundryline/Construction/Materials/M_InteriorFinish.M_InteriorFinish"));if(Parent){auto* M=UMaterialInstanceDynamic::Create(Parent,Actor);M->SetVectorParameterValue(TEXT("Tint"),Key==TEXT("Hardware")?FLinearColor(.36f,.4f,.43f):FLinearColor(.025f,.03f,.035f));Painted.Add(Key,M);}}
+ }
+ if(!bPreview && Def->FunctionId==TEXT("BuildingShell"))if(auto* Concrete=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Construction/Materials/M_FoundationConcrete.M_FoundationConcrete")))Painted.Add(TEXT("Concrete"),Concrete);
 	TMap<FName,UInstancedStaticMeshComponent*> Groups;
 	auto Box=[&](FVector Center,FVector Size,FName Material,bool Collision=true,float Yaw=0.f)
 	{
@@ -549,9 +576,9 @@ auto Grass=[&](FVector Position)
 		{
 			if(Other.ObjectId==O.ObjectId) continue;
 			const auto* OD=Placement->FindDefinition(Other.DefinitionId); if(!OD) continue;
-			if(RoadOnly && !IsRoad(OD->FunctionId) && OD->FunctionId!=TEXT("Parking") && OD->FunctionId!=TEXT("FreightYard")) continue;
+			if(RoadOnly && !FFoundrylineDrivingLayout::IsPaved(OD->FunctionId)) continue;
 			const FVector P=FRotator(0,Other.QuarterTurns*90,0).UnrotateVector(World-FVector(Other.Anchor));
-			if(P.X>=0 && P.Y>=0 && P.X<OD->Footprint.Max.X && P.Y<OD->Footprint.Max.Y) return true;
+			if(P.X>=0 && P.Y>=0 && P.X<OD->Footprint.Max.X && P.Y<OD->Footprint.Max.Y && (Other.Pavement.Polygons.IsEmpty()||FFoundrylinePavementGeometry::Contains(Other.Pavement.Polygons,FVector2D(P)))) return true;
 		}
 		return false;
 	};
@@ -579,17 +606,7 @@ auto Grass=[&](FVector Position)
 	}
 	else if(!bOfficeOnly && (!bPreview || !bOpeningOnly)) Box({W/2,D/2,10},{W,D,20},(Building || Def->FunctionId==TEXT("Walkway"))?TEXT("Concrete"):TEXT("Asphalt"));
     if(Def->FunctionId==TEXT("Walkway")) return Actor;
-    if(bStarterProperty && Def->FunctionId==TEXT("Road2"))
-    {
-     auto* Mesh=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Factory/Meshes/Road/Ground/SM_Ground_400.SM_Ground_400"));
-     if(Mesh)
-     {
-      auto* C=NewObject<UInstancedStaticMeshComponent>(Actor);C->SetMobility(bPreview?EComponentMobility::Movable:EComponentMobility::Static);Actor->AddInstanceComponent(C);C->SetupAttachment(Root);C->SetStaticMesh(Mesh);
-      if(bPreview) C->SetMaterial(0,GhostMat);
-      C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCastShadow(false);C->RegisterComponent();
-      for(int32 X=0;X+400<=W;X+=400) for(int32 Y=0;Y+400<=D;Y+=400) C->AddInstance(FTransform(FVector(X,Y,20.05)));
-     }
-    }
+
 	if(!Building)
 	{
         if(Def->FunctionId==TEXT("FreightYard"))
@@ -707,6 +724,7 @@ auto Grass=[&](FVector Position)
 				for(float Y=50;Y<D;Y+=600)
 					if(!OccupiedOutside({W/2,Y+150,0},true) && !OccupiedOutside({-50,Y+150,0},true) && !OccupiedOutside({W+50,Y+150,0},true) && !O.Crosswalks.ContainsByPredicate([&](int32 C){return FMath::Abs(Y+150-C)<400;}))
 						for(float X:{375.f,W-375.f}) Box({X,Y+FMath::Min(300.f,D-Y)/2,20.15},{12,FMath::Min(300.f,D-Y),0.3},TEXT("White"),false);
+			const bool CurvedRoadside=!bPreview&&RenderRoadsideJoins(Actor,O);
 			for(float Y=0;Y<D;Y+=100)
 				for(int32 Side=0;Side<2;++Side)
 				{
@@ -723,6 +741,7 @@ auto Grass=[&](FVector Position)
 						Ramp->AddInstance(FTransform(FRotator(Side?-5.14f:5.14f,0,0).Quaternion(),{X,Y+50,28},{2.f,1.f,.02f}));
 						continue;
 					}
+					if(CurvedRoadside)continue;
 					const float X=Side?W+120.f:-120.f;
 					Box({X,Y+50,14},{200,100,28},TEXT("Concrete"));
 					Box({Side?W+10.f:-10.f,Y+50,10},{20,100,20},TEXT("Concrete"));
@@ -763,6 +782,22 @@ auto Grass=[&](FVector Position)
 			Exposed[Edge]=MoveTemp(Remaining);
 		}
 	}
+    // One post owns a straight, same-height facade seam. Ownership follows saved IDs,
+    // so neighbouring sections cannot produce twin corner posts on different peers.
+    auto NeighborOwnsSeam=[&](uint8 Edge,float Along,int Side)
+    {
+     for(const auto& Other:Placement->GetObjects())
+     {
+      if(Other.ObjectId==O.ObjectId || Other.CompanyId!=O.CompanyId || Other.PlantId!=O.PlantId || Other.bOfficeAnnex!=O.bOfficeAnnex || Other.Anchor.Z!=O.Anchor.Z || Other.ObjectId.ToString()>O.ObjectId.ToString())continue;
+      const auto* OD=Placement->FindDefinition(Other.DefinitionId);if(!OD || OD->FunctionId!=TEXT("BuildingShell") || OD->Footprint.Max.Z!=Def->Footprint.Max.Z)continue;
+      const auto B=FFoundrylineGrid::RotateBounds(OD->Footprint,Other.Anchor,Other.QuarterTurns);const FRotator R(0,O.QuarterTurns*90,0);
+      const FVector A=R.UnrotateVector(FVector(B.Min)-FVector(O.Anchor)),Z=R.UnrotateVector(FVector(B.Max)-FVector(O.Anchor)),Low=A.ComponentMin(Z),High=A.ComponentMax(Z);
+      const bool Coplanar=Edge==0?FMath::Abs(Low.Y)<.1:Edge==1?FMath::Abs(High.X-W)<.1:Edge==2?FMath::Abs(High.Y-D)<.1:FMath::Abs(Low.X)<.1;
+      const float End=Edge%2==0?(Side<0?High.X:Low.X):(Side<0?High.Y:Low.Y);
+      if(Coplanar && FMath::Abs(End-Along)<.1)return true;
+     }
+     return false;
+    };
 	for(const auto& Zone:O.OfficeAreas)
 	{
 		Box({(Zone.Min.X+Zone.Max.X)/2.,(Zone.Min.Y+Zone.Max.Y)/2.,21},{double(Zone.Max.X-Zone.Min.X),double(Zone.Max.Y-Zone.Min.Y),2},TEXT("OfficeFloor"),false);
@@ -850,14 +885,15 @@ auto Grass=[&](FVector Position)
 	}
 	if(bOfficeOnly) return Actor;
 	const float H=Def->Footprint.Max.Z-SlabHeightCm, T=WallThicknessCm;
-	auto EdgeBox=[&](uint8 Edge,float A,float B,float Bottom,float Top,FName Mat=TEXT("Wall"),float Depth=30.f,bool Collision=true)
+	auto EdgeBox=[&](uint8 Edge,float A,float B,float Bottom,float Top,FName Mat=TEXT("Wall"),float Depth=30.f,bool Collision=true,float Outset=0.f)
 	{
 		for(const auto& Span:Exposed[Edge])
 		{
 			const float Left=FMath::Max(A,float(Span.X)),Right=FMath::Min(B,float(Span.Y));
 			if(Right<=Left) continue;
 			const float U=(Left+Right)/2,Z=(Bottom+Top)/2+20;
-   const FVector Center=Edge%2==0?FVector(U,Edge==0?T/2:D-T/2,Z):FVector(Edge==3?T/2:W-T/2,U,Z);
+   const FVector FaceInward=Edge==0?FVector(0,1,0):Edge==1?FVector(-1,0,0):Edge==2?FVector(0,-1,0):FVector(1,0,0);
+   const FVector Center=(Edge%2==0?FVector(U,Edge==0?T/2:D-T/2,Z):FVector(Edge==3?T/2:W-T/2,U,Z))-FaceInward*Outset;
    const FVector Size=Edge%2==0?FVector(Right-Left,Depth,Top-Bottom):FVector(Depth,Right-Left,Top-Bottom);
    if(Mat==TEXT("Wall") && !bPreview)
    {
@@ -892,16 +928,22 @@ auto Grass=[&](FVector Position)
 			if(bPreview && bOpeningOnly) EdgeBox(Edge,A,B,Bottom,Top,TEXT("Preview"),50,false);
 			if(!bOpeningOnly) {EdgeBox(Edge,Cursor,A,0,H); EdgeBox(Edge,A,B,0,Bottom); EdgeBox(Edge,A,B,Top,H);}
 			Cursor=B;
-			const bool IsWindow=Opening.Kind==EFoundrylineOpeningKind::ShopWindow;
+			const bool IsWindow=Opening.IsGlazing();
 			const float Frame=IsWindow || O.bOfficeAnnex?6:12,FrameDepth=O.bOfficeAnnex?36:42;
 			EdgeBox(Edge,A-Frame,A+(IsWindow?Frame:0),Bottom,Top,TEXT("Metal"),FrameDepth);
 			EdgeBox(Edge,B-(IsWindow?Frame:0),B+Frame,Bottom,Top,TEXT("Metal"),FrameDepth);
 			EdgeBox(Edge,A-Frame,B+Frame,Top-(IsWindow?Frame:0),Top+Frame,TEXT("Metal"),FrameDepth);
-			if(Opening.Kind==EFoundrylineOpeningKind::ShopWindow)
+			if(Opening.IsGlazing())
 			{
 				EdgeBox(Edge,A-6,B+6,Bottom-6,Bottom+6,TEXT("Metal"),42);
 				EdgeBox(Edge,A+6,B-6,Bottom+6,Top-6,TEXT("Glass"),2);
-				EdgeBox(Edge,(A+B)/2-2,(A+B)/2+2,Bottom,Top,TEXT("Metal"),34);
+				const int Panels=Opening.Kind==EFoundrylineOpeningKind::OfficeGlassWall?FMath::Max(1,FMath::CeilToInt((B-A)/120)):2;
+                for(int I=1;I<Panels;++I){const float U=A+(B-A)*I/Panels;EdgeBox(Edge,U-2,U+2,Bottom,Top,TEXT("Metal"),34);}
+                // Exterior sill and drip cap are fixed-size flashings, independent of shell scale.
+                EdgeBox(Edge,A-9,B+9,Bottom-8,Bottom-4,TEXT("Metal"),22,false,20);
+                EdgeBox(Edge,A-10,B+10,Top+6,Top+10,TEXT("Metal"),26,false,20);
+                EdgeBox(Edge,A-10,B+10,Top+3,Top+10,TEXT("Metal"),3,false,32);
+
 			}
 			else if(Opening.Kind==EFoundrylineOpeningKind::Garage || Opening.Kind==EFoundrylineOpeningKind::TruckGarage || Opening.Kind==EFoundrylineOpeningKind::LoadingDock)
 			{
@@ -911,22 +953,24 @@ auto Grass=[&](FVector Position)
 			else DoorLeaf(Edge,A,B,{0,0},{W,D},O.bOfficeAnnex,Opening.OpeningId);
             if(Opening.Kind==EFoundrylineOpeningKind::LoadingDock)
             {
-             const float Along=(A+B)/2;
-             const FVector Outward=Edge==0?FVector(0,-1,0):Edge==1?FVector(1,0,0):Edge==2?FVector(0,1,0):FVector(-1,0,0);
-             const FVector WallPoint=Edge%2==0?FVector(Along,Edge==0?0:D,0):FVector(Edge==3?0:W,Along,0);
-             auto DockBox=[&](float Across,float Distance,float Z,float Width,float Depth,float Height,FName Finish,bool Collision=true)
-             {
-              FVector P=WallPoint+Outward*Distance+(Edge%2==0?FVector(Across,0,Z):FVector(0,Across,Z));
-              Box(P,Edge%2==0?FVector(Width,Depth,Height):FVector(Depth,Width,Height),Finish,Collision);
-             };
-             // Grade-level loading bay: no raised platform or internal ramp.
-             for(float Side:{-1.f,1.f})
-             {
-              DockBox(Side*190,10,100,25,20,160,TEXT("Metal"));
-              DockBox(Side*245,80,100,15,15,160,TEXT("Yellow"));
+             const auto S=FFoundrylineLoadingBayLayout::Spec(Opening.LoadingTier);
+             auto DockBox=[&](float Across,float Distance,float Z,float Width,float Depth,float Height,FName Finish,bool Collision=true){const auto P=FFoundrylineLoadingBayLayout::Point(*Def,Opening,Across,Distance,Z);Box(P,Edge%2==0?FVector(Width,Depth,Height):FVector(Depth,Width,Height),Finish,Collision);};
+             if(!Opening.LoadingTier){for(float Side:{-1.f,1.f}){DockBox(Side*190,10,100,25,20,160,TEXT("Metal"));DockBox(Side*245,80,100,15,15,160,TEXT("Yellow"));}for(float Across=-225;Across<=225;Across+=50)DockBox(Across,295,20.5,25,10,1,TEXT("Yellow"),false);DockBox(0,70,410,500,140,15,TEXT("Metal"));}
+             else {
+              // Integrated grade-level apron sits a fraction below existing pavement to avoid z-fighting.
+              DockBox(0,S.Depth*.5f,9.98f,S.Width,S.Depth,20,TEXT("Concrete"));
+              for(float Side:{-1.f,1.f}){const float Across=Side*(Opening.WidthCm()*.5f+70);DockBox(Across,80,32,40,40,24,TEXT("Concrete"));DockBox(Across,80,92,22,22,120,TEXT("Concrete"));DockBox(Across,80,154,28,28,8,TEXT("Metal"));DockBox(Across,80,122,24,24,14,TEXT("Yellow"),false);}
+              const float PaintZ=20.3f,TruckHalf=S.VehicleWidth*.5f+35,Rear=60,Front=Rear+S.VehicleLength;
+              for(float Side:{-1.f,1.f})DockBox(Side*TruckHalf,(Rear+Front)*.5f,PaintZ,10,Front-Rear,.3,TEXT("White"),false);
+              for(float Distance:{Rear,Front})DockBox(0,Distance,PaintZ,TruckHalf*2,10,.3,TEXT("White"),false);
+              // Hatching is reserved forklift access alongside the bed, fixed by the preset.
+              for(float Y=220;Y<S.Depth-140;Y+=110)for(float Side:{-1.f,1.f})DockBox(Side*(TruckHalf+(S.Width*.5f-TruckHalf)*.5f),Y,PaintZ,S.Width*.5f-TruckHalf-50,10,.3,TEXT("Yellow"),false);
+              const float ArrowY=S.Depth-100;DockBox(0,ArrowY-90,PaintZ,12,160,.3,TEXT("White"),false);for(float Side:{-1.f,1.f})for(int I=0;I<6;++I)DockBox(Side*I*10,ArrowY-I*12,PaintZ,14,14,.3,TEXT("White"),false);
+              if(bPreview&&Opening.LoadingTier==1){if(auto* Library=LoadObject<UFoundrylineFreightVehicleLibrary>(nullptr,TEXT("/Game/Foundryline/Logistics/DA_FreightVehicles.DA_FreightVehicles"))){const FRotator R(0,Edge==0?-180:Edge==1?-90:Edge==2?0:90,0);const auto Origin=FFoundrylineLoadingBayLayout::Point(*Def,Opening,0,453,20);auto GhostTruck=[&](UStaticMesh* Mesh,FVector Offset,FRotator MeshRotation){if(!Mesh)return;auto* C=NewObject<UStaticMeshComponent>(Actor);Actor->AddInstanceComponent(C);C->SetupAttachment(Root);C->SetMobility(EComponentMobility::Movable);C->SetStaticMesh(Mesh);C->SetRelativeLocationAndRotation(Origin+R.RotateVector(Offset),R+MeshRotation);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);for(int I=0;I<Mesh->GetStaticMaterials().Num();++I)C->SetMaterial(I,GhostMat);C->RegisterComponent();};const auto Offset=Library->BodyOffsets.IsValidIndex(1)?Library->BodyOffsets[1]:FVector::ZeroVector;const FRotator MR(0,Library->YawOffsets.IsValidIndex(1)?Library->YawOffsets[1]:0,0);if(Library->Bodies.IsValidIndex(1))GhostTruck(Library->Bodies[1],Offset,MR);if(Library->Beds.IsValidIndex(1))GhostTruck(Library->Beds[1],Offset,MR);for(int I=0;I<Library->StarterWheels.Num()&&I<Library->StarterWheelPositions.Num();++I)GhostTruck(Library->StarterWheels[I],Library->StarterWheelPositions[I],FRotator::ZeroRotator);}}
+              // Low wheel stops and wall guards stay outside the clear door opening.
+              for(float Side:{-1.f,1.f})DockBox(Side*(TruckHalf-35),100,30,40,35,20,TEXT("Metal"));
              }
-             for(float Across=-225;Across<=225;Across+=50) DockBox(Across,295,20.5,25,10,1,TEXT("Yellow"),false);
-             DockBox(0,70,410,500,140,15,TEXT("Metal"));
+
             }
 		}
 		if(!(bPreview && bOpeningOnly))
@@ -935,8 +979,8 @@ auto Grass=[&](FVector Position)
 			// The cap stands 2 cm proud of the wall so its top never z-fights the wall's top face.
 			EdgeBox(Edge,0,Edge%2==0?W:D,H-(O.bOfficeAnnex?10:19),H+2,TEXT("Metal"),O.bOfficeAnnex?38:46);
 			float BaseCursor=0;
-			const float BaseHeight=O.bOfficeAnnex?12:60,BaseDepth=O.bOfficeAnnex?34:44;
-			const FName BaseFinish=O.bOfficeAnnex?FName(TEXT("Metal")):FName(TEXT("Concrete"));
+			const float BaseHeight=O.bOfficeAnnex?20:60,BaseDepth=O.bOfficeAnnex?36:44;
+			const FName BaseFinish(TEXT("Concrete"));
 			for(const auto& Opening:Openings)
 			{
 				if(Opening.Kind==EFoundrylineOpeningKind::ShopWindow) continue;
@@ -948,18 +992,14 @@ auto Grass=[&](FVector Position)
 				const float Length=Edge%2==0?W:D;
 				// Slim corner casings and a continuous fascia suit a 3 m office;
 				// shop-sized concrete skirts and pilasters overwhelm its walls.
-				EdgeBox(Edge,0,8,0,H,TEXT("Metal"),34);
-				EdgeBox(Edge,Length-8,Length,0,H,TEXT("Metal"),34);
+				for(const auto& Span:Exposed[Edge]) {EdgeBox(Edge,Span.X,Span.X+8,0,H,TEXT("Metal"),34);EdgeBox(Edge,Span.Y-8,Span.Y,0,H,TEXT("Metal"),34);}
 			}
 			if(!O.bOfficeAnnex && H>=WallHeightCm)
 			{
 				const float Length=Edge%2==0?W:D;
-				for(float Bay:FFoundrylineFacadeLayout::Columns(Length,O.ColumnBayCm))
-				{
-                    float U=Bay;
-                    for(const auto& V:Openings) if(V.Kind==EFoundrylineOpeningKind::ShopWindow && U+28>V.OffsetCm-6 && U-28<V.OffsetCm+V.WidthCm()+6) U=V.OffsetCm-50;
-					const bool DoorGap=Openings.ContainsByPredicate([&](const auto& Opening){return Opening.Kind!=EFoundrylineOpeningKind::ShopWindow && U+30>Opening.OffsetCm && U-30<Opening.OffsetCm+Opening.WidthCm();});
-					if(DoorGap) continue;
+                for(const auto& Span:Exposed[Edge]) for(float U:FFoundrylineFacadeLayout::ColumnsForSpan(Length,O.ColumnBayCm,Span.X,Span.Y,Openings))
+                {
+                    if((FMath::IsNearlyEqual(U,float(Span.X)+30) && NeighborOwnsSeam(Edge,Span.X,-1)) || (FMath::IsNearlyEqual(U,float(Span.Y)-30) && NeighborOwnsSeam(Edge,Span.Y,1)))continue;
 					// Full-height pilasters sit beside glazing rather than ending at the sill.
 					EdgeBox(Edge,U-18,U+18,0,H,TEXT("Metal"),58);
 					EdgeBox(Edge,U-28,U+28,0,24,TEXT("Metal"),70);
@@ -969,6 +1009,16 @@ auto Grass=[&](FVector Position)
 
 		}
 	}
+ if(Building&&!bColumnsOnly){
+  TArray<FVector2D> KitExposed[4];for(int E=0;E<4;++E)KitExposed[E]=Exposed[E];
+  // Offices keep a structural partition against a shop, but its indoor face gets no exterior kit.
+  if(O.bOfficeAnnex)for(const auto& Neighbor:Placement->GetObjects()){if(Neighbor.ObjectId==O.ObjectId||Neighbor.CompanyId!=O.CompanyId||Neighbor.PlantId!=O.PlantId||Neighbor.bOfficeAnnex)continue;const auto* ND=Placement->FindDefinition(Neighbor.DefinitionId);if(!ND||ND->FunctionId!=TEXT("BuildingShell"))continue;const auto B=FFoundrylineGrid::RotateBounds(ND->Footprint,Neighbor.Anchor,Neighbor.QuarterTurns);const FRotator R(0,O.QuarterTurns*90,0);const auto A=R.UnrotateVector(FVector(B.Min)-FVector(O.Anchor)),Z=R.UnrotateVector(FVector(B.Max)-FVector(O.Anchor));FFoundrylineExteriorKit::ClipJoinedFaces(KitExposed,W,D,FVector2D(A.ComponentMin(Z)),FVector2D(A.ComponentMax(Z)));}
+  TMap<FName,TArray<FTransform>> Batches;for(const auto& Part:FFoundrylineExteriorKit::Generate(O,W,D,Def->Footprint.Max.Z,KitExposed)){
+   if(bOpeningOnly&&!(Part.Role.ToString().StartsWith(TEXT("Door"))||Part.Role.ToString().StartsWith(TEXT("Canopy"))||Part.Role==TEXT("DockBumper")||Part.Role==TEXT("BumperBolt")||Part.Role.ToString().StartsWith(TEXT("Roller"))||Part.Role==TEXT("Threshold")||Part.Role.ToString().StartsWith(TEXT("Lamp"))))continue;
+   Batches.FindOrAdd(Part.Finish).Add(FTransform(FQuat::Identity,Part.Center,Part.Size/100.));
+  }
+  for(auto& Pair:Batches){auto* C=NewObject<UInstancedStaticMeshComponent>(Actor);Actor->AddInstanceComponent(C);C->SetupAttachment(Root);C->SetMobility(bPreview?EComponentMobility::Movable:EComponentMobility::Static);C->SetStaticMesh(Cube);C->SetMaterial(0,bPreview?static_cast<UMaterialInterface*>(GhostMat):Painted.Contains(Pair.Key)?Painted[Pair.Key]:Materials.FindRef(Pair.Key).Get());C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->SetCastShadow(!bPreview);C->ComponentTags.Add(TEXT("FoundrylineExteriorKit"));C->ComponentTags.Add(Pair.Key);C->RegisterComponent();C->AddInstances(Pair.Value,false,false);}
+ }
  if(Building)
  {
   const float RoofZ=Def->Footprint.Max.Z;
@@ -1012,10 +1062,10 @@ auto Grass=[&](FVector Position)
     }
     StepBox(Cursor,R,Bottom,RoofZ,TEXT("Wall"));
     StepBox(L,R,Bottom,Bottom+16,TEXT("Metal"),46);StepBox(L,R,RoofZ-18,RoofZ,TEXT("Metal"),46);
-    if(!O.bOfficeAnnex && H>=WallHeightCm) for(float Bay:FFoundrylineFacadeLayout::Columns(E%2==0?W:D,O.ColumnBayCm))
+    StepBox(L,R,Bottom+20,Bottom+27,TEXT("Metal"),90);
+    StepBox(L,L+10,Bottom,RoofZ,TEXT("Metal"),46);StepBox(R-10,R,Bottom,RoofZ,TEXT("Metal"),46);
+    if(!O.bOfficeAnnex && H>=WallHeightCm) for(float U:FFoundrylineFacadeLayout::ColumnsForSpan(E%2==0?W:D,O.ColumnBayCm,L,R,Windows))
     {
-     float U=Bay;
-     for(const auto& V:Windows) if(U+28>V.OffsetCm-6 && U-28<V.OffsetCm+V.WidthCm()+6) U=V.OffsetCm-50;
      StepBox(U-18,U+18,Bottom,RoofZ,TEXT("Metal"),58);
      StepBox(U-28,U+28,RoofZ-30,RoofZ,TEXT("Metal"),70);
     }
@@ -1037,24 +1087,20 @@ auto Grass=[&](FVector Position)
     C=NewObject<UInstancedStaticMeshComponent>(Actor);C->SetMobility(bPreview?EComponentMobility::Movable:EComponentMobility::Static);Actor->AddInstanceComponent(C);C->SetupAttachment(Root);C->SetStaticMesh(Mesh);
     if(Material) C->SetMaterial(0,Material);
     if(RoofFinish && (Mesh->GetName().StartsWith(TEXT("SM_Roof_")) || Mesh->GetName()==TEXT("SM_Skylight_400"))) for(int32 Slot=0;Slot<FMath::Min(2,Mesh->GetStaticMaterials().Num());++Slot) C->SetMaterial(Slot,RoofFinish);
-    if(Mesh->GetName()==TEXT("SM_Skylight_400")) {C->SetAffectDistanceFieldLighting(false);C->SetVisibleInRayTracing(false);}
+    if(Mesh->GetName()==TEXT("SM_Skylight_400") || Material==Materials.FindRef(TEXT("Glass")).Get()) {C->SetAffectDistanceFieldLighting(false);C->SetVisibleInRayTracing(false);}
+    if(Mesh->GetName()==TEXT("SM_Skylight_400")||Material==Materials.FindRef(TEXT("Glass")).Get())C->ComponentTags.Add(TEXT("FoundrylineSkylight"));
     C->ComponentTags.Add(TEXT("FoundrylineRoof"));C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);
     C->SetCastShadow(Material!=Materials.FindRef(TEXT("Glass")).Get());C->SetVisibility(bRoofsVisible);C->RegisterComponent();
    }
    C->AddInstance(FTransform(FQuat::Identity,Position,Scale));
   };
-  auto* Panel=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Factory/Meshes/Roof/SM_Roof_400.SM_Roof_400"));
   auto* Skylight=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Buildings/Roofs/SM_Skylight_400.SM_Skylight_400"));
-  for(int32 X=0;X<W;X+=400) for(int32 Y=0;Y<D;Y+=400)
-  {
-   const float Width=FMath::Min(400.f,W-X),Depth=FMath::Min(400.f,D-Y);
-   if(Width==400 && Depth==400)
-   {
-    const bool Window=(X/400)%3==1 && (Y/400)%3==1;
-    // Vendor modules pivot at the maximum XY corner and keep native 1:1 scale.
-    AddRoof(Window?Skylight:Panel,FVector(X+400,Y+400,RoofZ),FVector::OneVector,Window?nullptr:Painted[TEXT("Metal")]);
-   }
-   else AddRoof(Cube,FVector(X+Width/2,Y+Depth/2,RoofZ+10),FVector(Width/100,Depth/100,.2),Painted[TEXT("Metal")]);
+  const auto Windows=FFoundrylineRoofLayout::Windows(O,W,D);
+  for(const auto& Solid:FFoundrylineRoofLayout::SolidPanels(W,D,Windows)){const auto Center=Solid.GetCenter(),Size=Solid.GetSize();AddRoof(Cube,FVector(Center,RoofZ+10),FVector(Size.X/100,Size.Y/100,.2),RoofFinish?static_cast<UMaterialInterface*>(RoofFinish):Painted[TEXT("Metal")]);}
+  for(const auto& Window:Windows){if(!Window.Office){AddRoof(Skylight,FVector(Window.Center+Window.Size/2,RoofZ),FVector::OneVector);continue;}
+   const auto C=Window.Center,S=Window.Size;auto Part=[&](double X,double Y,double Z,double SX,double SY,double SZ,UMaterialInterface* M){AddRoof(Cube,FVector(C.X+X,C.Y+Y,RoofZ+Z),FVector(SX/100,SY/100,SZ/100),M);};
+   for(float Sign:{-1.f,1.f}){Part(Sign*(S.X/2+2),0,30,4,S.Y+8,20,Painted[TEXT("Metal")]);Part(0,Sign*(S.Y/2+2),30,S.X,4,20,Painted[TEXT("Metal")]);Part(Sign*(S.X/2+8),0,20.8,16,S.Y+32,1.5,Painted[TEXT("Metal")]);Part(0,Sign*(S.Y/2+8),20.8,S.X,16,1.5,Painted[TEXT("Metal")]);}
+   Part(0,0,39.5,S.X,S.Y,1,Materials.FindRef(TEXT("Glass")).Get());if(S.X>S.Y)Part(0,0,40.5,3,S.Y,3,Painted[TEXT("Metal")]);else Part(0,0,40.5,S.X,3,3,Painted[TEXT("Metal")]);
   }
   AddCeilingLights(Actor,O,FVector(W,D,RoofZ));
  }
@@ -1082,7 +1128,8 @@ void AFoundrylineBuildSite::Changed(const FFoundrylinePlacementChange& Change)
 	if(Change.bHasCurrent)
 	{
 		Visuals.Add(Change.ObjectId,Render(Change.Current));
-		if(!Change.bHadPrevious || Change.Previous.Anchor!=Change.Current.Anchor || Change.Previous.DefinitionId!=Change.Current.DefinitionId)
+  if(!Change.Current.Pavement.Polygons.IsEmpty())ClearPavementGrass(Change.Current);
+		if(Change.Current.Pavement.Polygons.IsEmpty()&&(!Change.bHadPrevious || Change.Previous.Anchor!=Change.Current.Anchor || Change.Previous.DefinitionId!=Change.Current.DefinitionId))
 		{
 			const auto* Def=Placement->FindDefinition(Change.Current.DefinitionId);
 			const bool HasSidewalk=Def && (Def->FunctionId==TEXT("Road2") || Def->FunctionId==TEXT("Road4"));

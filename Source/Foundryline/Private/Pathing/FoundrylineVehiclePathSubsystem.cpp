@@ -1,3 +1,5 @@
+#include "Construction/FoundrylineLoadingBayLayout.h"
+#include "Construction/FoundrylinePavementGeometry.h"
 #include "Pathing/FoundrylineVehiclePathSubsystem.h"
 #include "Construction/FoundrylinePlacementSubsystem.h"
 #include "Engine/World.h"
@@ -31,6 +33,7 @@ TSharedPtr<const FFoundrylineDrivingMap,ESPMode::ThreadSafe> UFoundrylineVehicle
  for(const auto& O:P->GetObjects()) {
   const auto* D=P->FindDefinition(O.DefinitionId);if(!D || !FFoundrylineDrivingLayout::IsPaved(D->FunctionId)) continue;
   FFoundrylineDriveSurface S;S.Id=O.ObjectId;S.Function=D->FunctionId;S.Size={double(D->Footprint.Max.X),double(D->Footprint.Max.Y)};S.Transform=FTransform(FRotator(0,O.QuarterTurns*90,0),FVector(O.Anchor));
+  S.Pavement=O.Pavement;S.Centerline=FFoundrylinePavementGeometry::RoadPath(O.Pavement.RoadControls,O.Pavement.Spline);
   S.Public=O.CompanyId==FGuid(0xF001,99,1,1);
   for(const auto& Z:O.TruckZones) S.TruckZones.Add({FVector2D(Z.Min),FVector2D(Z.Max)});
   if(S.Function==TEXT("Parking")) {
@@ -43,6 +46,12 @@ TSharedPtr<const FFoundrylineDrivingMap,ESPMode::ThreadSafe> UFoundrylineVehicle
    FFoundrylineVehicleTarget T;T.Id=TargetId(O.ObjectId,1570,Y+200,2);T.SurfaceId=S.Id;T.Semi=true;T.Bay={{0,Y},{FFoundrylineDrivingLayout::TruckBayDepth,Y+400}};
    T.Pose.Position=S.World({1570,Y+200});T.Pose.Yaw=FMath::DegreesToRadians(O.QuarterTurns*90);T.Pose.TrailerYaw=T.Pose.Yaw;M->Targets.Add(T);
   }
+  if(S.Function==TEXT("Pavement"))for(const auto& Mark:O.Pavement.Markings){
+   if(Mark.Kind!=EFoundrylinePavementMark::Parking&&Mark.Kind!=EFoundrylinePavementMark::Loading||!FFoundrylinePavementGeometry::MarkingFits(O.Pavement,Mark))continue;
+   const auto A=Mark.Points[0],B=Mark.Points.Last(),F=(B-A).GetSafeNormal(),R=FVector2D(-F.Y,F.X);const double Length=FVector2D::Distance(A,B);const bool Parking=Mark.Kind==EFoundrylinePavementMark::Parking;const int Count=Parking?FMath::Clamp(FMath::FloorToInt(Length/274.32),1,64):1;
+   for(int I=0;I<Count;++I){const auto Base=A+F*(Parking?I*274.32:0);const double L=Parking?274.32:Length;FFoundrylineVehicleTarget T;T.Id=TargetId(Mark.Id,I,0,Parking?3:4);T.SurfaceId=S.Id;T.Semi=!Parking;T.Footprint={Base,Base+F*L,Base+F*L+R*Mark.WidthCm,Base+R*Mark.WidthCm};FBox2D Bounds(ForceInit);for(const auto Corner:T.Footprint)Bounds+=Corner;T.Bay={Bounds.Min,Bounds.Max};
+    const auto Position=Parking?Base+F*(L/2)+R*400:Base+F*(L-750)+R*(Mark.WidthCm/2);const auto Direction=Parking?-R:F;T.Pose.Position=S.World(Position);T.Pose.Yaw=FMath::Atan2(Direction.Y,Direction.X)+FMath::DegreesToRadians(O.QuarterTurns*90);T.Pose.TrailerYaw=T.Pose.Yaw;M->Targets.Add(T);}
+  }
   M->Surfaces.Add(S);
  }
  for(const auto& O:P->GetObjects()) {
@@ -52,13 +61,14 @@ TSharedPtr<const FFoundrylineDrivingMap,ESPMode::ThreadSafe> UFoundrylineVehicle
    const FVector2D Point=Door.Edge==0?FVector2D(Along,0):Door.Edge==1?FVector2D(D->Footprint.Max.X,Along):Door.Edge==2?FVector2D(Along,D->Footprint.Max.Y):FVector2D(0,Along);
    const float Yaw=Door.Edge==0?-90:Door.Edge==1?0:Door.Edge==2?90:180;
    const FTransform T(FRotator(0,O.QuarterTurns*90,0),FVector(O.Anchor));const auto W=T.TransformPosition(FVector(Point,0));
-   FFoundrylineVehicleTarget Goal;Goal.Id=Door.OpeningId;Goal.SurfaceId=O.ObjectId;Goal.Semi=true;Goal.Loading=true;Goal.Bay={{-Door.WidthCm()/2.,-50},{Door.WidthCm()/2.,50}};Goal.Pose.Yaw=FMath::DegreesToRadians(Yaw+O.QuarterTurns*90);Goal.Pose.TrailerYaw=Goal.Pose.Yaw;
-   Goal.Pose.Position=FVector2D(W.X,W.Y)+FVector2D(FMath::Cos(Goal.Pose.Yaw),FMath::Sin(Goal.Pose.Yaw))*1570;M->Targets.Add(Goal);
+   if(Door.LoadingTier){const auto S=FFoundrylineLoadingBayLayout::Spec(Door.LoadingTier);FFoundrylineDriveSurface Apron;Apron.Id=FFoundrylineLoadingBayLayout::SurfaceId(Door.OpeningId);Apron.Function=TEXT("Pavement");const float Angle=Yaw+O.QuarterTurns*90-90;const auto Corner=T.TransformPosition(FFoundrylineLoadingBayLayout::Point(*D,Door,S.Width/2,0));Apron.Transform=FTransform(FRotator(0,Angle,0),Corner);Apron.Size={S.Width,S.Depth};Apron.Pavement.Curbs=false;Apron.TruckZones.Add({{0,0},Apron.Size});Apron.Pavement.Polygons=FFoundrylinePavementGeometry::Rectangle({0,0},Apron.Size);M->Surfaces.Add(Apron);}
+   FFoundrylineVehicleTarget Goal;Goal.LoadingTier=Door.LoadingTier;Goal.LoadingOffset=FFoundrylineLoadingBayLayout::Spec(Door.LoadingTier).AxleOffset;Goal.Id=Door.OpeningId;Goal.SurfaceId=O.ObjectId;Goal.Semi=true;Goal.Loading=true;Goal.Bay={{-Door.WidthCm()/2.,-50},{Door.WidthCm()/2.,50}};Goal.Pose.Yaw=FMath::DegreesToRadians(Yaw+O.QuarterTurns*90);Goal.Pose.TrailerYaw=Goal.Pose.Yaw;
+   Goal.Pose.Position=FVector2D(W.X,W.Y)+FVector2D(FMath::Cos(Goal.Pose.Yaw),FMath::Sin(Goal.Pose.Yaw))*Goal.LoadingOffset;M->Targets.Add(Goal);
   }
  }
  for(auto& Target:M->Targets) {
-  Target.LayoutClear=FFoundrylineVehiclePath::PoseClear(*M,Target.Semi?FFoundrylineVehicleProfile::Truck():FFoundrylineVehicleProfile::Car(),Target.Pose,false,Target.Id);
-  if(Target.Semi) {const auto V=FFoundrylineVehicleProfile::BoxTruck();Target.SmallTruckClear=FFoundrylineVehiclePath::PoseClear(*M,V,FFoundrylineVehiclePath::TargetPose(Target,V),false,Target.Id);}
+  Target.LayoutClear=FFoundrylineVehiclePath::PoseClear(*M,Target.LoadingTier==1?FFoundrylineVehicleProfile::SmallFlatbed():Target.LoadingTier==2?FFoundrylineVehicleProfile::BoxTruck():Target.Semi?FFoundrylineVehicleProfile::Truck():FFoundrylineVehicleProfile::Car(),Target.Pose,false,Target.Id);
+  if(Target.Semi) {const auto V=Target.LoadingTier==1?FFoundrylineVehicleProfile::SmallFlatbed():FFoundrylineVehicleProfile::BoxTruck();Target.SmallTruckClear=FFoundrylineVehiclePath::PoseClear(*M,V,FFoundrylineVehiclePath::TargetPose(Target,V),false,Target.Id);}
  }
  Cached=M;
  for(auto It=OccupiedTargets.CreateIterator();It;++It) if(!M->Targets.ContainsByPredicate([&](const auto& T){return T.Id==It.Key();})) It.RemoveCurrent();
@@ -70,3 +80,4 @@ FString UFoundrylineVehiclePathSubsystem::GetDrivingDigest() {const auto M=GetMa
 bool UFoundrylineVehiclePathSubsystem::ReserveTarget(FGuid Target,FGuid Vehicle) {if(GetWorld()->GetNetMode()==NM_Client || !Vehicle.IsValid() || !GetMap()->Targets.ContainsByPredicate([&](const auto& T){return T.Id==Target;})) return false;const auto* Owner=OccupiedTargets.Find(Target);if(Owner && *Owner!=Vehicle) return false;OccupiedTargets.Add(Target,Vehicle);return true;}
 void UFoundrylineVehiclePathSubsystem::ReleaseTarget(FGuid Target,FGuid Vehicle) {if(GetWorld()->GetNetMode()==NM_Client) return;if(const auto* Owner=OccupiedTargets.Find(Target);Owner && *Owner==Vehicle) OccupiedTargets.Remove(Target);}
 bool UFoundrylineVehiclePathSubsystem::IsTargetAvailable(FGuid Target) const {return !OccupiedTargets.Contains(Target);}
+// Loading apron origin is the positive-side corner; the local X axis runs across the bay.

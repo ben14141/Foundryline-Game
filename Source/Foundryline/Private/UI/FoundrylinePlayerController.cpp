@@ -1,4 +1,6 @@
+#include "FoundrylineBuildCatalog.h"
 #include "UI/FoundrylinePlayerController.h"
+#include "UI/FoundrylineBuildHUD.h"
 #include "Components/InputComponent.h"
 #include "World/FoundrylineViewMath.h"
 #include "Construction/FoundrylineBuildSite.h"
@@ -39,6 +41,7 @@ void AFoundrylinePlayerController::BeginPlay()
 
 void AFoundrylinePlayerController::EndPlay(const EEndPlayReason::Type Reason)
 {
+ if(SignNameWidget.IsValid())FinishSignName(TEXT(""),false);
  // Logout destroys only the possessed pawn; also remove the parked camera or walker.
  if(HasAuthority() && Reason==EEndPlayReason::Destroyed) for(APawn* Spare:{BuildCamera.Get(),static_cast<APawn*>(Walker.Get())}) if(IsValid(Spare) && Spare!=GetPawn()) Spare->Destroy();
  Super::EndPlay(Reason);
@@ -62,9 +65,20 @@ void AFoundrylinePlayerController::SetupInputComponent()
 
 bool AFoundrylinePlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
+ if(SignNameWidget.IsValid())return Super::InputKey(Params);
+ if(auto* H=Cast<AFoundrylineBuildHUD>(GetHUD());H&&HandleFoundrylineBuildCatalogInput(H,this,Params))return true;
+ if(auto* H=Cast<AFoundrylineBuildHUD>(GetHUD());H&&H->HandlePlanningWheelInput(Params))return true;
+ if(HandlePavementInput(Params))return true;
  if(HandleOperationsInput(Params))return true;
+ if(HandlePlannerInput(Params))return true;
  if(HandleFactoryInput(Params))return true;
  if(HandleMaterialInput(Params)) return true;
+ if(IsLocalController()&&!IsWalking()&&Params.Event==IE_Pressed&&Params.Key==EKeys::Delete&&!bConstructionPending)
+ {
+  if(PlannerKind){PlannerAction(TEXT("Delete"));return true;}
+  for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)if(It->GetSelectedObject()&&!It->IsPropertyBusy()){It->CommitEdit(TEXT("Demolish"),FIntVector::ZeroValue,FIntVector::ZeroValue);return true;}
+ }
+
  if(HandleFreightInput(Params)) return true;
 	// Handle pointer events while SceneViewport still holds that event's coordinates.
 	// Deferred action delegates can otherwise see the release position for both ends.
@@ -135,21 +149,30 @@ void AFoundrylinePlayerController::ServerUseDoor_Implementation(FGuid ObjectId,F
 
 void AFoundrylinePlayerController::ChooseTool(FName Tool)
 {
+ // Construction tools own world clicks; never leave an equipment menu intercepting them.
+ if(!Tool.IsNone()){if(FactoryMachine)OpenFactoryComputer(0);bFactoryMenu=false;FactoryTool=NAME_None;bFactoryDragging=false;}
+
 	BuildTool = Tool;
+ PavePoints.Reset();PaveAwaitBend=false;bPaveDirectDrag=false;PaveSweepLines.Reset();PaveSweepKey.Reset();
  // Every newly selected pavement tool draws an area, even after legacy presets.
  if(FFoundrylineSizing::Surface(Tool)) bExactSurface=false;
  ApplySurfaceDraft();
 	bDraggingBuild = false;
-	ActiveSnap = EFoundrylineSnap::Structural100cm;
+	ActiveSnap = IsPavementTool()?EFoundrylineSnap::Fine25cm:EFoundrylineSnap::Structural100cm;
 	bShowPlanningGrid = !Tool.IsNone() && Tool!=TEXT("Select");
 	for (TActorIterator<AFoundrylineBuildSite> It(GetWorld()); It; ++It)
 	{
-		It->HidePreview();It->ClearConstructionFeedback(); if(!Tool.IsNone() && !AFoundrylineBuildSite::IsEditTool(Tool)) It->SelectedObject.Invalidate();
+		It->HidePreview();It->ClearConstructionFeedback(); if(!Tool.IsNone() && !AFoundrylineBuildSite::IsEditTool(Tool)&&Tool!=TEXT("PaveEdit")&&Tool!=TEXT("PaveInsert")&&Tool!=TEXT("PaveRemovePoint")) It->SelectedObject.Invalidate();
 		if(AFoundrylineBuildSite::IsEditTool(Tool)) {It->Status=TEXT("Select: click a section. Move: drag it. Resize: drag a corner or the middle of a wall. Remove: click; Z restores.");break;}
-		if(Tool==TEXT("Columns")) {It->Status=TEXT("Click inside a Tier 2 shop to cycle column bays: 4 / 6 / 8 m. Z undoes."); break;}
+		if(Tool==TEXT("PaveSpline")){It->Status=TEXT("Click road points. Enter finishes; Backspace removes a point.");break;}
+        if(Tool==TEXT("PaveRoad")){It->Status=TEXT("Choose a road preset. Click start and end, or drag. R switches curves.");break;}
+        if(Tool==TEXT("PavePolygon")){It->Status=TEXT("Click each corner. Enter finishes; Backspace removes a corner.");break;}
+        if(Tool==TEXT("PaveEdit")){It->Status=TEXT("Click pavement or paint. Drag handles to adjust it.");break;}
+        if(Tool==TEXT("Columns")) {It->Status=TEXT("Click inside a Tier 2 shop to cycle column bays: 4 / 6 / 8 m. Z undoes."); break;}
 		It->Status = Tool.IsNone() ? TEXT("Choose a construction tool") :
-			(Tool == TEXT("Personnel") || Tool == TEXT("Garage") || Tool == TEXT("TruckDoor") || Tool==TEXT("LoadingDock")) ? TEXT("Point at an existing wall, then click to install") : TEXT("Hold left mouse and drag. Release to build. Right-click cancels.");
+			(Tool == TEXT("Personnel") || Tool == TEXT("Garage") || Tool == TEXT("TruckDoor") || Tool==TEXT("LoadingDock") || Tool==TEXT("LoadingBay") || Tool==TEXT("OfficeGlass")) ? TEXT("Point at an existing wall, then click to install") : TEXT("Hold left mouse and drag. Release to build. Right-click cancels.");
 		if(bExactSurface && FFoundrylineSizing::Surface(Tool)) It->Status=TEXT("Click once to place. R rotates. Right-click cancels.");
+		if(Tool==TEXT("Sign")) It->Status=TEXT("Click to place a company sign / R rotates / Right-click cancels");
 		if(Tool==TEXT("Building") || Tool==TEXT("Shop2") || Tool==TEXT("OfficeArea")) It->Status=TEXT("Drag to draw. Start inside a building and drag out past a wall to extend it.");
 		break;
 	}
@@ -157,13 +180,19 @@ void AFoundrylinePlayerController::ChooseTool(FName Tool)
 
 bool AFoundrylinePlayerController::IsOverBuildHUD() const
 {
+ if(!IsWalking()&&bPropertyViewAccess)if(auto* H=Cast<AFoundrylineBuildHUD>(GetHUD()))return FoundrylineBuildCatalogOverUI(H,this);
  if(bFactoryMenu)return FactoryOverHUD();
+ if(const auto* H=Cast<AFoundrylineBuildHUD>(GetHUD());H&&H->IsOverPlanningWheel())return true;
 	float X=0, Y=0;
 	int32 Width=0, Height=0; GetViewportSize(Width,Height);
 	if(!GetMousePosition(X,Y)) return false;
  if(Width<=0 || Height<=0) return false;
  if(BuildHUDCanvasSize.X>0 && BuildHUDCanvasSize.Y>0) {X*=BuildHUDCanvasSize.X/Width;Y*=BuildHUDCanvasSize.Y/Height;Width=FMath::RoundToInt32(BuildHUDCanvasSize.X);Height=FMath::RoundToInt32(BuildHUDCanvasSize.Y);}
  const float S=FMath::Min(1.5f,Height/1320.f);
+ if(!IsWalking()&&!bLogisticsOverlay&&PavePanelBounds.bIsValid&&PavePanelBounds.IsInside(FVector2D(X,Y)))return true;
+ bool SignSelected=false;for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)if(const auto* O=It->GetSelectedObject())SignSelected=O->DefinitionId==TEXT("ManufacturingSign");
+ if(!IsWalking()&&bPropertyViewAccess&&(SignSelected||PlannerKind||(FactoryPlant()&&FactoryPlant()->Snapshot.Machines.ContainsByPredicate([](const auto& M){return M.bStored;})))&&X>Width-400*S&&X<Width-24*S&&Y>280*S&&Y<850*S)return true;
+
  if(FactoryPlant()&&X>Width-210.f*Height/1080.f&&Y>=186.f*Height/1080.f&&Y<=230.f*Height/1080.f)return true;
  if(X>=700*S && X<=950*S && Y>=Height-60*S && Y<=Height-18*S) return true;
  if(X>=440*S && X<=670*S && Y>=Height-60*S && Y<=Height-18*S) return true;
@@ -191,7 +220,14 @@ bool AFoundrylinePlayerController::GetCursorAnchor(FIntVector& OutAnchorCm) cons
 	if (!IsLocalController()) return false;
 	FVector Origin, Direction;
 	if (!DeprojectMousePositionToWorld(Origin, Direction)) return false;
-	if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock") || BuildTool==TEXT("MoveDoor") || BuildTool==TEXT("RoomDoor") || BuildTool==TEXT("RoomWindow"))
+ bool PavementPlane=IsPavementTool()||bPaveDirectDrag;if(!PavementPlane&&AFoundrylineBuildSite::IsEditTool(BuildTool))for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)if(const auto* O=It->GetSelectedObject())PavementPlane=!O->Pavement.Polygons.IsEmpty();
+ if(PavementPlane&&FMath::Abs(Direction.Z)>.0001f){const double Distance=(20-Origin.Z)/Direction.Z;if(Distance<=0)return false;const bool Ok=FFoundrylineGrid::SnapWorld(Origin+Direction*Distance,GetPlacementSnap(),OutAnchorCm);OutAnchorCm.Z=0;return Ok;}
+ bool OpeningDrag=false;for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It){OpeningDrag=It->GetSelectedOpening()!=nullptr;break;}
+ if((BuildTool.IsNone()||AFoundrylineBuildSite::IsEditTool(BuildTool))&&(!bDraggingBuild||BuildTool==TEXT("MoveDoor")||OpeningDrag))
+ {
+  FHitResult Hit;if(GetWorld()->LineTraceSingleByChannel(Hit,Origin,Origin+Direction*500000.f,ECC_Visibility))return FFoundrylineGrid::SnapWorld(FVector(Hit.ImpactPoint.X,Hit.ImpactPoint.Y,0),EFoundrylineSnap::Precision10cm,OutAnchorCm);
+ }
+	if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock") || BuildTool==TEXT("LoadingBay") || BuildTool==TEXT("OfficeGlass") || BuildTool==TEXT("MoveDoor") || BuildTool==TEXT("RoomDoor") || BuildTool==TEXT("RoomWindow"))
 	{
 		FHitResult Hit;
 		if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + Direction * 500000.f, ECC_Visibility))
@@ -209,6 +245,14 @@ void AFoundrylinePlayerController::SelectCell()
 	FIntVector Anchor;
 	if (!GetCursorAnchor(Anchor)) return;
  if(bLogisticsEdit) {LogisticsClick(Anchor);return;}
+ if(BuildTool==TEXT("Sign")){for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It){It->BuildRectangle(TEXT("Sign"),Anchor,Anchor);break;}return;}
+ if(BuildTool.IsNone()||BuildTool==TEXT("Select")||BuildTool==TEXT("Move")||BuildTool==TEXT("Demolish"))
+ {
+  bool Opening=false;for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It){It->BeginEdit(TEXT("Select"),Anchor);Opening=It->GetSelectedOpening()!=nullptr;break;}
+  if(!Opening&&SelectPlannerItem(Anchor)){for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)It->SelectedObject.Invalidate();if(BuildTool==TEXT("Move"))StartPlannerMove(Anchor,true);else if(BuildTool==TEXT("Demolish"))PlannerAction(TEXT("Delete"));return;}
+  PlannerKind=PlannerId=0;PlannerItemName.Reset();
+ }
+
  if(bExactSurface && FFoundrylineSizing::Surface(BuildTool)) {ApplySurfaceDraft();for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It) {It->BuildRectangle(BuildTool,Anchor,ExactSurfaceEnd(Anchor));break;}return;}
 	if(BuildTool==TEXT("Columns"))
 	{
@@ -223,7 +267,7 @@ void AFoundrylinePlayerController::SelectCell()
 			if(AFoundrylineBuildSite::IsEditTool(BuildTool)) {if(It->BeginEdit(BuildTool,Anchor)) {DragStart=DragEnd=Anchor;bDraggingBuild=true;}}
 			else if(BuildTool==TEXT("Landscape") || BuildTool==TEXT("Crosswalk")) It->ApplyGroundTool(BuildTool,Anchor);
 			else if(BuildTool==TEXT("RoomDoor") || BuildTool==TEXT("RoomWindow")) It->OfficeOpening(BuildTool,Anchor);
-			else if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock")) It->PlaceDoor(BuildTool, Anchor);
+			else if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock") || BuildTool==TEXT("LoadingBay") || BuildTool==TEXT("OfficeGlass")) It->PlaceDoor(BuildTool, Anchor);
 			else { DragStart = DragEnd = Anchor; bDraggingBuild = true; }
 			return;
 		}
@@ -250,7 +294,7 @@ void AFoundrylinePlayerController::ReleaseBuild()
 	{
 		if (!IsOverBuildHUD())
 		{
-			if(AFoundrylineBuildSite::IsEditTool(BuildTool)) It->CommitEdit(BuildTool,DragStart,End);
+			if(AFoundrylineBuildSite::IsEditTool(BuildTool)){const bool Upgrade=BuildTool==TEXT("UpgradeBay");if(It->CommitEdit(BuildTool,DragStart,End)&&Upgrade)ChooseTool(TEXT("Select"));}
 			else if(BuildTool==TEXT("OfficeArea") || BuildTool==TEXT("OfficeRoom")) It->OfficeRectangle(BuildTool,DragStart,End);
 			else It->BuildRectangle(BuildTool, DragStart, End);
 		}
@@ -270,6 +314,7 @@ void AFoundrylinePlayerController::PlayerTick(float DeltaSeconds)
  if(IsWalking()) return;
  if(IsLocalController() && bLogisticsOverlay) {if(bTripPlaying) TripPreviewClock+=DeltaSeconds;if(bNetworkPlaying) NetworkClock+=DeltaSeconds;DrawLogistics();}
  if(IsLocalController() && bLogisticsEdit) return;
+ if(IsLocalController()&&(bPaveDirectDrag||(IsPavementTool()&&!AFoundrylineBuildSite::IsEditTool(BuildTool)))){TickPavement();return;}
 	if (IsLocalController())
 	{
 		FIntVector BuildAnchor;
@@ -279,17 +324,21 @@ void AFoundrylinePlayerController::PlayerTick(float DeltaSeconds)
             It->SelectionOutlines.Reset();
             if(!IsWalking()) It->RecordSelection(FIntVector::ZeroValue,false);
             if(!IsWalking() && HasCursor && (BuildTool.IsNone() || AFoundrylineBuildSite::IsEditTool(BuildTool)) && !bDraggingBuild) It->RecordSelection(SelectionCursor,true);
-            if (It->IsPropertyBusy() || BuildTool.IsNone() || IsOverBuildHUD() || !GetCursorAnchor(BuildAnchor)) It->HidePreview();
-			else if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock")) It->PreviewDoor(BuildTool, BuildAnchor);
+            if(BuildTool==TEXT("UpgradeBay")&&!It->IsPropertyBusy())It->PreviewEdit(BuildTool,FIntVector::ZeroValue,FIntVector::ZeroValue);
+            else if (It->IsPropertyBusy() || BuildTool.IsNone() || IsOverBuildHUD() || !GetCursorAnchor(BuildAnchor)) It->HidePreview();
+			else if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock") || BuildTool==TEXT("LoadingBay") || BuildTool==TEXT("OfficeGlass")) It->PreviewDoor(BuildTool, BuildAnchor);
 			else if(BuildTool==TEXT("Columns")) It->PreviewColumns(BuildAnchor);
 			else if(BuildTool==TEXT("Landscape") || BuildTool==TEXT("Crosswalk")) It->ApplyGroundTool(BuildTool,BuildAnchor,true);
 			else if(BuildTool==TEXT("RoomDoor") || BuildTool==TEXT("RoomWindow")) It->OfficeOpening(BuildTool,BuildAnchor,true);
+			else if(BuildTool==TEXT("Sign"))It->PreviewRectangle(TEXT("Sign"),BuildAnchor,BuildAnchor);
 			else if (bDraggingBuild) { DragEnd=BuildAnchor; if(AFoundrylineBuildSite::IsEditTool(BuildTool)) It->PreviewEdit(BuildTool,DragStart,DragEnd);else if(BuildTool==TEXT("OfficeArea") || BuildTool==TEXT("OfficeRoom")) It->OfficeRectangle(BuildTool,DragStart,DragEnd,true);else It->PreviewRectangle(BuildTool, DragStart, DragEnd); }
 			else if(bExactSurface && FFoundrylineSizing::Surface(BuildTool)) It->PreviewRectangle(BuildTool,BuildAnchor,ExactSurfaceEnd(BuildAnchor));
             else if(BuildTool!=TEXT("Select")) It->HidePreview();
 			break;
 		}
 	}
+ if(PaveVehicle>=0)for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It){const auto* O=It->bPavementPreviewActive?&It->LastPavementPreview:It->GetSelectedObject();if(O&&O->Pavement.Lanes){TArray<FVector2D> Controls;const FTransform T(FRotator(0,O->QuarterTurns*90,0),FVector(O->Anchor));for(const auto V:O->Pavement.RoadControls)Controls.Add(FVector2D(T.TransformPosition(FVector(V,0))));UpdatePavementSweep(Controls,O->Pavement.RoadWidthCm,O->Pavement.Curbs,O->Pavement.Lanes);}else PaveSweepLines.Reset();break;}
+ FIntVector PlannerCursor;const bool HasPlannerCursor=!IsOverBuildHUD()&&GetCursorAnchor(PlannerCursor);TickPlannerSelection(HasPlannerCursor,PlannerCursor);
 }
 
 void AFoundrylinePlayerController::TryStartAtOffice(){if(!HasAuthority())return;if(!bNeedsOfficeSpawn||IsWalking()){GetWorldTimerManager().ClearTimer(OfficeStartupTimer);return;}if(!GetPawn())return;auto* Plant=FactoryPlant();if(GetWorld()->GetTimeSeconds()>10&&(!Plant||!Plant->bCutPartsStarter)){bNeedsOfficeSpawn=false;GetWorldTimerManager().ClearTimer(OfficeStartupTimer);return;}for(TActorIterator<AFoundrylineOperationsTerminal> It(GetWorld());It;++It)if(Plant&&It->Terminal==1&&It->PlantId==Plant->BusinessPlantId){ServerToggleWalk_Implementation();if(IsWalking())GetWorldTimerManager().ClearTimer(OfficeStartupTimer);break;}}

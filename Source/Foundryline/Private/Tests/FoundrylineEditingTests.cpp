@@ -60,7 +60,7 @@ bool FFoundrylineJunctionTest::RunTest(const FString& Parameters)
  FHitResult Hit;
  TestFalse(TEXT("No curb barrier through junction"),W->LineTraceSingleByChannel(Hit,{3600,-2500,30},{3800,-2500,30},ECC_Visibility));
  int32 Cover=0;
- for(TActorIterator<AActor> It(W);It;++It) {TInlineComponentArray<UInstancedStaticMeshComponent*> Cs;It->GetComponents(Cs);for(auto* C:Cs) if(C->GetMaterial(0) && C->GetMaterial(0)->GetName()==TEXT("M_Asphalt")) for(int32 I=0;I<C->GetInstanceCount();++I) {FTransform T;C->GetInstanceTransform(I,T,true);const auto Local=T.InverseTransformPosition({3230,-2470,10});if(Local.GetAbs().GetMax()<49.99) ++Cover;}}
+ for(TActorIterator<AActor> It(W);It;++It) {TInlineComponentArray<UInstancedStaticMeshComponent*> Cs;It->GetComponents(Cs);for(auto* C:Cs) if(C->GetMaterial(0) && C->GetMaterial(0)->GetName()==TEXT("M_PavementAsphalt")) for(int32 I=0;I<C->GetInstanceCount();++I) {FTransform T;C->GetInstanceTransform(I,T,true);const auto Local=T.InverseTransformPosition({3230,-2470,10});if(Local.GetAbs().GetMax()<49.99) ++Cover;}}
  TestEqual(TEXT("Single asphalt surface at intersection avoids z fighting"),Cover,1);
  const auto Revision=P->GetRevision();S->ApplyGroundTool(TEXT("Crosswalk"),{3200,-3500,0},true);TestEqual(TEXT("Crosswalk preview leaves state intact"),P->GetRevision(),Revision);
  TestTrue(TEXT("Crosswalk placement"),S->ApplyGroundTool(TEXT("Crosswalk"),{3200,-3500,0}));
@@ -128,7 +128,7 @@ bool FFoundrylineOfficeTest::RunTest(const FString& Parameters)
  auto WallsAt=[&](FVector Point)
  {
   int32 Count=0;
-  for(TActorIterator<AActor> It(W);It;++It) if(!It->IsActorBeingDestroyed() && !It->ActorHasTag(TEXT("FoundrylinePlacementPreview"))) {TInlineComponentArray<UInstancedStaticMeshComponent*> Cs;It->GetComponents(Cs);for(auto* C:Cs) if(C->GetMaterial(0) && C->GetMaterial(0)->GetBaseMaterial()->GetName()==TEXT("M_Wall")) for(int32 I=0;I<C->GetInstanceCount();++I) {FTransform T;C->GetInstanceTransform(I,T,true);if(T.InverseTransformPosition(Point).GetAbs().GetMax()<49.99) ++Count;}}
+  for(TActorIterator<AActor> It(W);It;++It) if(!It->IsActorBeingDestroyed() && !It->ActorHasTag(TEXT("FoundrylinePlacementPreview"))) {TInlineComponentArray<UInstancedStaticMeshComponent*> Cs;It->GetComponents(Cs);for(auto* C:Cs) if(C->GetMaterial(0) && (C->GetMaterial(0)->GetBaseMaterial()->GetName()==TEXT("M_Wall") || C->GetMaterial(0)->GetBaseMaterial()->GetName()==TEXT("M_WallCladding") || C->GetMaterial(0)->GetBaseMaterial()->GetName()==TEXT("M_InteriorFinish"))) for(int32 I=0;I<C->GetInstanceCount();++I) {FTransform T;C->GetInstanceTransform(I,T,true);if(T.InverseTransformPosition(Point).GetAbs().GetMax()<49.99) ++Count;}}
   return Count;
  };
  TestEqual(TEXT("Exactly one wall at reused outer perimeter"),WallsAt({5215,-1900,120}),1);

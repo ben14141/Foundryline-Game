@@ -1,3 +1,4 @@
+#include "Construction/FoundrylinePavementGeometry.h"
 #include "Construction/FoundrylineBuildSite.h"
 #include "Construction/FoundrylineFacadeLayout.h"
 #include "Construction/FoundrylineSizing.h"
@@ -34,14 +35,18 @@ const FFoundrylinePlacedObject* AFoundrylineBuildSite::Pick(FIntVector Cursor) c
 {
 	if(!bReady) return nullptr;
 	const auto Local=LocalContext();
-	for(const auto& O:Placement->GetObjects())
-	{
-		if(O.CompanyId!=Local.CompanyId || O.PlantId!=Local.PlantId) continue;
-		const auto* D=Placement->FindDefinition(O.DefinitionId);if(!D) continue;
-		const auto B=FFoundrylineGrid::RotateBounds(D->Footprint,O.Anchor,O.QuarterTurns);
-		if(Cursor.X>=B.Min.X && Cursor.Y>=B.Min.Y && Cursor.X<=B.Max.X && Cursor.Y<=B.Max.Y) return &O;
-	}
-	return nullptr;
+ const FFoundrylinePlacedObject* Best=nullptr;int64 BestArea=MAX_int64;
+ for(const auto& O:Placement->GetObjects())
+ {
+  if(O.CompanyId!=Local.CompanyId || O.PlantId!=Local.PlantId)continue;
+  const auto* D=Placement->FindDefinition(O.DefinitionId);if(!D)continue;
+  const auto B=FFoundrylineGrid::RotateBounds(D->Footprint,O.Anchor,O.QuarterTurns);
+  if(Cursor.X<B.Min.X||Cursor.Y<B.Min.Y||Cursor.X>B.Max.X||Cursor.Y>B.Max.Y)continue;
+  if(!O.Pavement.Polygons.IsEmpty()&&!FFoundrylinePavementGeometry::Contains(O.Pavement.Polygons,FVector2D(FRotator(0,O.QuarterTurns*90,0).UnrotateVector(FVector(Cursor-O.Anchor)))))continue;
+  const int64 Area=int64(B.Max.X-B.Min.X)*(B.Max.Y-B.Min.Y);
+  if(Area<BestArea||(Area==BestArea&&Best&&O.ObjectId.ToString()<Best->ObjectId.ToString())){Best=&O;BestArea=Area;}
+ }
+ return Best;
 }
 
 const FFoundrylinePlacedObject* AFoundrylineBuildSite::GetSelectedObject() const
@@ -68,26 +73,19 @@ bool AFoundrylineBuildSite::PaintSelected(int32 Channel,FLinearColor Color)
 
 bool AFoundrylineBuildSite::BeginEdit(FName Tool,FIntVector Cursor)
 {
-	HidePreview(); SelectedObject.Invalidate(); SelectedOpening=FFoundrylineOpening();
-	const auto* O=Pick(Cursor);
+ if(Tool==TEXT("UpgradeBay"))return GetSelectedOpening()&&GetSelectedOpening()->LoadingTier>0&&GetSelectedOpening()->LoadingTier<3;
+	const auto PreviousMark=SelectedPavementMark,PreviousObject=SelectedObject;HidePreview(); SelectedPavementMark.Invalidate(); SelectedObject.Invalidate(); SelectedOpening=FFoundrylineOpening();SelectedRoom.Invalidate();
+ const bool DetailTool=Tool==TEXT("Select")||Tool==TEXT("Move")||Tool==TEXT("MoveDoor")||Tool==TEXT("Demolish");
+ const auto* O=DetailTool?PickOpening(Cursor,SelectedOpening,SelectedRoom):nullptr;
+ if(!O)O=Pick(Cursor);
 	if(!O) {Status=TEXT("Point inside a building, road or parking lot to select it");return false;}
 	SelectedObject=O->ObjectId;
-	if(Tool==TEXT("MoveDoor"))
-	{
-		const FVector P=FRotator(0,O->QuarterTurns*90,0).UnrotateVector(FVector(Cursor-O->Anchor));
-		const auto* D=Placement->FindDefinition(O->DefinitionId); double Best=251;
-		for(const auto& Opening:O->Openings)
-		{
-			if(Opening.Kind==EFoundrylineOpeningKind::ShopWindow) continue;
-			const double Along=Opening.Edge%2==0?P.X:P.Y;
-			const double Perp=Opening.Edge==0?P.Y:Opening.Edge==1?P.X-D->Footprint.Max.X:Opening.Edge==2?P.Y-D->Footprint.Max.Y:P.X;
-			const double Distance=FMath::Abs(Perp)+FMath::Max(0.,FMath::Abs(Along-Opening.OffsetCm-Opening.WidthCm()/2.)-Opening.WidthCm()/2.);
-			if(Distance<Best) {Best=Distance;SelectedOpening=Opening;}
-		}
-		if(!SelectedOpening.OpeningId.IsValid()) {Status=TEXT("Start the drag on a personnel or garage opening");return false;}
-	}
+ if(PreviousMark.IsValid()&&PreviousObject==O->ObjectId){const auto P=FVector2D(FRotator(0,O->QuarterTurns*90,0).UnrotateVector(FVector(Cursor-O->Anchor)));for(const auto& M:O->Pavement.Markings)if(M.Id==PreviousMark)for(const auto& L:FFoundrylinePavementGeometry::PaintLines(M))if(FMath::PointDistToSegment(FVector(P,0),FVector(L.Key,0),FVector(L.Value,0))<=100)SelectedPavementMark=PreviousMark;}
+ if(Tool==TEXT("MoveDoor")&&!GetSelectedOpening()){Status=TEXT("Point at a door, garage opening or window");return false;}
+ if(GetSelectedOpening()) {Status=GetSelectedItemLabel()+TEXT(" selected / Move to relocate / Delete removes only this opening");if(Tool!=TEXT("Select"))PreviewEdit(Tool,Cursor,Cursor);return true;}
+
 	const auto* D=Placement->FindDefinition(O->DefinitionId);
-	Status=FString::Printf(TEXT("Selected %s: %d x %d m. Drag to edit; Z undoes."),*D->FunctionId.ToString(),D->Footprint.Max.X/100,D->Footprint.Max.Y/100);
+	Status=D->FunctionId==TEXT("ManufacturingSign")?TEXT("Sign selected. Name and colors on the right."):FString::Printf(TEXT("Selected %s: %d x %d m. Drag to edit; Z undoes."),*D->FunctionId.ToString(),D->Footprint.Max.X/100,D->Footprint.Max.Y/100);
 	if(Tool!=TEXT("Select")) PreviewEdit(Tool,Cursor,Cursor);return true;
 }
 
@@ -96,6 +94,10 @@ bool AFoundrylineBuildSite::EditRequest(FName Tool,FIntVector Start,FIntVector E
 	const auto* O=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==SelectedObject;});
 	if(!O) return false;
 	R.ObjectId=O->ObjectId;R.ExpectedRevision=Placement->GetRevision();
+ if(Tool==TEXT("UpgradeBay")){const auto* Bay=GetSelectedOpening();if(!Bay||Bay->Kind!=EFoundrylineOpeningKind::LoadingDock||Bay->LoadingTier<1||Bay->LoadingTier>=3)return false;R.Action=EFoundrylinePlacementAction::ReplaceObject;R.Replacement=*O;auto* Next=R.Replacement.Openings.FindByPredicate([&](const auto& V){return V.OpeningId==Bay->OpeningId;});if(!Next)return false;const int Center=Next->OffsetCm+Next->WidthCm()/2;++Next->LoadingTier;Next->OffsetCm=FMath::RoundToInt((Center-Next->WidthCm()/2)/100.f)*100;const auto* Def=Placement->FindDefinition(O->DefinitionId);FFoundrylineFacadeLayout::Reflow(R.Replacement,Def->Footprint.Max.X,Def->Footprint.Max.Y,Def->Footprint.Max.Z);return true;}
+
+	if(GetSelectedOpening()&&(Tool==TEXT("Demolish")||Tool==TEXT("Move")||Tool==TEXT("MoveDoor")))return OpeningEditRequest(End,Tool==TEXT("Demolish"),R);
+ if(!O->Pavement.Polygons.IsEmpty()&&(Tool==TEXT("Resize")||Tool==TEXT("PaveRound")||Tool==TEXT("PaveBend")||Tool==TEXT("PaveInsert")||Tool==TEXT("PaveRemovePoint")||(O->Pavement.Lanes&&(Tool==TEXT("Move")||Tool==TEXT("Rotate")))||SelectedPavementMark.IsValid()))return PavementEditRequest(Tool,Start,End,R);
 	if(Tool==TEXT("Demolish")) {R.Action=EFoundrylinePlacementAction::Remove;return true;}
 	if(Tool==TEXT("Rotate"))
     {
@@ -110,7 +112,7 @@ bool AFoundrylineBuildSite::EditRequest(FName Tool,FIntVector Start,FIntVector E
     {
         // Moved sections magnetize like new drafts; a duplicate may sit against its source.
         const auto* D=Placement->FindDefinition(O->DefinitionId);
-        const FIntVector Anchor=O->Anchor+End-Start;
+        FIntVector Anchor;FFoundrylineGrid::SnapWorld(FVector(O->Anchor+End-Start),D->Snap,Anchor);
         const auto Offset=FFoundrylineBuildingConnections::SnapOffset(FFoundrylineGrid::RotateBounds(D->Footprint,Anchor,O->QuarterTurns),
             SnapTargets(D->FunctionId==TEXT("BuildingShell"),Tool==TEXT("Move")?O->ObjectId:FGuid()),FFoundrylineBuildingConnections::MagnetCm,FFoundrylineGrid::SnapStep(D->Snap));
         R.Action=Tool==TEXT("Move")?EFoundrylinePlacementAction::Move:EFoundrylinePlacementAction::Duplicate;R.Anchor=Anchor+Offset;return true;
@@ -176,25 +178,25 @@ bool AFoundrylineBuildSite::EditRequest(FName Tool,FIntVector Start,FIntVector E
 void AFoundrylineBuildSite::PreviewEdit(FName Tool,FIntVector Start,FIntVector End)
 {
 	if(Tool==TEXT("Select")) return;
-	if(Tool==TEXT("MoveDoor"))
-	{
-		FFoundrylinePlacementRequest Add;
-		const FName T=(SelectedOpening.Kind==EFoundrylineOpeningKind::Personnel || SelectedOpening.Kind==EFoundrylineOpeningKind::OfficeDoor)?FName(TEXT("Personnel")):SelectedOpening.Kind==EFoundrylineOpeningKind::TruckGarage?FName(TEXT("TruckDoor")):FName(TEXT("Garage"));
-		if(!DoorRequest(T,End,Add) || Add.ObjectId!=SelectedObject) {HidePreview();Status=TEXT("Drag the door to an exterior wall of the same section");return;}
-		FFoundrylinePlacementRequest Remove=Add;Remove.Action=EFoundrylinePlacementAction::RemoveOpening;Remove.Opening=SelectedOpening;
-		Add.Opening.OpeningId=SelectedOpening.OpeningId;
-		const auto* O=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==SelectedObject;});if(!O) return;
-		const auto Result=Placement->PreviewBatch({Remove,Add},LocalContext(),true);RecordConstructionResult(Result.Error,false);
-		auto Draft=*O;Draft.Openings={Add.Opening};
-		ShowPreview(Draft,Result.IsSuccess(),FString::Printf(TEXT("Door_Move_%s_%d_%d_%lld"),*SelectedObject.ToString(),Add.Opening.Edge,Add.Opening.OffsetCm,Placement->GetRevision()));
-		Status=Result.IsSuccess()?TEXT("Release to relocate door. Its old opening closes."):TEXT("Edit blocked: overlap, bounds or opening clearance");return;
-	}
+ if(GetSelectedOpening()&&(Tool==TEXT("MoveDoor")||Tool==TEXT("Move")||Tool==TEXT("Demolish")||Tool==TEXT("UpgradeBay")))
+ {
+  FFoundrylinePlacementRequest R;if(!(Tool==TEXT("UpgradeBay")?EditRequest(Tool,Start,End,R):OpeningEditRequest(End,Tool==TEXT("Demolish"),R))){HidePreview();Status=TEXT("Keep the opening near a wall of its own section or room");return;}
+  const auto Result=ValidateConstruction(R);RecordConstructionResult(Result.Error,false);
+  const auto* O=GetSelectedObject();if(!O)return;
+  if(Tool==TEXT("Demolish")){HidePreview();RecordOpeningOutline(*O,*GetSelectedOpening(),SelectedRoom,false,false);Status=Result.IsSuccess()?TEXT("Release to remove only this opening"):PlacementErrorText(Result.Error);return;}
+  const auto* Room=R.Replacement.OfficeRooms.FindByPredicate([&](const auto& V){return V.SpaceId==SelectedRoom;});
+  const auto& Values=Room?Room->Openings:R.Replacement.Openings;const auto* V=Values.FindByPredicate([&](const auto& Item){return Item.OpeningId==SelectedOpening.OpeningId;});if(!V)return;
+  if(Room){HidePreview();RecordOpeningOutline(R.Replacement,*V,SelectedRoom,false,Result.IsSuccess());}
+  else {auto Draft=R.Replacement;Draft.Openings={*V};Draft.OfficeRooms.Reset();Draft.OfficeAreas.Reset();ShowPreview(Draft,Result.IsSuccess(),FString::Printf(TEXT("Door_Moving_%s_%d_%d_%lld"),*SelectedOpening.OpeningId.ToString(),V->Edge,V->OffsetCm+10000*V->LoadingTier,Placement->GetRevision()));}
+  Status=Result.IsSuccess()?(Tool==TEXT("UpgradeBay")?TEXT("Review the larger bay / Confirm on the right or click the map"):TEXT("Release to relocate the opening / Old wall closes automatically")):PlacementErrorText(Result.Error);return;
+ }
+
 	FFoundrylinePlacementRequest R;if(!EditRequest(Tool,Start,End,R)) {HidePreview();return;}
 	const auto* O=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==SelectedObject;});if(!O) return;
 	auto Draft=R.Action==EFoundrylinePlacementAction::ReplaceObject?R.Replacement:*O;
 	if((R.Action==EFoundrylinePlacementAction::Move || R.Action==EFoundrylinePlacementAction::Duplicate)) Draft.Anchor=R.Anchor;
 	const auto Result=ValidateConstruction(R);
-	ShowPreview(Draft,Result.IsSuccess() && Tool!=TEXT("Demolish"),FString::Printf(TEXT("Edit_%s_%s_%s_%s_%lld"),*Tool.ToString(),*Draft.DefinitionId.ToString(),*Draft.Anchor.ToString(),*SelectedObject.ToString(),Placement->GetRevision()));
+	ShowPreview(Draft,Result.IsSuccess() && Tool!=TEXT("Demolish"),FString::Printf(TEXT("Edit_%s_%s_%s_%s_%s_%lld"),*Tool.ToString(),*Draft.DefinitionId.ToString(),*Draft.Anchor.ToString(),*SelectedObject.ToString(),*End.ToString(),Placement->GetRevision()));
 	Status=Result.IsSuccess()?(Tool==TEXT("Demolish")?TEXT("Release to remove this section. Z restores it."):TEXT("Release to apply edit. Z undoes.")):TEXT("Edit blocked: overlap, bounds or opening clearance");
 }
 
@@ -204,24 +206,15 @@ bool AFoundrylineBuildSite::CommitEdit(FName Tool,FIntVector Start,FIntVector En
 	const auto* O=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==SelectedObject;});if(!O) return false;
 	const auto Previous=*O;
 	FFoundrylinePlacementRequest Inverse;Inverse.ObjectId=SelectedObject;Inverse.Action=EFoundrylinePlacementAction::ReplaceObject;Inverse.Replacement=Previous;
-	if(Tool==TEXT("MoveDoor"))
-	{
-		FFoundrylinePlacementRequest Add;
-		const FName T=(SelectedOpening.Kind==EFoundrylineOpeningKind::Personnel || SelectedOpening.Kind==EFoundrylineOpeningKind::OfficeDoor)?FName(TEXT("Personnel")):SelectedOpening.Kind==EFoundrylineOpeningKind::TruckGarage?FName(TEXT("TruckDoor")):FName(TEXT("Garage"));
-		if(!DoorRequest(T,End,Add) || Add.ObjectId!=SelectedObject) return false;
-		FFoundrylinePlacementRequest Remove=Add;Remove.Action=EFoundrylinePlacementAction::RemoveOpening;Remove.Opening=SelectedOpening;Add.Opening.OpeningId=SelectedOpening.OpeningId;
-		const auto Result=ExecuteConstructionBatch({Remove,Add});RecordConstructionResult(Result.Error,true);
-		if(SentToHost(Result.Error)) return true;
-		if(!Result.IsSuccess()) {Status=PlacementErrorText(Result.Error);return false;}
-	}
-	else
-	{
-		FFoundrylinePlacementRequest R;if(!EditRequest(Tool,Start,End,R)) return false;
-		const auto Result=ExecuteConstruction(R);if(SentToHost(Result.Error)) {if(R.Action==EFoundrylinePlacementAction::Remove) SelectedObject.Invalidate();return true;}
-		if(!Result.IsSuccess()) {Status=PlacementErrorText(Result.Error);return false;}
-		if(R.Action==EFoundrylinePlacementAction::Remove) {Inverse.Action=EFoundrylinePlacementAction::RestoreRemoved;SelectedObject.Invalidate();}
-        if(R.Action==EFoundrylinePlacementAction::Duplicate) {Inverse.Action=EFoundrylinePlacementAction::Remove;Inverse.ObjectId=Result.ObjectId;SelectedObject=Result.ObjectId;}
-	}
+ const bool Detail=GetSelectedOpening()!=nullptr;
+ FFoundrylinePlacementRequest R;if(!EditRequest(Tool,Start,End,R))return false;
+ const auto Result=ExecuteConstruction(R);if(SentToHost(Result.Error)){if(R.Action==EFoundrylinePlacementAction::Remove||(Detail&&Tool==TEXT("Demolish"))){SelectedObject.Invalidate();SelectedOpening=FFoundrylineOpening();SelectedRoom.Invalidate();}return true;}
+ if(!Result.IsSuccess()){Status=PlacementErrorText(Result.Error);return false;}
+ if(R.Action==EFoundrylinePlacementAction::Remove){Inverse.Action=EFoundrylinePlacementAction::RestoreRemoved;SelectedObject.Invalidate();}
+ if(R.Action==EFoundrylinePlacementAction::Duplicate){Inverse.Action=EFoundrylinePlacementAction::Remove;Inverse.ObjectId=Result.ObjectId;SelectedObject=Result.ObjectId;}
+ if(Detail&&Tool==TEXT("Demolish")){SelectedObject.Invalidate();SelectedOpening=FFoundrylineOpening();SelectedRoom.Invalidate();}
+
+	if(Tool==TEXT("Demolish"))SelectedPavementMark.Invalidate();
 	RecordUndo(Inverse);HidePreview();Status=TEXT("Edit applied. Z undoes.");return true;
 }
 

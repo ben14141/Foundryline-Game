@@ -1,3 +1,4 @@
+#include "Construction/FoundrylinePavementGeometry.h"
 #include "Pathing/FoundrylineVehiclePath.h"
 #include "HAL/PlatformTime.h"
 #include <queue>
@@ -6,14 +7,16 @@
 bool FFoundrylineDrivingMap::PointAllowed(FVector2D P,bool Semi,bool Zones,const FGuid& Target) const
 {
  for(const auto& S:Surfaces) {
-  const auto L=S.Local(P);if(L.X<-.001 || L.Y<-.001 || L.X>S.Size.X+.001 || L.Y>S.Size.Y+.001) continue;
+  const auto L=S.Local(P);if(!S.Pavement.Polygons.IsEmpty()&&!FFoundrylinePavementGeometry::Contains(S.Pavement.Polygons,L))continue;
+  if(L.X<-.001 || L.Y<-.001 || L.X>S.Size.X+.001 || L.Y>S.Size.Y+.001) continue;
   if((S.Function==TEXT("Parking") || S.Function==TEXT("Road2") || S.Function==TEXT("Road4")) && (L.X<40 || L.X>S.Size.X-40 || (S.Function==TEXT("Parking") && (L.Y<40 || L.Y>S.Size.Y-40)))) {
    bool Portal=false;
-   for(const auto& Other:Surfaces) if(Other.Id!=S.Id) {const auto Q=Other.Local(P);if(FFoundrylineDriveRect{{-50,-50},Other.Size+FVector2D(50,50)}.Contains(Q)) {Portal=true;break;}}
+   for(const auto& Other:Surfaces) if(Other.Id!=S.Id) {const auto Q=Other.Local(P);if(Other.Pavement.Polygons.IsEmpty()?FFoundrylineDriveRect{{-50,-50},Other.Size+FVector2D(50,50)}.Contains(Q):FFoundrylinePavementGeometry::Contains(Other.Pavement.Polygons,Q,50)) {Portal=true;break;}}
    if(!Portal) continue;
   }
   if(S.Islands.ContainsByPredicate([&](const auto& R){return R.Contains(L);})) continue;
-  if(Semi && Zones && !S.Public && !S.TruckZones.ContainsByPredicate([&](const auto& R){return R.Contains(L);})) continue;
+  if(Semi && Zones && !S.Public && !S.Pavement.Lanes && !S.TruckZones.ContainsByPredicate([&](const auto& R){return R.Contains(L);})) continue;
+  if(!S.Pavement.Polygons.IsEmpty()&&S.Pavement.Curbs){bool Border=false;for(const auto& Poly:S.Pavement.Polygons){auto Edge=[&](const auto& Loop){for(int I=0;I<Loop.Num();++I)if(FMath::PointDistToSegment(FVector(L,0),FVector(Loop[I],0),FVector(Loop[(I+1)%Loop.Num()],0))<18)Border=true;};Edge(Poly.Outer);for(const auto& Hole:Poly.Holes)Edge(Hole.Points);}if(Border){bool Portal=false;for(const auto& Other:Surfaces)if(Other.Id!=S.Id){const auto Q=Other.Local(P);if(Other.Pavement.Polygons.IsEmpty()?FFoundrylineDriveRect{{-20,-20},Other.Size+FVector2D(20,20)}.Contains(Q):FFoundrylinePavementGeometry::Contains(Other.Pavement.Polygons,Q,20)){Portal=true;break;}}if(!Portal)continue;}}
   if(S.Function==TEXT("Parking")) {
    if(S.Aisles.ContainsByPredicate([&](const auto& R){return R.Contains(L);})) return true;
    if(!Semi) if(const auto* T=Targets.FindByPredicate([&](const auto& T){return T.Id==Target && T.SurfaceId==S.Id;})) if(T->Bay.Contains(L)) return true;
@@ -26,17 +29,24 @@ bool FFoundrylineDrivingMap::PointAllowed(FVector2D P,bool Semi,bool Zones,const
 }
 bool FFoundrylineDrivingMap::ReverseAllowed(FVector2D P) const
 {
- for(const auto& S:Surfaces) if((S.Function==TEXT("Parking") || S.Function==TEXT("FreightYard")) && FFoundrylineDriveRect{{0,0},S.Size}.Contains(S.Local(P))) return true;return false;
+ for(const auto& S:Surfaces) if((S.Function==TEXT("Parking") || S.Function==TEXT("FreightYard") || S.Function==TEXT("Pavement")&&!S.Pavement.Lanes) && FFoundrylineDriveRect{{0,0},S.Size}.Contains(S.Local(P)) && (S.Pavement.Polygons.IsEmpty()||FFoundrylinePavementGeometry::Contains(S.Pavement.Polygons,S.Local(P)))) return true;return false;
 }
 bool FFoundrylineDrivingMap::LaneAllowed(const FFoundrylineVehiclePose& P,bool Semi) const
 {
  const auto Dir=FVector2D(FMath::Cos(P.Yaw),FMath::Sin(P.Yaw));
  for(const auto& S:Surfaces) {
+  if(S.Pavement.Lanes){const auto L=S.Local(P.Position);if(!FFoundrylinePavementGeometry::Contains(S.Pavement.Polygons,L))continue;
+   if(FFoundrylinePavementGeometry::InEntrance(S.Pavement,L))return true;
+   bool Junction=false;for(const auto& Other:Surfaces)if(Other.Id!=S.Id){const auto Q=Other.Local(P.Position);if(Other.Pavement.Polygons.IsEmpty()?FFoundrylineDriveRect{{0,0},Other.Size}.Contains(Q):FFoundrylinePavementGeometry::Contains(Other.Pavement.Polygons,Q)){Junction=true;break;}}if(Junction)return true;
+   TArray<FVector2D> Fallback;if(S.Centerline.IsEmpty())Fallback=FFoundrylinePavementGeometry::RoadPath(S.Pavement.RoadControls,S.Pavement.Spline);const auto& Path=S.Centerline.IsEmpty()?Fallback:S.Centerline;double Best=MAX_dbl;FVector2D Tangent,Nearest;
+   for(int I=1;I<Path.Num();++I){const auto A=Path[I-1],B=Path[I];const auto Q=FMath::ClosestPointOnSegment(FVector(L,0),FVector(A,0),FVector(B,0));const double Distance=FVector2D::Distance(L,FVector2D(Q));if(Distance<Best){Best=Distance;Tangent=(B-A).GetSafeNormal();Nearest=FVector2D(Q);}}
+   const auto LocalDir=FVector2D(S.Transform.InverseTransformVector(FVector(Dir,0)));const double Dot=FVector2D::DotProduct(Tangent,LocalDir),Side=Tangent.X*(L.Y-Nearest.Y)-Tangent.Y*(L.X-Nearest.X);return S.Pavement.Lanes==1?Dot>.2:Side<0?Dot>.2:Dot<-.2;
+  }
   if(S.Function!=TEXT("Road2") && S.Function!=TEXT("Road4")) continue;
   const auto L=S.Local(P.Position);if(!FFoundrylineDriveRect{{0,0},S.Size}.Contains(L)) continue;
   // Junction/driveway crossing envelope: local lane restrictions yield to turn geometry.
   for(const auto& Other:Surfaces) if(Other.Id!=S.Id) {
-   const auto Q=Other.Local(P.Position);const float Margin=Semi?1500:600;if(Q.X>-Margin && Q.Y>-Margin && Q.X<Other.Size.X+Margin && Q.Y<Other.Size.Y+Margin) return true;
+   const auto Q=Other.Local(P.Position);const float Margin=Semi?1500:600;if(Other.Pavement.Polygons.IsEmpty()?(Q.X>-Margin && Q.Y>-Margin && Q.X<Other.Size.X+Margin && Q.Y<Other.Size.Y+Margin):FFoundrylinePavementGeometry::Contains(Other.Pavement.Polygons,Q,Margin)) return true;
   }
   const auto D=S.Transform.InverseTransformVector(FVector(Dir,0));
   return (L.X>=S.Size.X/2?D.Y>.55:D.Y<-.55);
@@ -56,15 +66,16 @@ FFoundrylineVehiclePose FFoundrylineVehiclePath::Advance(FFoundrylineVehiclePose
 }
 FFoundrylineVehiclePose FFoundrylineVehiclePath::TargetPose(const FFoundrylineVehicleTarget& Target,const FFoundrylineVehicleProfile& V) {
  auto Pose=Target.Pose;
- if(Target.Loading && !V.Semi) {const FVector2D F(FMath::Cos(Pose.Yaw),FMath::Sin(Pose.Yaw));Pose.Position+=F*(V.Rear+50-1570);}
+ if(Target.Loading && !V.Semi) {const FVector2D F(FMath::Cos(Pose.Yaw),FMath::Sin(Pose.Yaw));Pose.Position+=F*(V.Rear+50-Target.LoadingOffset);}
  return Pose;
 }
 namespace {
  bool FitsTarget(const FFoundrylineDrivingMap& M,const FFoundrylineVehicleProfile& V,const FFoundrylineVehiclePose& P,FGuid Id) {
   if(!Id.IsValid()) return true;const auto* T=M.Targets.FindByPredicate([&](const auto& T){return T.Id==Id;});if(!T) return false;
+  if(T->LoadingTier&&T->LoadingTier<3&&V.Semi)return false;
   if(T->Loading) {const FVector2D F(FMath::Cos(P.Yaw),FMath::Sin(P.Yaw)),Trailer(FMath::Cos(P.TrailerYaw),FMath::Sin(P.TrailerYaw)),Goal(FMath::Cos(T->Pose.Yaw),FMath::Sin(T->Pose.Yaw)),Right(-Goal.Y,Goal.X);const auto Tail=V.Semi?P.Position-F*V.Hitch-Trailer*V.TrailerRear:P.Position-F*V.Rear,Expected=FFoundrylineVehiclePath::TargetPose(*T,V).Position-Goal*(V.Semi?V.Hitch+V.TrailerRear:V.Rear),D=Tail-Expected;return FMath::Abs(FVector2D::DotProduct(D,Right))<=T->Bay.Max.X-(V.Semi?V.TrailerWidth:V.Width)/2-V.Clearance && FMath::Abs(FVector2D::DotProduct(D,Goal))<=30 && FMath::Abs(FMath::FindDeltaAngleRadians(V.Semi?P.TrailerYaw:P.Yaw,T->Pose.Yaw))<.035f;}
   const auto* S=M.Surfaces.FindByPredicate([&](const auto& S){return S.Id==T->SurfaceId;});if(!S) return false;
-  auto Box=[&](FVector2D Origin,float Yaw,float Front,float Rear,float Width){const FVector2D F(FMath::Cos(Yaw),FMath::Sin(Yaw)),R(-F.Y,F.X);for(float X:{Front+V.Clearance,-Rear-V.Clearance}) for(float Y:{Width/2+V.Clearance,-Width/2-V.Clearance}) if(!T->Bay.Contains(S->Local(Origin+F*X+R*Y))) return false;return true;};
+  auto Box=[&](FVector2D Origin,float Yaw,float Front,float Rear,float Width){const FVector2D F(FMath::Cos(Yaw),FMath::Sin(Yaw)),R(-F.Y,F.X);for(float X:{Front+V.Clearance,-Rear-V.Clearance}) for(float Y:{Width/2+V.Clearance,-Width/2-V.Clearance}) {const auto L=S->Local(Origin+F*X+R*Y);if(T->Footprint.IsEmpty()?!T->Bay.Contains(L):!FFoundrylinePavementGeometry::Contains({FFoundrylinePavementPolygon{T->Footprint,{}}},L))return false;}return true;};
   if(!Box(P.Position,P.Yaw,V.Front,V.Rear,V.Width)) return false;
   const FVector2D F(FMath::Cos(P.Yaw),FMath::Sin(P.Yaw));return !V.Semi || Box(P.Position-F*V.Hitch,P.TrailerYaw,V.TrailerFront,V.TrailerRear,V.TrailerWidth);
  }

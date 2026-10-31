@@ -1,3 +1,4 @@
+#include "Buildings/FoundrylineRoofLayout.h"
 #include "Construction/FoundrylineBuildSite.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/RectLightComponent.h"
@@ -7,28 +8,19 @@
 void AFoundrylineBuildSite::AddCeilingLights(AActor* Actor,const FFoundrylinePlacedObject& Object,FVector Size)
 {
  auto* Mesh=LoadObject<UStaticMesh>(nullptr,Object.bOfficeAnnex?TEXT("/Engine/BasicShapes/Cube.Cube"):TEXT("/Game/Factory/Meshes/Props/Light/SM_Lamp_03.SM_Lamp_03"));if(!Mesh) return;
- const bool HighBay=Size.Z>=1220;
- const float Spacing=Object.bOfficeAnnex?400.f:HighBay?1200.f:800.f;
- TArray<FBox2D> Zones;
- if(Object.bOfficeAnnex)
- {
-  TArray<FBox2D> Open={FBox2D(FVector2D::ZeroVector,FVector2D(Size.X,Size.Y))};
-  for(const auto& Room:Object.OfficeRooms)
-  {
-   FBox2D R(FVector2D(Room.Min),FVector2D(Room.Max));Zones.Add(R);TArray<FBox2D> Remaining;
-   for(const auto& Area:Open)
-   {
-    const auto Low=Area.Min.ComponentMax(R.Min),High=Area.Max.ComponentMin(R.Max);
-    if(Low.X>=High.X || Low.Y>=High.Y) {Remaining.Add(Area);continue;}
-    auto Add=[&](FVector2D A,FVector2D B){if(B.X>A.X && B.Y>A.Y) Remaining.Add(FBox2D(A,B));};
-    Add(Area.Min,{Low.X,Area.Max.Y});Add({High.X,Area.Min.Y},Area.Max);
-    Add({Low.X,Area.Min.Y},{High.X,Low.Y});Add({Low.X,High.Y},{High.X,Area.Max.Y});
-   }
-   Open=MoveTemp(Remaining);
-  }
-  Zones.Append(Open);
+ if(Object.bOfficeAnnex){
+  auto* Cube=Mesh;auto* Frame=NewObject<UInstancedStaticMeshComponent>(Actor);Actor->AddInstanceComponent(Frame);Frame->SetupAttachment(Actor->GetRootComponent());Frame->SetStaticMesh(Cube);Frame->SetMaterial(0,Materials.FindRef(TEXT("White")));Frame->ComponentTags={TEXT("FoundrylineRoof"),TEXT("FoundrylineCeilingFixture"),TEXT("FoundrylineRecessedOfficeLight")};Frame->SetCollisionEnabled(ECollisionEnabled::NoCollision);Frame->SetCanEverAffectNavigation(false);Frame->SetCastShadow(false);Frame->SetVisibility(bRoofsVisible);Frame->RegisterComponent();
+  auto* Lens=NewObject<UInstancedStaticMeshComponent>(Actor);Actor->AddInstanceComponent(Lens);Lens->SetupAttachment(Actor->GetRootComponent());Lens->SetStaticMesh(Cube);Lens->SetMaterial(0,LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Buildings/Lighting/M_CeilingGlow.M_CeilingGlow")));Lens->ComponentTags={TEXT("FoundrylineRoof"),TEXT("FoundrylineCeilingGlow"),TEXT("FoundrylineRecessedOfficeLight")};Lens->SetCollisionEnabled(ECollisionEnabled::NoCollision);Lens->SetCanEverAffectNavigation(false);Lens->SetCastShadow(false);Lens->SetAffectDistanceFieldLighting(false);Lens->SetVisibleInRayTracing(false);Lens->SetVisibility(bRoofsVisible);Lens->RegisterComponent();
+  for(const auto& P:FFoundrylineRoofLayout::OfficeFixtures(Object,Size.X,Size.Y)){const FVector Center(P.Center,Size.Z);// Open housing: four rim rails surround the diffuser; the back stays above it.
+   auto Rail=[&](FVector Offset,FVector Dimensions){Frame->AddInstance(FTransform(FQuat::Identity,Center+Offset,Dimensions/100));};
+   Rail(FVector(0,0,5),FVector(P.Size.X,P.Size.Y,3));
+   for(float Sign:{-1.f,1.f}){Rail(FVector(Sign*(P.Size.X/2-1.5),0,2),FVector(3,P.Size.Y,8));Rail(FVector(0,Sign*(P.Size.Y/2-1.5),2),FVector(P.Size.X-6,3,8));}Lens->AddInstance(FTransform(FQuat::Identity,Center-FVector(0,0,1.3),FVector((P.Size.X-6)/100,(P.Size.Y-6)/100,.007)));
+   auto* Light=NewObject<URectLightComponent>(Actor);Actor->AddInstanceComponent(Light);Light->SetupAttachment(Actor->GetRootComponent());Light->SetMobility(EComponentMobility::Movable);Light->ComponentTags={TEXT("FoundrylineRoof"),TEXT("FoundrylineCeilingLight"),TEXT("FoundrylineRecessedOfficeLight")};Light->SetRelativeLocationAndRotation(Center-FVector(0,0,2.5),FRotator(-90,90,0));Light->SetIntensityUnits(ELightUnits::Lumens);Light->SetIntensity(5000);Light->SetUseTemperature(true);Light->SetTemperature(4000);Light->SetSourceWidth(P.Size.X-6);Light->SetSourceHeight(P.Size.Y-6);Light->SetAttenuationRadius(550);Light->SetCastShadows(true);Light->SetVisibility(bRoofsVisible);Light->RegisterComponent();
+  }return;
  }
- else Zones.Add(FBox2D(FVector2D::ZeroVector,FVector2D(Size.X,Size.Y)));
+ const bool HighBay=Size.Z>=1220;
+ const float Spacing=HighBay?1200.f:800.f;
+ const TArray<FBox2D> Zones={FBox2D(FVector2D::ZeroVector,FVector2D(Size.X,Size.Y))};
  const auto Bounds=Mesh->GetBoundingBox();
  auto* Fixtures=NewObject<UInstancedStaticMeshComponent>(Actor);Actor->AddInstanceComponent(Fixtures);Fixtures->SetupAttachment(Actor->GetRootComponent());Fixtures->SetStaticMesh(Mesh);if(Object.bOfficeAnnex) Fixtures->SetMaterial(0,Materials.FindRef(TEXT("Metal")));
  Fixtures->ComponentTags={TEXT("FoundrylineRoof"),TEXT("FoundrylineCeilingFixture")};Fixtures->SetCollisionEnabled(ECollisionEnabled::NoCollision);Fixtures->SetCanEverAffectNavigation(false);Fixtures->SetCastShadow(false);Fixtures->SetVisibility(bRoofsVisible);Fixtures->RegisterComponent();

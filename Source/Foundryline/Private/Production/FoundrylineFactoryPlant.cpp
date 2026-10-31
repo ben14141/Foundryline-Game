@@ -16,7 +16,7 @@
 #include "Production/FoundrylineWorkshopLayout.h"
 
 AFoundrylineFactoryPlant::AFoundrylineFactoryPlant(){bReplicates=true;bAlwaysRelevant=true;SetReplicateMovement(false);SetNetUpdateFrequency(2);PrimaryActorTick.bCanEverTick=true;SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Plant")));}
-void AFoundrylineFactoryPlant::BeginPlay(){Super::BeginPlay();if(HasAuthority()){if(bCutPartsStarter)Model.SeedCutPartsShop();else Model.Seed(true);Model.State.CompanyId=BusinessCompanyId;Model.State.PlantId=BusinessPlantId;if(Model.State.Commerce.Enabled){if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld()))Model.State.Commerce.CashCents=R->InitialiseEconomy(BusinessCompanyId,BusinessPlantId,Model.State.Commerce.CashCents);OperationsState=GetWorld()->SpawnActor<AFoundrylineOperationsState>();if(OperationsState){OperationsState->CompanyId=BusinessCompanyId;OperationsState->PlantId=BusinessPlantId;}}RefreshSnapshot();}SetupVisuals();}
+void AFoundrylineFactoryPlant::BeginPlay(){Super::BeginPlay();if(HasAuthority()){if(GetWorld()->GetMapName().Contains(TEXT("L_BasicShopStarter"))){Model.State=FFoundrylineFactoryState();Model.State.bCutPartsStarter=true;Model.SeedCommerce();Model.State.Lanes.Reset();Model.State.FloorMin={-2370,30};Model.State.FloorMax={-30,1770};Model.Solids.Reset();Model.State.Status=TEXT("Use the office computer to plan and equip your shop");}else if(bCutPartsStarter)Model.SeedCutPartsShop();else Model.Seed(true);Model.State.CompanyId=BusinessCompanyId;Model.State.PlantId=BusinessPlantId;if(Model.State.Commerce.Enabled){if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld()))Model.State.Commerce.CashCents=R->InitialiseEconomy(BusinessCompanyId,BusinessPlantId,Model.State.Commerce.CashCents);OperationsState=GetWorld()->SpawnActor<AFoundrylineOperationsState>();if(OperationsState){OperationsState->CompanyId=BusinessCompanyId;OperationsState->PlantId=BusinessPlantId;}}RefreshSnapshot();}SetupVisuals();}
 void AFoundrylineFactoryPlant::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const{Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AFoundrylineFactoryPlant,bCutPartsStarter);DOREPLIFETIME(AFoundrylineFactoryPlant,BusinessCompanyId);DOREPLIFETIME(AFoundrylineFactoryPlant,BusinessPlantId);DOREPLIFETIME(AFoundrylineFactoryPlant,Snapshot);DOREPLIFETIME(AFoundrylineFactoryPlant,PresentationEpoch);}
 void AFoundrylineFactoryPlant::RefreshSnapshot(){Snapshot=Model.State;auto* GS=GetWorld()->GetGameState();PresentationEpoch=GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();PublishCommerce();}
 void AFoundrylineFactoryPlant::OnRep_State(){bRebuild=true;}
@@ -27,7 +27,7 @@ void AFoundrylineFactoryPlant::Tick(float Dt){Super::Tick(Dt);if(HasAuthority())
  SimClock+=FMath::Min(Dt,.25f);while(SimClock>=.1f){Model.Step(.1f);SimClock-=.1f;}
  if(Model.State.Commerce.Enabled&&BusinessRegistry)BusinessRegistry->CommitPlantCash(BusinessCompanyId,BusinessPlantId,BeforeCash,Model.State.Commerce.CashCents);EnsureCommerceEquipment();
  PublishClock+=Dt;if(PublishClock>=.25f){PublishClock=0;RefreshSnapshot();bRebuild=true;}
- }if(!HasAuthority()&&bRebuild)EnsureCommerceEquipment();if(bRebuild){UpdateCollision();RebuildWeldingStations();}UpdateEmployees(Dt);if(GetNetMode()!=NM_DedicatedServer){if(bRebuild){RebuildVisuals();bRebuild=false;}Animate(Dt);}else bRebuild=false;
+ }if(!HasAuthority()&&bRebuild)EnsureCommerceEquipment();if(bRebuild){RebuildPlanningLayout();UpdateCollision();RebuildWeldingStations();}UpdateEmployees(Dt);if(GetNetMode()!=NM_DedicatedServer){if(bRebuild){RebuildVisuals();bRebuild=false;}Animate(Dt);}else bRebuild=false;
  UpdatePhysicalObjects(Dt);}
 void AFoundrylineFactoryPlant::UpdateCollision(){
  if(ProductCollision.Num()!=Snapshot.Zones.Num()||WelderCollision.Num()!=Snapshot.Zones.Num()){
@@ -52,10 +52,11 @@ bool AFoundrylineFactoryPlant::Execute(APlayerController* P,const FFoundrylineFa
  case FactoryAct::ReceiveSteel:Ok=Model.ReceiveSteel(C.Count,E);break;
  case FactoryAct::ReceiveKits:Ok=Model.ReceiveKits(E);break;
  case FactoryAct::Program:Ok=Model.Program(C.Id,C.Part,C.Count,C.Flag,E);if(Ok&&Model.State.Commerce.Enabled)Model.State.Running=true;break;
- case FactoryAct::MachineEnabled:if(auto* M=Model.State.Machines.FindByPredicate([&](const auto& X){return X.Id==C.Id;})){M->Enabled=C.Flag;Ok=true;}break;
+ case FactoryAct::MachineEnabled:if(auto* M=Model.State.Machines.FindByPredicate([&](const auto& X){return X.Id==C.Id;})){if(!M->bStored){M->Enabled=C.Flag;Ok=true;}}break;
  case FactoryAct::AddDriver:E=TEXT("Purchase a forklift, hire an employee, then assign the driving job in the ERP");break;
  case FactoryAct::AddWelder:E=TEXT("Hire an employee and assign a product-zone welding job in the ERP");break;
  case FactoryAct::BuyPlanningEquipment:{auto* Controller=Cast<AFoundrylinePlayerController>(P);if(C.TargetPlantId!=BusinessPlantId||!Controller||!Controller->bPropertyViewAccess||Controller->IsWalking())E=TEXT("Purchase equipment from the office computer Planning View");else Ok=Model.BuyPlanningEquipment(C.Id,C.A,C.QuarterTurns,C.Count,E,C.SupplySide<0);break;}
+ case FactoryAct::EditPlanningItem:{auto* Controller=Cast<AFoundrylinePlayerController>(P);if(C.TargetPlantId!=BusinessPlantId||!Controller||!Controller->bPropertyViewAccess||Controller->IsWalking())E=TEXT("Use your business office Planning View to edit equipment");else Ok=Model.EditPlanningItem(C.Count,C.Id,C.A,C.Flag,E);break;}
  case FactoryAct::ConfigureSupplyBin:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Supply bin belongs to another plant");else Ok=Model.ConfigureSupplyBin(C.Id,C.Count,E);break;
  case FactoryAct::AssignSlot:Ok=Model.AssignSlot(C.Id,C.Part,E);break;
  case FactoryAct::HireEmployee:if(C.TargetPlantId!=BusinessPlantId)E=TEXT("Employee hiring belongs to another business");else if(C.Count<0||C.Count>4)E=TEXT("Invalid employee role");else Ok=Model.HireEmployee(EFoundrylineEmployeeRole(C.Count),C.RequestId,E);break;
@@ -81,13 +82,13 @@ bool AFoundrylineFactoryPlant::SaveFactory(FString& E,const FString& TestSlot){i
 }
 bool AFoundrylineFactoryPlant::LoadFactory(FString& E,const FString& TestSlot){if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld());R&&R->HasMultipleBusinesses()){E=TEXT("Multiple businesses require a combined world save");return false;}if(!HasAuthority()){E=TEXT("Host only");return false;}auto* S=Cast<UFoundrylineFactorySave>(UGameplayStatics::LoadGameFromSlot((TestSlot.IsEmpty()?(bCutPartsStarter?TEXT("FoundrylineCutParts01"):TEXT("FoundrylineFactory01")):TestSlot),0));if(!S){E=TEXT("No saved factory in this slot");return false;}
  if(S->Factory.bCutPartsStarter!=bCutPartsStarter){E=TEXT("This save belongs to a different shop scenario");return false;}
- FFoundrylineFactorySimulation Candidate;Candidate.State=S->Factory;Candidate.Solids=bCutPartsStarter?FFoundrylineWorkshopLayout::CutShopSolids():FFoundrylineWorkshopLayout::Solids();
+ FFoundrylineFactorySimulation Candidate;Candidate.State=S->Factory;Candidate.Solids=FFoundrylineWorkshopLayout::PlantSolids(Candidate.State);
  if(Candidate.State.Version==5){Candidate.State.Version=6;for(auto& Z:Candidate.State.Zones){Z.ReservedParts.SetNumZeroed(FFoundrylineFactoryCatalog::PartCount);Z.Installed.SetNumZeroed(FFoundrylineFactoryCatalog::PartCount);}for(auto& M:Candidate.State.Machines)M.Origin=FFoundrylineWorkshopLayout::Machine(M.Id);Candidate.State.Programs=FFoundrylineFactoryCatalog::DefaultPrograms();if(Candidate.State.bCutPartsStarter){Candidate.State.Programs.RemoveAll([](const auto& P){return P.Machine!=1||P.Part!=EFoundrylinePart::Bracket&&P.Part!=EFoundrylinePart::MountingPlate&&P.Part!=EFoundrylinePart::GussetPlate&&P.Part!=EFoundrylinePart::ReinforcementPlate;});const auto LegacyDrivers=Candidate.State.Drivers;Candidate.SeedCommerce();for(const auto& Driver:LegacyDrivers)if(Driver.Job)if(auto* Current=Candidate.State.Drivers.FindByPredicate([&](const auto& D){return D.Id==Driver.Id;}))*Current=Driver;}}
  Candidate.MigrateEmployees();Candidate.MigrateEmployeeNames();Candidate.MigrateGenericEmployees();
  // Schema 10 adds welding stations (a schema 9 plant loads with none); schema 11 adds bought parts and station supplies.
 
  Candidate.MigrateWeldingStations();Candidate.MigrateAssemblySupply();
- if(Candidate.State.Commerce.BrakeOwned){Candidate.Solids.Emplace(FVector2D(-2025,1675),FVector2D(-1675,2025));Candidate.Solids.Emplace(FVector2D(-1560,1642),FVector2D(-1440,2058));}
+
  // Migrate only the old authored parking positions; preserve jobs and player-authored state.
  for(int I=0;I<Candidate.State.Drivers.Num();++I){auto& D=Candidate.State.Drivers[I];const FVector OldHome(100,I<2?400.+I*500.:3600.+(I-2)*500.,20);if(D.Parking.Equals(OldHome,1)){
   const bool Parked=!D.Job&&FVector::Dist2D(D.Position,D.Parking)<20;D.Parking=FFoundrylineWorkshopLayout::DriverHome(I);

@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Economy/FoundrylineEconomyTuning.h"
 #include "Production/FoundrylineFactorySimulation.h"
 namespace {using Part=EFoundrylinePart;using Act=EFoundrylineCommerceAction;using Place=EFoundrylinePalletPlace;}
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStarterOfferCapability,"Foundryline.Commerce.StarterOfferCapability",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
@@ -25,6 +26,6 @@ bool FStarterRepeatSales::RunTest(const FString&){
   if(!TestTrue(TEXT("Carrier delivers and completes order"),Pump([&](){return M.State.Commerce.Orders.ContainsByPredicate([&](const auto& O){return O.Id==Id&&O.Status==EFoundrylineOrderState::Completed;});})))return false;
   const auto* Done=M.State.Commerce.Orders.FindByPredicate([&](const auto& O){return O.Id==Id;});ExpectedRevenue+=Done->Quantity*Done->UnitPriceCents;TestEqual(TEXT("Exact invoice payment"),Done->PaidCents,int64(Done->Quantity)*Done->UnitPriceCents);TestTrue(TEXT("Ledger remains valid across recipe transition: ")+E,M.Valid(E));
  }
- TestEqual(TEXT("Two distinct starter recipes paid"),ExpectedRevenue,int64(74000));TestEqual(TEXT("Earned revenue reconciles"),M.State.Commerce.EarnedRevenueCents,ExpectedRevenue);TestTrue(TEXT("Repeat flow stays cash positive without debt"),M.State.Commerce.CashCents>0&&M.State.Commerce.UnpaidCents==0);TestTrue(TEXT("More basic offers remain available"),M.State.Commerce.Orders.ContainsByPredicate([](const auto& O){return O.Status==EFoundrylineOrderState::Offered&&O.Part==uint8(Part::Bracket);}));AddInfo(FString::Printf(TEXT("After two orders cash $%.2f, costs $%.2f, remaining bed %.3flb"),M.State.Commerce.CashCents/100.,M.State.Commerce.CostCents/100.,M.State.Machines[0].BedLb));return true;
+ TestEqual(TEXT("Two distinct starter recipes paid"),ExpectedRevenue,int64(40)*FFoundrylineEconomyTuning::SalePriceCents(Part::Bracket)+int64(60)*FFoundrylineEconomyTuning::SalePriceCents(Part::MountingPlate));TestEqual(TEXT("Earned revenue reconciles"),M.State.Commerce.EarnedRevenueCents,ExpectedRevenue);TestTrue(TEXT("Repeat flow stays cash positive without debt"),M.State.Commerce.CashCents>0&&M.State.Commerce.UnpaidCents==0);TestTrue(TEXT("More basic offers remain available"),M.State.Commerce.Orders.ContainsByPredicate([](const auto& O){return O.Status==EFoundrylineOrderState::Offered&&O.Part==uint8(Part::Bracket);}));AddInfo(FString::Printf(TEXT("After two orders cash $%.2f, costs $%.2f, remaining bed %.3flb"),M.State.Commerce.CashCents/100.,M.State.Commerce.CostCents/100.,M.State.Machines[0].BedLb));return true;
 }
 #endif

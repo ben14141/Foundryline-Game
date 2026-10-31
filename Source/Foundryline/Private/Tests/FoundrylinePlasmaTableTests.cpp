@@ -33,7 +33,7 @@ bool FFoundrylinePlasmaTest::RunTest(const FString&){
  Table->PlasmaEffect->SetLocalPlasmaActive(true);
  for(int I=0;I<15;++I)Table->PlasmaEffect->TickComponent(1.f/30,LEVELTICK_All,nullptr);
  TestTrue(TEXT("Plasma emits sparks"),Table->PlasmaEffect->GetVisibleSparkCount()>0);
- TestTrue(TEXT("Plasma spark count is bounded"),Table->PlasmaEffect->GetVisibleSparkCount()<=256);
+ TestTrue(TEXT("Plasma spark count is bounded"),Table->PlasmaEffect->GetVisibleSparkCount()<=UFoundrylineWeldingEffectComponent::MaxSparks);
  Table->SetOperating(false);TestFalse(TEXT("Authority stops cycle"),Table->IsOperating());
  TestEqual(TEXT("Stop removes sparks"),Table->PlasmaEffect->GetVisibleSparkCount(),0);
  W->DestroyWorld(false);return true;

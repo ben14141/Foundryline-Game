@@ -2,10 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "Pathing/FoundrylineRouteNetwork.h"
+#include "Construction/FoundrylinePavementTypes.h"
 #include "FoundrylinePlacementTypes.generated.h"
 
 UENUM()
-enum class EFoundrylineOpeningKind : uint8 { Personnel, Garage, ShopWindow, TruckGarage, OfficeDoor, LoadingDock };
+enum class EFoundrylineOpeningKind : uint8 { Personnel, Garage, ShopWindow, TruckGarage, OfficeDoor, LoadingDock, OfficeGlassWall };
 
 USTRUCT()
 struct FOUNDRYLINE_API FFoundrylineOpening
@@ -17,10 +18,14 @@ struct FOUNDRYLINE_API FFoundrylineOpening
 	UPROPERTY(SaveGame) int32 OffsetCm = 100;
 	UPROPERTY(SaveGame) EFoundrylineOpeningKind Kind = EFoundrylineOpeningKind::Personnel;
 	UPROPERTY(SaveGame) bool bAutomatic = false;
+ // 0 preserves legacy loading doors; 1 small flatbed, 2 box truck, 3 semi.
+ UPROPERTY(SaveGame) uint8 LoadingTier = 0;
 	// Height above the finished floor; older records keep the Tier 1 default.
 	UPROPERTY(SaveGame) int32 WindowSillCm = 100;
-	int32 WidthCm() const { return Kind == EFoundrylineOpeningKind::LoadingDock ? 350 : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 400 : Kind == EFoundrylineOpeningKind::ShopWindow ? 200 : Kind == EFoundrylineOpeningKind::Personnel ? 120 : 100; }
-	int32 HeightCm() const { return Kind == EFoundrylineOpeningKind::LoadingDock ? 350 : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 420 : Kind == EFoundrylineOpeningKind::ShopWindow ? 180 : 250; }
+	UPROPERTY(SaveGame) int32 PanelWidthCm = 200;
+	bool IsGlazing() const { return Kind==EFoundrylineOpeningKind::ShopWindow || Kind==EFoundrylineOpeningKind::OfficeGlassWall; }
+	int32 WidthCm() const { return Kind==EFoundrylineOpeningKind::OfficeGlassWall ? PanelWidthCm : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?400:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 400 : Kind == EFoundrylineOpeningKind::ShopWindow ? 200 : Kind == EFoundrylineOpeningKind::Personnel ? 120 : 100; }
+	int32 HeightCm() const { return Kind==EFoundrylineOpeningKind::OfficeGlassWall ? 270 : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?420:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 420 : Kind == EFoundrylineOpeningKind::ShopWindow ? 180 : 250; }
 	int32 BottomCm() const { return Kind == EFoundrylineOpeningKind::ShopWindow ? WindowSillCm : 0; }
 };
 
@@ -59,6 +64,9 @@ struct FOUNDRYLINE_API FFoundrylinePlacedObject
 	GENERATED_BODY()
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame)
 	FGuid ObjectId;
+ UPROPERTY(SaveGame) FFoundrylinePavementData Pavement;
+ UPROPERTY(SaveGame) FString SignName;
+ UPROPERTY(SaveGame) float SignFacingDegrees=0;
  UPROPERTY(SaveGame) FFoundrylineBuildingColors Colors;
  UPROPERTY(SaveGame) TArray<FFoundrylineTruckZone> TruckZones;
  UPROPERTY(SaveGame) TArray<FFoundrylineRouteNode> RouteNodes;

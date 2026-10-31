@@ -27,9 +27,7 @@ void AFoundrylineFactoryPlant::SetupVisuals(){
  for(TActorIterator<AFoundrylineMaterialHandlingCell> It(GetWorld());It;++It)if(It->BusinessCompanyId==BusinessCompanyId&&It->BusinessPlantId==BusinessPlantId)Cell=*It;
  for(TActorIterator<AFoundrylinePressBrakeDisplay> It(GetWorld());It;++It)if(It->BusinessCompanyId==BusinessCompanyId&&It->BusinessPlantId==BusinessPlantId)Brake=*It;
  // Equipment footprints feed path validation as well as the placement overlay.
- Model.Solids=bCutPartsStarter?FFoundrylineWorkshopLayout::CutShopSolids():FFoundrylineWorkshopLayout::Solids();
- // Rack collision is authoritative even when a dedicated server has no renderer.
- for(const auto& Rack:(bCutPartsStarter?FFoundrylineWorkshopLayout::CutShopRacks():FFoundrylineWorkshopLayout::Racks())){const FRotator Rot(0,Rack.Yaw,0);auto* C=NewObject<UBoxComponent>(this);C->SetupAttachment(RootComponent);C->SetRelativeLocationAndRotation(Rack.Center+FVector(0,0,210),Rot);C->SetBoxExtent({60,208,210});C->ComponentTags.Add(TEXT("FoundrylinePhysicalCollision"));C->SetCollisionProfileName(TEXT("BlockAllDynamic"));C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);}
+ Model.Solids=FFoundrylineWorkshopLayout::PlantSolids(Snapshot);
  for(int I=0;I<4;++I){auto* R=NewObject<USceneComponent>(this);R->SetupAttachment(RootComponent);R->RegisterComponent();AddInstanceComponent(R);Forks.Add(R);auto* Car=NewObject<USceneComponent>(this);Car->SetupAttachment(R);Car->SetRelativeLocation({28,0,16});Car->RegisterComponent();AddInstanceComponent(Car);Carriages.Add(Car);}
  if(GetNetMode()==NM_DedicatedServer)return;
  auto Instances=[&](const FString& Path){auto* C=NewObject<UInstancedStaticMeshComponent>(this);C->SetupAttachment(RootComponent);C->SetStaticMesh(Mesh(Path));C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);return C;};
@@ -39,12 +37,6 @@ void AFoundrylineFactoryPlant::SetupVisuals(){
  SetupFloorVisuals();
  for(int I=0;I<FFoundrylineFactoryCatalog::PartCount;++I){const auto P=FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart(I));PartMeshes.Add(Instances(P));CargoMeshes.Add(Instances(P));}
  auto Add=[&](const FString& Path,USceneComponent* Parent,FVector P){auto* C=NewObject<UStaticMeshComponent>(this);C->SetupAttachment(Parent);C->SetStaticMesh(Mesh(Path));C->SetRelativeLocation(P);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetCanEverAffectNavigation(false);C->RegisterComponent();AddInstanceComponent(C);return C;};
- for(const auto& Rack:(bCutPartsStarter?FFoundrylineWorkshopLayout::CutShopRacks():FFoundrylineWorkshopLayout::Racks())){
-  const FRotator Rot(0,Rack.Yaw,0);
-  auto RackMesh=[&](const TCHAR* Name,FVector Offset){auto* C=Add(Asset(TEXT("Inventory/Storage/SheetRacking"),Name),RootComponent,Rack.Center+Rot.RotateVector(Offset));C->SetRelativeRotation(Rot);};
-  for(int Side:{-1,1})RackMesh(TEXT("Rack_Upright"),FVector(0,Side*201.735,0));
-  for(int Level=0;Level<3;++Level)RackMesh(TEXT("Rack_Shelf400"),FVector(0,0,FFoundrylineWorkshopLayout::ShelfOrigin(Level)));
- }
  for(int I=0;I<4;++I){auto* R=Forks[I].Get();
   Add(Asset(TEXT("Vehicles/Forklift/FL01"),TEXT("Forklift_Body")),R,FVector::ZeroVector);FFoundrylineForkliftBeacon::Attach(this,R);
   Add(Asset(TEXT("Vehicles/Forklift/FL01"),TEXT("Forklift_MastOuter")),R,FVector(28,0,16));

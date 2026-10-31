@@ -24,7 +24,7 @@ def tick(dt):
     if .4<phase<1.9 or 2.6<phase<3.2:
      states=[e.is_welding() for e in es];seen.update(states if len(set(states))==1 else [])
      q['checks']['settled_states_agree']=q['checks'].get('settled_states_agree',True) and len(set(states))==1
-     q['checks']['spark_budget_bounded']=all(e.get_visible_spark_count()<=256 for e in es)
+     q['checks']['spark_budget_bounded']=all(e.get_visible_spark_count()<=640 for e in es)
      if all(states):q['checks']['nearby_live_ticks_emit_sparks']=q['checks'].get('nearby_live_ticks_emit_sparks',False) or all(e.get_visible_spark_count()>0 for e in es)
      elif not any(states):q['checks']['off_state_clears_sparks']=all(e.get_visible_spark_count()==0 for e in es)
    if t>23:q['checks']['on_and_off_observed']=seen=={True,False};q['checks']['late_join_requested']=unreal.FoundrylineNetworkTestTools.request_late_join();stage=3

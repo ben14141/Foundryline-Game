@@ -60,6 +60,7 @@ bool UFoundrylineNetworkTestTools::DrivePlayer(APlayerController* PC,FVector Dir
 }
 
 #include "UI/FoundrylinePlayerController.h"
+#include "UI/FoundrylineBuildHUD.h"
 
 #include "Construction/FoundrylineBuildSite.h"
 #include "EngineUtils.h"
@@ -92,7 +93,21 @@ bool UFoundrylineNetworkTestTools::QueueConstructionTool(APlayerController* Play
   if(!Weak.IsValid()) return false;
   auto* P=Weak->GetWorld()->GetSubsystem<UFoundrylinePlacementSubsystem>();
   for(TActorIterator<AFoundrylineBuildSite> It(Weak->GetWorld());It;++It) {
-   if(Tool==TEXT("Paint")) {It->BeginEdit(TEXT("Select"),Start);It->PaintSelected(Channel,Color);}
+   if(Tool.ToString().StartsWith(TEXT("Key:"))){const FKey Key(FName(*Tool.ToString().RightChop(4)));for(auto Event:{IE_Pressed,IE_Released})Weak->InputKey(FInputKeyEventArgs(nullptr,FInputDeviceId::CreateFromInternalId(0),Key,Event,FPlatformTime::Cycles64()));}
+   else if(Tool.ToString().StartsWith(TEXT("HUD:"))){if(auto* H=Cast<AFoundrylineBuildHUD>(Weak->GetHUD()))H->NotifyHitBoxClick(FName(*Tool.ToString().RightChop(4)));}
+   else if(Tool==TEXT("PaveDown")||Tool==TEXT("PaveUp")||Tool==TEXT("PaveMove")||Tool==TEXT("PaveCancel")||Tool==TEXT("PaveEnter")||Tool==TEXT("PaveBack")){
+    UFoundrylineNetworkTestTools::AimFactoryBrush(Weak.Get(),FVector(Start.X,Start.Y,20));if(Tool!=TEXT("PaveMove"))Weak->InputKey(FInputKeyEventArgs(nullptr,FInputDeviceId::CreateFromInternalId(0),Tool==TEXT("PaveCancel")?EKeys::RightMouseButton:Tool==TEXT("PaveEnter")?EKeys::Enter:Tool==TEXT("PaveBack")?EKeys::BackSpace:EKeys::LeftMouseButton,Tool==TEXT("PaveUp")?IE_Released:IE_Pressed,FPlatformTime::Cycles64()));
+   }
+   else if(Tool==TEXT("WheelClick")){Weak->SetMouseLocation(Start.X,Start.Y);for(const auto Event:{IE_Pressed,IE_Released})Weak->InputKey(FInputKeyEventArgs(nullptr,FInputDeviceId::CreateFromInternalId(0),EKeys::LeftMouseButton,Event,FPlatformTime::Cycles64()));}
+   else if(Tool==TEXT("ChooseOfficeGlass")){Weak->ChooseTool(TEXT("OfficeGlass"));}
+   else if(Tool==TEXT("SelectMode")){Weak->ChooseTool(TEXT("Select"));}
+   else if(Tool==TEXT("SignEdit")){It->BeginEdit(TEXT("Select"),Start);if(const auto* O=It->GetSelectedObject()){auto Colors=O->Colors;Colors.Exterior=Color;It->SetSelectedSign(TEXT("IRON VALLEY WORKS"),float(End.X),Colors);}}
+   else if(Tool==TEXT("PlannerSelect")){if(Weak->SelectPlannerItem(Start))It->SelectedObject.Invalidate();}
+   else if(Tool==TEXT("SignName")){Weak->SignAction(TEXT("Name"));}
+   else if(Tool==TEXT("SignClose")){Weak->FinishSignName(TEXT(""),false);}
+   else if(Tool==TEXT("PlannerPlace")){Weak->PlannerKind=Channel;Weak->PlannerId=Start.X;Weak->PlannerAt=FVector(End.X,End.Y,20);Weak->PlannerAction(TEXT("Place"));}
+   else if(Tool==TEXT("PlannerStore")){Weak->PlannerKind=Channel;Weak->PlannerId=Start.X;Weak->PlannerAction(TEXT("Delete"));}
+   else if(Tool==TEXT("Paint")) {It->BeginEdit(TEXT("Select"),Start);It->PaintSelected(Channel,Color);}
    else if(AFoundrylineBuildSite::IsEditTool(Tool)) {if(It->BeginEdit(Tool,Start)) It->CommitEdit(Tool,Start,End);}
    else if(Tool==TEXT("Foreign") || Tool==TEXT("Stale") || Tool==TEXT("Unknown")) {
     FFoundrylinePlacementRequest R;R.ExpectedRevision=P->GetRevision();R.Anchor=Start;R.DefinitionId=TEXT("UntrustedExternalMesh");
@@ -102,7 +117,7 @@ bool UFoundrylineNetworkTestTools::QueueConstructionTool(APlayerController* Play
    }
     else if(Tool==TEXT("GridTruck13")) {TGuardValue<int32> Width(It->DraftTruckWidthCm,1300);It->BuildRectangle(TEXT("TruckAccess"),Start,End);}
     else if(Tool==TEXT("OfficeArea") || Tool==TEXT("OfficeRoom")) It->OfficeRectangle(Tool,Start,End);
-   else if(Tool==TEXT("Personnel") || Tool==TEXT("Garage") || Tool==TEXT("TruckDoor")) It->PlaceDoor(Tool,Start);
+   else if(Tool==TEXT("Personnel") || Tool==TEXT("Garage") || Tool==TEXT("TruckDoor") || Tool==TEXT("OfficeGlass")) It->PlaceDoor(Tool,Start);
    else It->BuildRectangle(Tool,Start,End);
    break;
   }

@@ -20,6 +20,7 @@ class FOUNDRYLINE_API AFoundrylineCarrierSceneActor:public AActor {
  GENERATED_BODY()
 public:
  AFoundrylineCarrierSceneActor();
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor",meta=(DevelopmentOnly)) bool ConfigureFlatbedReview(bool Parked=false);
  void SetBooking(const FFoundrylineFreightBooking& Booking,const FFoundrylineCommerceState& State,const FTransform& Plant,const TArray<FFoundrylineFactoryPallet>& Pallets);
  virtual void Tick(float Dt)override;
  virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out)const override;
@@ -39,6 +40,14 @@ private:
  UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> Steel;
  UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> Wheels;
  UPROPERTY() TArray<TObjectPtr<class UInstancedStaticMeshComponent>> CargoParts;
+ UPROPERTY() TObjectPtr<class USceneComponent> FlatbedTractor;
+ UPROPERTY() TObjectPtr<class USceneComponent> FlatbedTrailer;
+ UPROPERTY() TArray<TObjectPtr<class USceneComponent>> FlatbedParts;
+ bool bFlatbedReady=false;
+ FVector PreviousHitch;
+ float TrailerYaw=0;
+ void RebuildFlatbed();
+ void TickFlatbed(float Dt,float Distance);
  float WheelAngle=0;
  float SteeringAngle=0;
  float GateAngle=0;

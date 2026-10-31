@@ -22,6 +22,21 @@ struct FFoundrylineFacadeLayout
   for(int32 I=0;I<=Count;++I) Result.Add(I==0?30.f:I==Count?Length-30.f:float(double(I)*Length/Count));
   return Result;
  }
+ // Exposed ends need whole pilasters, never clipped halves. Opening frames own
+ // their clearance; do not push a column sideways into the next opening.
+ static TArray<float> ColumnsForSpan(int32 Length,int32 PreferredBay,float Start,float End,const TArray<FFoundrylineOpening>& Openings)
+ {
+  TArray<float> Candidates,Result;if(End-Start<112.f)return Result;
+  Candidates.Add(Start+30);Candidates.Add(End-30);
+  for(float P:Columns(Length,PreferredBay))if(P>=Start+30 && P<=End-30)Candidates.Add(P);
+  for(float P:Candidates)
+  {
+   if(Result.ContainsByPredicate([&](float Other){return FMath::Abs(P-Other)<60;}))continue;
+   if(Openings.ContainsByPredicate([&](const auto& V){return P+34>V.OffsetCm-6 && P-34<V.OffsetCm+V.WidthCm()+6;}))continue;
+   Result.Add(P);
+  }
+  Result.Sort();return Result;
+ }
  static void Reflow(FFoundrylinePlacedObject& Object,int32 Width,int32 Depth,int32 Height)
  {
   if(Object.bOfficeAnnex) return;

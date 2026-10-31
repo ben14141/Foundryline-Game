@@ -1,3 +1,4 @@
+#include "Construction/FoundrylinePavementGeometry.h"
 #include "UI/FoundrylineBuildHUD.h"
 #include "UI/FoundrylinePlayerController.h"
 #include "Pathing/FoundrylineVehiclePathSubsystem.h"
@@ -11,17 +12,19 @@ void AFoundrylineBuildHUD::DrawLogisticsMap(AFoundrylinePlayerController* PC)
  const float Scale=FMath::Min(1.5f,Canvas->ClipY/1320.f);auto* Font=GEngine->GetMediumFont();
  const FLinearColor Green(.12f,.85f,.48f,1),Blue(.1f,.6f,1,1),Amber(1,.52f,.1f,1),Red(1,.15f,.1f,1),Paper(.97f,.96f,.93f,1),Ink(.025f,.035f,.045f,1);
  int32 ViewW=0,ViewH=0;PC->GetViewportSize(ViewW,ViewH);
- auto Project=[&](FVector2D W,FVector2D& S){if(ViewW<=0 || ViewH<=0 || !PC->ProjectWorldLocationToScreen(FVector(W,55),S,true)) return false;S.X*=Canvas->ClipX/ViewW;S.Y*=Canvas->ClipY/ViewH;return true;};
+ auto Project=[&](FVector2D W,FVector2D& S){if(ViewW<=0 || ViewH<=0 || !PC->ProjectWorldLocationToScreen(FVector(W,55),S,false)) return false;S.X*=Canvas->ClipX/ViewW;S.Y*=Canvas->ClipY/ViewH;return true;};
  auto Polygon=[&](const TArray<FVector2D>& World,FLinearColor Color) {
   TArray<FVector2D> Points;for(const auto& W:World) {FVector2D P;if(!Project(W,P)) return;Points.Add(P);}if(Points.Num()<3) return;
   for(int32 I=1;I<Points.Num()-1;++I) {FCanvasTriangleItem T(Points[0],Points[I],Points[I+1],GWhiteTexture);T.SetColor(Color);T.BlendMode=SE_BLEND_Translucent;Canvas->DrawItem(T);}
  };
  auto Stroke=[&](FVector2D A,FVector2D B,FLinearColor Color,float Width){FVector2D P,Q;if(Project(A,P) && Project(B,Q)) DrawLine(P.X,P.Y,Q.X,Q.Y,Color,Width*Scale);};
- auto Rect=[&](const FFoundrylineDriveSurface& S,const FFoundrylineDriveRect& R,FLinearColor Color){Polygon({S.World(R.Min),S.World({R.Max.X,R.Min.Y}),S.World(R.Max),S.World({R.Min.X,R.Max.Y})},Color);};
+ auto Shape=[&](const FFoundrylineDriveSurface& S,const TArray<FFoundrylinePavementPolygon>& Polys,FLinearColor Color){for(const auto& P:Polys){TArray<FVector2D> V;TArray<int32> T;if(!FFoundrylinePavementGeometry::Triangulate(P,V,T))continue;for(int I=0;I<T.Num();I+=3)Polygon({S.World(V[T[I]]),S.World(V[T[I+1]]),S.World(V[T[I+2]])},Color);}};
+ auto Rect=[&](const FFoundrylineDriveSurface& S,const FFoundrylineDriveRect& R,FLinearColor Color){if(!S.Pavement.Polygons.IsEmpty()){const auto Box=FFoundrylinePavementGeometry::Rectangle(R.Min,R.Max);TArray<FFoundrylinePavementPolygon> Outside,Clipped;if(FFoundrylinePavementGeometry::Boolean(Box,S.Pavement.Polygons,true,Outside)&&FFoundrylinePavementGeometry::Boolean(Box,Outside,true,Clipped))Shape(S,Clipped,Color);}else Polygon({S.World(R.Min),S.World({R.Max.X,R.Min.Y}),S.World(R.Max),S.World({R.Min.X,R.Max.Y})},Color);};
  auto Arrow=[&](FVector2D P,float Yaw,float Length,float Width,FLinearColor C){const FVector2D F(FMath::Cos(Yaw),FMath::Sin(Yaw)),L(-F.Y,F.X);Polygon({P-F*Length*.5-L*Width*.22,P+F*Length*.1-L*Width*.22,P+F*Length*.1-L*Width*.5,P+F*Length*.5,P+F*Length*.1+L*Width*.5,P+F*Length*.1+L*Width*.22,P-F*Length*.5+L*Width*.22},C);};
  auto Label=[&](FVector2D W,const FString& Value,FLinearColor Color,float Size=1.3f){FVector2D P;if(!Project(W,P) || P.X<420*Scale || P.X>Canvas->ClipX-20 || P.Y<15 || P.Y>Canvas->ClipY-20) return;float TW=0,TH=0;GetTextSize(Value,TW,TH,Font,Size*Scale);DrawRect(Ink,P.X-TW/2-8*Scale,P.Y-TH/2-6*Scale,TW+16*Scale,TH+12*Scale);DrawRect(Color,P.X-TW/2-8*Scale,P.Y+TH/2+4*Scale,TW+16*Scale,2*Scale);DrawText(Value,Color,P.X-TW/2,P.Y-TH/2,Font,Size*Scale);};
  for(const auto& S:M->Surfaces) {
   if(S.Public) {Rect(S,{{0,0},S.Size},FLinearColor(.15f,.2f,.25f,.16f));continue;}
+  if(S.Function==TEXT("Pavement")&&PC->bShowTruckLayer&&S.Pavement.Lanes)Shape(S,S.Pavement.Polygons,FLinearColor(.12f,.55f,.72f,.12f));
   if(S.Function==TEXT("Parking")) {
    if(!PC->bShowParkingLayer) continue;Rect(S,{{0,0},S.Size},FLinearColor(.1f,.5f,.9f,.15f));
    for(const auto& A:S.Aisles) Rect(S,A,FLinearColor(.12f,.5f,.9f,.12f));
@@ -47,20 +50,20 @@ void AFoundrylineBuildHUD::DrawLogisticsMap(AFoundrylinePlayerController* PC)
  if(PC->LogisticsPanel==1) for(const auto& T:M->Targets) {
   if(T.Semi?!PC->bShowTruckLayer:!PC->bShowParkingLayer) continue;
   const bool Selected=T.Id==Trip.TargetId,Hovered=T.Id==HoverTarget;const auto C=(T.Semi && Trip.SmallTruck?T.SmallTruckClear:T.LayoutClear)?(T.Semi?Amber:Blue):Red;
-  if(!T.Loading) if(const auto* S=M->Surfaces.FindByPredicate([&](const auto& S){return S.Id==T.SurfaceId;})) {auto Fill=C;Fill.A=Hovered?.75f:Selected?.65f:.23f;Rect(*S,T.Bay,Fill);}
+  if(!T.Loading) if(const auto* S=M->Surfaces.FindByPredicate([&](const auto& S){return S.Id==T.SurfaceId;})) {auto Fill=C;Fill.A=Hovered?.75f:Selected?.65f:.23f;if(T.Footprint.IsEmpty())Rect(*S,T.Bay,Fill);else {TArray<FVector2D> Vertices;for(const auto Point:T.Footprint)Vertices.Add(S->World(Point));Polygon(Vertices,Fill);}}
   const auto Name=(T.Loading || Selected || Hovered || T.Semi)?FFoundrylineLogisticsTrip::TargetLabel(*M,T.Id):FString();const auto Where=FFoundrylineLogisticsTrip::TargetMarker(T);
   if(Selected || Hovered) Halo(Where,Hovered?Paper:C);
   if(T.Loading || Selected || Hovered) Label(Where,(Hovered?TEXT("CLICK / "):Selected?TEXT("3 / "):TEXT(""))+Name,C,Hovered?1.9f:Selected?1.65f:1.45f);
-  else if(T.Semi) {const int32 Number=FCString::Atoi(*Name.Right(2));Label(Where,FString::Printf(TEXT("STAGING %02d"),Number),C,1.25f);}
+  else if(T.Semi) {const int32 Number=FCString::Atoi(*Name.Right(2));Label(Where,FString::Printf(TEXT("%s %02d"),T.Footprint.IsEmpty()?TEXT("STAGING"):TEXT("LOADING"),Number),C,1.25f);}
  }
  if(PC->LogisticsPanel==1) for(bool Semi:{true,false}) {
   if(Semi?!PC->bShowTruckLayer:!PC->bShowParkingLayer) continue;
   for(const auto& G:Semi?PC->TruckGates:PC->CarGates) {
    const FVector2D In(FMath::Cos(G.InwardYaw),FMath::Sin(G.InwardYaw)),Side(-In.Y,In.X);
-   const bool Entry=Trip.HasEntry && Trip.Semi==Semi && Trip.Entrance.SurfaceId==G.SurfaceId,Exit=Trip.HasExit && Trip.Semi==Semi && Trip.Departure.SurfaceId==G.SurfaceId;
+   const bool Entry=Trip.HasEntry && Trip.Semi==Semi && Trip.Entrance.SurfaceId==G.SurfaceId&&FVector2D::Distance(Trip.Entrance.Portal,G.Portal)<100,Exit=Trip.HasExit && Trip.Semi==Semi && Trip.Departure.SurfaceId==G.SurfaceId&&FVector2D::Distance(Trip.Departure.Portal,G.Portal)<100;
    if(G.SurfaceId==HoverGate) {Halo(G.Portal,Paper);Label(G.Portal-In*220,Step==TEXT("TripExit")?TEXT("CLICK TO SET EXIT"):TEXT("CLICK TO SET ENTRANCE"),Paper,1.75f);}
-   Arrow(G.Portal+In*350-Side*(Semi?350:110),G.InwardYaw,600,Semi?260:150,Semi?Green:Blue);
-   Arrow(G.Portal+In*350+Side*(Semi?350:110),G.InwardYaw+PI,600,Semi?260:150,Paper);
+   if(G.CanEnter)Arrow(G.Portal+In*350-Side*(Semi?350:110),G.InwardYaw,600,Semi?260:150,Semi?Green:Blue);
+   if(G.CanExit)Arrow(G.Portal+In*350+Side*(Semi?350:110),G.InwardYaw+PI,600,Semi?260:150,Paper);
    Label(G.Portal+In*950,(Entry && Exit?TEXT("ENTRANCE + EXIT / "):Entry?TEXT("1 / "):Exit?TEXT("4 / "):TEXT(""))+G.Label,Semi?Green:Blue,1.65f);
   }
  }

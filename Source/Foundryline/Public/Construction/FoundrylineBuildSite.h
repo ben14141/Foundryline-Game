@@ -45,9 +45,23 @@ public:
  bool CanUndo() const {return !UndoStack.IsEmpty();}
  bool CanRedo() const {return !RedoStack.IsEmpty();}
  const FFoundrylinePlacedObject* GetSelectedObject() const;
+ const FFoundrylineOpening* GetSelectedOpening() const;
+ FString GetSelectedItemLabel() const;
+ bool SetSelectedSign(const FString& Name,float Facing,const FFoundrylineBuildingColors& Colors);
+ bool PavementShape(FName Mode,const TArray<FVector2D>& WorldPoints,float WidthCm=731.52f,uint8 Lanes=0,bool Truck=false,bool Curbs=true,bool Preview=false);
+ bool AddPavementMark(EFoundrylinePavementMark Kind,const TArray<FVector2D>& WorldPoints,float WidthCm,bool Preview=false);
+ bool PavementOption(FName Action);
+ bool SelectPavementMark(FIntVector Cursor);
+ FGuid SelectedPavementMark;
+ float DraftEntranceRadiusCm=304.8f;
+ double PavementPreviewAreaFt2=0;
+ FFoundrylinePlacedObject LastPavementPreview;
+ bool bPavementPreviewActive=false;
+ bool RenderRoadsideJoins(AActor* Actor,const FFoundrylinePlacedObject& Object);
+ AActor* RenderPavement(const FFoundrylinePlacedObject& Object,bool Preview,bool Valid,bool PaintOnly=false);
  const FFoundrylinePlacedObject* ObjectAt(FIntVector Cursor) const {return Pick(Cursor);}
  // Selection/hover outlines are recorded here each frame and drawn by the HUD, so they survive Shipping builds.
- struct FSelectionOutline{FVector2D Min,Max;float Z=0;bool Hover=false;};
+ struct FSelectionOutline{FVector2D Min,Max;float Z=0;bool Hover=false;float Height=0;bool Blocked=false;};
  TArray<FSelectionOutline> SelectionOutlines;
  void RecordSelection(FIntVector Cursor,bool Hover);
  UFUNCTION(BlueprintCallable,Category="Property") void SaveProperty(const FString& Slot=TEXT("Property01"));
@@ -66,7 +80,7 @@ public:
 	bool CommitEdit(FName Tool, FIntVector Start, FIntVector End);
 	bool ApplyGroundTool(FName Tool, FIntVector Cursor, bool bPreview=false);
 	FGuid SelectedObject;
-	static bool IsEditTool(FName Tool) {return Tool==TEXT("Select") || Tool==TEXT("Move") || Tool==TEXT("Resize") || Tool==TEXT("Demolish") || Tool==TEXT("MoveDoor") || Tool==TEXT("Rotate") || Tool==TEXT("Duplicate");}
+	static bool IsEditTool(FName Tool) {return Tool==TEXT("UpgradeBay") || Tool==TEXT("Select") || Tool==TEXT("Move") || Tool==TEXT("Resize") || Tool==TEXT("Demolish") || Tool==TEXT("MoveDoor") || Tool==TEXT("Rotate") || Tool==TEXT("Duplicate") || Tool==TEXT("PaveRound") || Tool==TEXT("PaveBend");}
 	FFoundrylineGridBounds PreviewBounds;
  TArray<FVector> PreviewJoinLines;
  bool bHasPreviewBounds=false;
@@ -103,15 +117,26 @@ private:
 	const FFoundrylinePlacedObject* PickOffice(FIntVector Cursor) const;
 	bool EditRequest(FName Tool,FIntVector Start,FIntVector End,FFoundrylinePlacementRequest& Out);
 	FFoundrylineOpening SelectedOpening;
+ bool PavementEditRequest(FName Tool,FIntVector Start,FIntVector End,FFoundrylinePlacementRequest& Request);
+ bool CommitPavementBatch(const TArray<FFoundrylinePlacementRequest>& Requests);
+ TMap<FGuid,TArray<FFoundrylinePlacementRequest>> CompoundHistory;
+ FString PavementInputKey;
+ bool PavementInputValid=false;
+ FGuid SelectedRoom;
+ const FFoundrylinePlacedObject* PickOpening(FIntVector Cursor,FFoundrylineOpening& Opening,FGuid& Room) const;
+ bool OpeningEditRequest(FIntVector Cursor,bool Remove,FFoundrylinePlacementRequest& Request) const;
+ void RecordOpeningOutline(const FFoundrylinePlacedObject& Object,const FFoundrylineOpening& Opening,FGuid Room,bool Hover,bool Valid=true);
 	// SnapEdges selects which rectangle edges may magnetize; bExtend allows dragging out of a building.
 	bool RectangleRequest(FName Tool, FIntVector Start, FIntVector End, FFoundrylinePlacementRequest& Out,uint8 SnapEdges=15,bool bExtend=true);
 	TArray<FFoundrylineGridBounds> SnapTargets(bool bBuilding,FGuid Exclude) const;
 	void SnapRoadEnds(bool Horizontal,int32 Width,FIntVector& Center,FIntVector& A,FIntVector& B) const;
 	bool DoorRequest(FName Tool, FIntVector Cursor, FFoundrylinePlacementRequest& Out) const;
 	void Changed(const FFoundrylinePlacementChange& Change);
+	AActor* RenderManufacturingSign(const FFoundrylinePlacedObject& Object,bool Preview,bool Valid);
 	AActor* Render(const FFoundrylinePlacedObject& Object, bool bPreview=false, bool bValid=true, bool bOpeningOnly=false, bool bColumnsOnly=false, bool bOfficeOnly=false);
 	void ShowPreview(const FFoundrylinePlacedObject& Object, bool bValid, const FString& Key);
 	void ClearGrass(const FFoundrylineGridBounds& Bounds, int32 MarginCm=30);
+ void ClearPavementGrass(const FFoundrylinePlacedObject& Object);
 	void SeedSite();
  void SeedStarterProperty();
  void SeedProductionWorkshop();

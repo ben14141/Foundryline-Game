@@ -8,6 +8,7 @@ void AFoundrylineBuildSite::RecordUndo(const FFoundrylinePlacementRequest& R)
 {
  UndoStack.Add(R);RedoStack.Reset();
  if(UndoStack.Num()>100) UndoStack.RemoveAt(0);
+ for(auto It=CompoundHistory.CreateIterator();It;++It)if(!UndoStack.ContainsByPredicate([&](const auto& R){return R.ObjectId==It.Key();})&&!RedoStack.ContainsByPredicate([&](const auto& R){return R.ObjectId==It.Key();}))It.RemoveCurrent();
 }
 void AFoundrylineBuildSite::Undo() {ReplayHistory(false);}
 void AFoundrylineBuildSite::Redo() {ReplayHistory(true);}
@@ -16,6 +17,13 @@ void AFoundrylineBuildSite::ReplayHistory(bool Redo)
  auto& From=Redo?RedoStack:UndoStack;auto& To=Redo?UndoStack:RedoStack;
  if(!bReady || IsPropertyBusy() || From.IsEmpty()) {Status=TEXT("No available history action");return;}
  auto R=From.Last();R.ExpectedRevision=Placement->GetRevision();
+ if(R.DefinitionId==TEXT("__CompoundHistory")){
+  const auto* Stored=CompoundHistory.Find(R.ObjectId);if(!Stored)return;auto Requests=*Stored;TArray<FFoundrylinePlacementRequest> Inverse;
+  for(int I=Requests.Num()-1;I>=0;--I){auto& Q=Requests[I];Q.ExpectedRevision=Placement->GetRevision();FFoundrylinePlacementRequest Back;Back.ObjectId=Q.ObjectId;
+   if(const auto* O=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==Q.ObjectId;})){Back.Replacement=*O;Back.Action=Q.Action==EFoundrylinePlacementAction::Remove?EFoundrylinePlacementAction::RestoreRemoved:EFoundrylinePlacementAction::ReplaceObject;}else Back.Action=EFoundrylinePlacementAction::Remove;Inverse.Add(Back);}
+  const auto Result=ExecuteConstructionBatch(Requests);if(!Result.IsSuccess()){Status=TEXT("Undo blocked by current property state");return;}From.Pop();CompoundHistory.Remove(R.ObjectId);R.ObjectId=FGuid::NewGuid();CompoundHistory.Add(R.ObjectId,MoveTemp(Inverse));To.Add(R);SelectedPavementMark.Invalidate();HidePreview();return;
+ }
+
  FFoundrylinePlacementRequest Inverse;Inverse.ObjectId=R.ObjectId;
  const auto* Current=Placement->GetObjects().FindByPredicate([&](const auto& O){return O.ObjectId==R.ObjectId;});
  if(Current) {Inverse.Action=R.Action==EFoundrylinePlacementAction::Remove?EFoundrylinePlacementAction::RestoreRemoved:EFoundrylinePlacementAction::ReplaceObject;Inverse.Replacement=*Current;}
@@ -28,11 +36,16 @@ void AFoundrylineBuildSite::ReplayHistory(bool Redo)
 }
 void AFoundrylineBuildSite::RecordSelection(FIntVector Cursor,bool Hover)
 {
- const auto* Selected=GetSelectedObject();const auto* O=Hover?Pick(Cursor):Selected;
+ const auto* Selected=GetSelectedObject();
+ FFoundrylineOpening Opening;FGuid Room;
+ if(Hover){if(const auto* Target=PickOpening(Cursor,Opening,Room)){if(!Selected||Selected->ObjectId!=Target->ObjectId||!GetSelectedOpening()||GetSelectedOpening()->OpeningId!=Opening.OpeningId)RecordOpeningOutline(*Target,Opening,Room,true);return;}}
+ else if(Selected&&GetSelectedOpening()){RecordOpeningOutline(*Selected,*GetSelectedOpening(),SelectedRoom,false);return;}
+ const auto* O=Hover?Pick(Cursor):Selected;
  if(!O || (Hover && Selected && O->ObjectId==Selected->ObjectId)) return;
  const auto* D=Placement->FindDefinition(O->DefinitionId);if(!D) return;
+ if(!O->Pavement.Polygons.IsEmpty())return;
  const auto B=FFoundrylineGrid::RotateBounds(D->Footprint,O->Anchor,O->QuarterTurns);
- SelectionOutlines.Add({FVector2D(B.Min.X-35,B.Min.Y-35),FVector2D(B.Max.X+35,B.Max.Y+35),SlabHeightCm+8.f,Hover});
+ SelectionOutlines.Add({FVector2D(B.Min.X-35,B.Min.Y-35),FVector2D(B.Max.X+35,B.Max.Y+35),SlabHeightCm+8.f,Hover,D->FunctionId==TEXT("ManufacturingSign")?300.f:0.f});
 }
 bool AFoundrylineBuildSite::IsPropertyBusy() const
 {

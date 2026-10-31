@@ -1,0 +1,7 @@
+"""Render contract product previews from actual exported game-owned model geometry."""
+from pathlib import Path
+r=Path(r'C:/Users/curly/Documents/Foundryline Game');ns={};exec(compile((r/'Tools/Blender/render_build_catalogue.py').read_text().split('manifest=[]')[0],'catalogue_helpers','exec'),ns)
+paths={1:'SourceAssets/Products/Components/Fabrication/BracketBlank.fbx',2:'SourceAssets/Products/Components/Fabrication/RailBlank.fbx',3:'SourceAssets/Products/Components/Fabrication/FrameRail.fbx',4:'SourceAssets/Products/Components/Fabrication/ShellBlank.fbx',5:'SourceAssets/Products/Components/Fabrication/ShellSection.fbx',6:'SourceAssets/Products/Components/DishedHeads/TankHead_ASME_FD.fbx',7:'SourceAssets/Products/Components/Fabrication/RunningGearKit.fbx',8:'SourceAssets/Products/Components/Fabrication/FittingsKit.fbx',9:'SourceAssets/Products/Components/Fabrication/BentBracket.fbx',10:'SourceAssets/Operations/MountingPlate.fbx',11:'SourceAssets/Operations/GussetPlate.fbx',12:'SourceAssets/Operations/ReinforcementPlate.fbx',13:'SourceAssets/Operations/SupportChannel.fbx',14:'SourceAssets/Products/HeadacheRack/Parts/UpperCrossmember.fbx',15:'SourceAssets/Products/HeadacheRack/Parts/WorkLightKit_L.fbx',16:'SourceAssets/ArtPolish/2026-10-29/HeadacheRack/HeadacheRack_ArtPolish_Complete.fbx'}
+for i,p in paths.items():
+ if not (r/p).exists():raise RuntimeError('Missing product model '+p)
+ ns['clear']();ns['fbx'](Path(p));ns['render']('Part'+str(i))

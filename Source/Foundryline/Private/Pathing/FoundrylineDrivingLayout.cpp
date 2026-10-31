@@ -1,5 +1,5 @@
 #include "Pathing/FoundrylineDrivingLayout.h"
-bool FFoundrylineDrivingLayout::IsPaved(FName F) {return F==TEXT("Road2") || F==TEXT("Road4") || F==TEXT("Service") || F==TEXT("Driveway") || F==TEXT("TruckAccess") || F==TEXT("Parking") || F==TEXT("FreightYard");}
+bool FFoundrylineDrivingLayout::IsPaved(FName F) {return F==TEXT("Road2") || F==TEXT("Road4") || F==TEXT("Service") || F==TEXT("Driveway") || F==TEXT("TruckAccess") || F==TEXT("Parking") || F==TEXT("FreightYard") || F==TEXT("Pavement");}
 TArray<FFoundrylineParkingBay> FFoundrylineDrivingLayout::Parking(float W,float D,const TArray<FFoundrylineDriveRect>& Entrances)
 {
  TArray<FFoundrylineParkingBay> Out;

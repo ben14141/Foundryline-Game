@@ -68,13 +68,15 @@ bool FFoundrylineRouteWorldGridTest::RunTest(const FString&) {
  G=FFoundrylineRouteNetwork::Read(*P);N=G.Find(A);
  if(TestNotNull(TEXT("Saved route point restored"),N)) {
   const auto* Host=P->GetObjects().FindByPredicate([&](const auto& O){return O.ObjectId==N->Surface;});
+  const FGuid RoadId=Host->ObjectId;const FIntVector Fixed=Host->Anchor;
   FFoundrylinePlacementContext C;C.CompanyId=Host->CompanyId;C.PlantId=Host->PlantId;C.bCanConstruct=true;
   FFoundrylinePlacementRequest R;R.Action=EFoundrylinePlacementAction::SetRouteNodes;R.ObjectId=Host->ObjectId;R.ExpectedRevision=P->GetRevision();R.RouteNodes=Host->RouteNodes;R.RouteNodes[0].Position.X=651;
   TestFalse(TEXT("Server still rejects points off both supported grids"),P->Execute(R,C).IsSuccess());
   R.RouteNodes[0].Position.X=600;TestTrue(TEXT("Legacy local-grid route points remain compatible"),P->Execute(R,C).IsSuccess());
-  const FGuid RoadId=Host->ObjectId;const FIntVector Fixed=Host->Anchor;
-  TestTrue(TEXT("Select odd-width road corner"),S->BeginEdit(TEXT("Resize"),{-2900,4000,0}));
-  TestTrue(TEXT("Odd-to-even width edit can preserve its half-metre edge"),S->CommitEdit(TEXT("Resize"),{-2900,4000,0},{-2800,4100,0}));
+  // Stay below the crossing road; selecting inside two equal-area roads depends on their random IDs.
+  TestTrue(TEXT("Select odd-width road corner"),S->BeginEdit(TEXT("Resize"),{-2900,3800,0}));
+  TestTrue(TEXT("Resize targets the intended vertical road"),S->SelectedObject==RoadId);
+  TestTrue(TEXT("Odd-to-even width edit can preserve its half-metre edge"),S->CommitEdit(TEXT("Resize"),{-2900,3800,0},{-2800,4100,0}));
   const auto* Road=P->GetObjects().FindByPredicate([&](const auto& O){return O.ObjectId==RoadId;});
   TestTrue(TEXT("Widened road remains exactly 14 m and keeps the opposite world corner"),Road && Road->Anchor==Fixed && P->FindDefinition(Road->DefinitionId)->Footprint.Max.X==1400);
  }

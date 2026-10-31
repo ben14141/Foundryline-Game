@@ -20,6 +20,40 @@ class FOUNDRYLINE_API AFoundrylinePlayerController : public APlayerController
 	GENERATED_BODY()
 public:
  bool bPropertyViewAccess=false;
+ int32 PlannerKind=0,PlannerId=0;
+ FString PlannerItemName,PlannerStatus;
+ bool bPlannerMoving=false,bPlannerDrag=false,bPlannerPending=false,bPlannerValid=false;
+ FIntVector PlannerGrab=FIntVector::ZeroValue;
+ FVector PlannerAt=FVector::ZeroVector,PlannerOrigin=FVector::ZeroVector;
+ bool SelectPlannerItem(FIntVector Cursor);
+ void StartPlannerMove(FIntVector Cursor,bool Drag);
+ void PlannerAction(FName Action);
+ void SignAction(FName Action);
+ void FinishSignName(const FString& Name,bool Apply);
+ TSharedPtr<class SWidget> SignNameWidget;
+ bool HandlePlannerInput(const FInputKeyEventArgs& Params);
+ void TickPlannerSelection(bool HasCursor,FIntVector Cursor);
+ bool IsPavementTool() const {return BuildTool.ToString().StartsWith(TEXT("Pave"));}
+ bool HandlePavementInput(const FInputKeyEventArgs& Params);
+ void TickPavement();
+ void PavementAction(FName Action);
+ bool PaveCurved=false,PaveCurbs=true,PaveTruck=false,PaveAwaitBend=false,PaveFlipMark=false,PavePaintAngleSnap=true;
+ uint8 PaveLanes=2;
+ float PaveWidthCm=731.52f,PaveMarkDepthCm=550;
+ EFoundrylinePavementMark PaveMark=EFoundrylinePavementMark::Parking;
+ TArray<FVector2D> PavePoints;
+ int PaveVehicle=-1;
+ int PavePalettePage=0; // Pave, Paint, Edit.
+ bool bPaveAdvanced=false,bPaveDirectDrag=false;
+ FName PaveDirectTool;
+ FGuid PaveDirectObject;
+ FBox2D PavePanelBounds=FBox2D(ForceInit);
+ bool FindPavementHandle(FIntVector& At,FName& Tool,FString& Hint) const;
+ TArray<FVector> PaveSweepLines;
+ FString PaveSweepStatus,PaveSweepKey;
+ bool PaveSweepClear=false;
+ void UpdatePavementSweep(const TArray<FVector2D>& WorldControls,float Width,bool Curbs,int Lanes=0);
+
  void EnterPropertyView();
  UFUNCTION(Server,Reliable) void ServerEnterPropertyView();
  UFUNCTION(Client,Reliable) void ClientPropertyViewMode(bool Active);
@@ -127,7 +161,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Grid")
 	bool bShowPlanningGrid = false;
 	FName BuildTool;
- EFoundrylineSnap GetPlacementSnap() const {return BuildTool.IsNone()?ActiveSnap:EFoundrylineSnap::Structural100cm;}
+ EFoundrylineSnap GetPlacementSnap() const;
 	void ChooseTool(FName Tool);
  bool bExactSurface=false,bRotateSurface=false;
  TMap<FName,FIntPoint> SurfaceSizes;

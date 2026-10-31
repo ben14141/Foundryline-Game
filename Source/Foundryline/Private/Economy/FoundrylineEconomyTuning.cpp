@@ -17,8 +17,9 @@ FFoundrylineCarrierSpec FFoundrylineEconomyTuning::Carrier(int32 I){
   {TEXT("Swift Van Couriers"),TEXT("Pallet van"),1,900,2500,15,60,160},
   {TEXT("Foundry Lane Haulage"),TEXT("Two-pallet flatbed"),2,2000,4000,20,90,244},
   {TEXT("County Freight"),TEXT("Rigid delivery truck"),6,6000,9000,40,120,240},
-  {TEXT("Interstate Pallet Lines"),TEXT("Box semi"),20,24000,18000,60,240,248}};
- return S[FMath::Clamp(I,0,3)];
+  {TEXT("Interstate Pallet Lines"),TEXT("Box semi"),20,24000,18000,60,240,248},
+  {TEXT("Ironline Flatbed Freight"),TEXT("53 ft flatbed semi"),26,48000,22500,90,240,259}};
+ return S[FMath::Clamp(I,0,UE_ARRAY_COUNT(S)-1)];
 }
 TArray<FFoundrylineFactoryProgram> FFoundrylineEconomyTuning::MachinePrograms(){
  TArray<FFoundrylineFactoryProgram> Rows;

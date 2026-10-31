@@ -33,6 +33,12 @@ void AFoundrylineGameMode::BeginPlay()
  auto* Businesses=AFoundrylineBusinessRegistry::Find(GetWorld());if(!Businesses)Businesses=GetWorld()->SpawnActor<AFoundrylineBusinessRegistry>();
 	auto* Site=GetWorld()->SpawnActorDeferred<AFoundrylineBuildSite>(AFoundrylineBuildSite::StaticClass(),FTransform::Identity);
 	if(Site) { Site->bCutPartsStarter=bCutPartsStarter;Site->bStarterProperty=!FParse::Param(FCommandLine::Get(),TEXT("FoundrylineShowcase"));Site->bLargeShowcase=!Site->bStarterProperty;Site->bProductionWorkshop=Site->bStarterProperty&&!FParse::Param(FCommandLine::Get(),TEXT("FoundrylineLegacyStarter"));Site->FinishSpawning(FTransform::Identity); }
+ if(GetWorld()->GetMapName().Contains(TEXT("L_BasicShopStarter"))){
+  // The desk needs an owned operations backend for ERP and validated planning access.
+  auto* Plant=GetWorld()->SpawnActorDeferred<AFoundrylineFactoryPlant>(AFoundrylineFactoryPlant::StaticClass(),FTransform::Identity);if(Plant){Plant->bCutPartsStarter=true;Plant->FinishSpawning(FTransform::Identity);}
+  const FTransform At(FRotator::ZeroRotator,FVector(-2940,900,22));auto* Desk=GetWorld()->SpawnActorDeferred<AFoundrylineOperationsTerminal>(AFoundrylineOperationsTerminal::StaticClass(),At);if(Desk){Desk->Terminal=1;Desk->FinishSpawning(At);}return;
+ }
+ if(GetWorld()->GetMapName().Contains(TEXT("L_RoadOnlyStarter"))) return; // No factory, terminals, vehicles or demonstration equipment.
  if(Site && Site->bStarterProperty) {
   const bool New=Site->bProductionWorkshop;
   if(bCutPartsStarter){
