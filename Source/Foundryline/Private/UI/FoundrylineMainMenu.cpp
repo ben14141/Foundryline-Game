@@ -13,6 +13,23 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "RenderUtils.h"
 #include "UObject/StrongObjectPtr.h"
+#include "SaveSystem/FoundrylineFactorySave.h"
+#include "SaveSystem/FoundrylinePlacementSave.h"
+
+bool AFoundrylineMainMenuHUD::HasStarterSave(const FString& Slot)
+{
+ if(!UGameplayStatics::DoesSaveGameExist(Slot,0))return false;
+ const auto* Save=Cast<UFoundrylineFactorySave>(UGameplayStatics::LoadGameFromSlot(Slot,0));
+ return Save&&Save->Factory.bCutPartsStarter&&!Save->Property.IsEmpty()&&
+  Cast<UFoundrylinePlacementSave>(UGameplayStatics::LoadGameFromMemory(Save->Property));
+}
+
+void AFoundrylineMainMenuHUD::BeginPlay()
+{
+ Super::BeginPlay();bCanContinue=HasStarterSave();
+ if(const auto* Mode=UGameplayStatics::GetGameMode(this);Mode&&UGameplayStatics::HasOption(Mode->OptionsString,TEXT("ResumeFailed")))
+  Message=TEXT("The saved shop could not be restored. Your save has been kept unchanged.");
+}
 
 AFoundrylineMainMenuMode::AFoundrylineMainMenuMode()
 {
@@ -80,9 +97,9 @@ void AFoundrylineMainMenuHUD::DrawHUD()
  }
  else
  {
-  Button(TEXT("Continue"),TEXT("CONTINUE"),0,false);
+  Button(TEXT("Continue"),TEXT("CONTINUE"),0,bCanContinue);
   Button(TEXT("NewGame"),TEXT("NEW GAME"),1);
-  Button(TEXT("Load"),TEXT("LOAD GAME"),2,false);
+  Button(TEXT("Load"),TEXT("LOAD GAME"),2,bCanContinue);
   Button(TEXT("Host"),TEXT("MULTIPLAYER"),3);
   Button(TEXT("Settings"),TEXT("SETTINGS"),4);
   Button(TEXT("Quit"),TEXT("QUIT"),5);
@@ -91,12 +108,16 @@ void AFoundrylineMainMenuHUD::DrawHUD()
  DrawText(Help,FLinearColor(.65f,.71f,.73f),X,H-42*S,GEngine->GetSmallFont(),S);
 }
 
-void AFoundrylineMainMenuHUD::StartShop(bool bHost)
+void AFoundrylineMainMenuHUD::StartShop(bool bHost,bool bResume)
 {
+ if(bResume&&!HasStarterSave()){bCanContinue=false;Message=TEXT("No readable saved shop is available.");return;}
  const FString Map=TEXT("/Game/Foundryline/Maps/L_FirstShopStarter");
  if(!FPackageName::DoesPackageExist(Map)){Message=TEXT("First shop map is missing. Run the first-shop setup before starting.");return;}
  bLoading=true;
- UGameplayStatics::OpenLevel(this,FName(*Map),true,bHost?TEXT("game=/Script/Foundryline.FoundrylineGameMode?listen"):TEXT("game=/Script/Foundryline.FoundrylineGameMode"));
+ FString Options=TEXT("game=/Script/Foundryline.FoundrylineGameMode");
+ if(bHost)Options+=TEXT("?listen");
+ if(bResume)Options+=TEXT("?ResumeStarter=1");
+ UGameplayStatics::OpenLevel(this,FName(*Map),true,Options);
 }
 
 void AFoundrylineMainMenuHUD::NotifyHitBoxClick(FName Name)
@@ -104,6 +125,7 @@ void AFoundrylineMainMenuHUD::NotifyHitBoxClick(FName Name)
  Super::NotifyHitBoxClick(Name);
  if(bLoading)return;
  if(Name==TEXT("NewGame"))StartShop(false);
+ else if(Name==TEXT("Continue")||Name==TEXT("Load"))StartShop(false,true);
  else if(Name==TEXT("Host"))StartShop(true);
  else if(Name==TEXT("Settings"))bSettings=true;
  else if(Name==TEXT("Back"))bSettings=false;

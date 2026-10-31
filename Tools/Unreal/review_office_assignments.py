@@ -47,8 +47,16 @@ def flow():
  check('unassignment_restores_doors',all(not any(d['title'] for d in report(p)['office_doors']) for p in peers()))
  check('unassignment_keeps_workstation',report()['desk_count']==initial['desk_count'])
  action(builder,'Office');yield 1;action(builder,'PropertyView');yield 1
- tool(builder,'OfficeRoom',(-3200,800,0),(-2800,1400,0));yield 1
- tool(builder,'OfficeRoom',(-2800,800,0),(-2400,1400,0));yield 1
+ tool(builder,'OfficeRoom',(-3200,800,0),(-2800,1400,0))
+ for _ in range(30):
+  yield .3
+  if len(report(builder)['rooms'])==1 and len({report(p)['digest'] for p in peers()})==1:break
+ yield 1
+ tool(builder,'OfficeRoom',(-2800,800,0),(-2400,1400,0))
+ for _ in range(30):
+  yield .3
+  if len(report(builder)['rooms'])==2 and len({report(p)['digest'] for p in peers()})==1:break
+ yield 1
  tool(builder,'RoomDoor',(-3000,800,0));yield 1;tool(builder,'RoomDoor',(-2600,800,0));yield 1
  rooms=[r for r in report()['rooms'] if r['room']!='0'*32];check('two_private_rooms',len(rooms)==2 and all(r['doors'] for r in rooms))
  if len(rooms)!=2:raise RuntimeError('Room creation failed: '+str(report()))

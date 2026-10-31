@@ -8,11 +8,13 @@ STRAIGHT='FoundrylineStraightReview' in unreal.SystemLibrary.get_command_line()
 if STRAIGHT:OUT=R/'Saved/Logs/OfficeStoreysStraightNativeQA.json'
 STAIR_TOOL='OfficeStairsStraight' if STRAIGHT else 'OfficeStairs'
 N=unreal.FoundrylineNetworkTestTools;L=unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
-exec(compile((R/'Tools/Unreal/prepare_office_stair_materials.py').read_text(),'prepare_office_stair_materials.py','exec'))
-for name in ['T_Catalog_OfficeStairs','T_Catalog_OfficeStairsStraight']:
- p=R/('SourceAssets/UI/BuildCatalogue/'+name+'.png')
- if p.exists():
-  t=unreal.AssetImportTask();t.filename=str(p);t.destination_path='/Game/Foundryline/UI/BuildCatalogue';t.destination_name=p.stem;t.automated=True;t.replace_existing=True;t.save=True;unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t]);a=unreal.load_asset(t.destination_path+'/'+t.destination_name);a.set_editor_property('compression_settings',unreal.TextureCompressionSettings.TC_EDITOR_ICON);a.set_editor_property('lod_group',unreal.TextureGroup.TEXTUREGROUP_UI);a.set_editor_property('mip_gen_settings',unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS);unreal.EditorAssetLibrary.save_loaded_asset(a)
+# Acceptance runs are read-only by default; refresh authored previews only on request.
+if 'RefreshOfficeAssets' in unreal.SystemLibrary.get_command_line():
+ exec(compile((R/'Tools/Unreal/prepare_office_stair_materials.py').read_text(),'prepare_office_stair_materials.py','exec'))
+ for name in ['T_Catalog_OfficeStairs','T_Catalog_OfficeStairsStraight']:
+  p=R/('SourceAssets/UI/BuildCatalogue/'+name+'.png')
+  if p.exists():
+   t=unreal.AssetImportTask();t.filename=str(p);t.destination_path='/Game/Foundryline/UI/BuildCatalogue';t.destination_name=p.stem;t.automated=True;t.replace_existing=True;t.save=True;unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t]);a=unreal.load_asset(t.destination_path+'/'+t.destination_name);a.set_editor_property('compression_settings',unreal.TextureCompressionSettings.TC_EDITOR_ICON);a.set_editor_property('lod_group',unreal.TextureGroup.TEXTUREGROUP_UI);a.set_editor_property('mip_gen_settings',unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS);unreal.EditorAssetLibrary.save_loaded_asset(a)
 L.load_level('/Game/Foundryline/Maps/L_FirstShopStarter');unreal.EditorPythonScripting.set_keep_python_script_alive(True)
 q={'checks':{},'errors':[],'completed':False,'notes':['Fresh unsaved four-player PIE. No cash/stock grants, map saves or player save writes. Real movement input after initial test placement.']}
 start=time.monotonic();next_at=start+3;started=False;walker=None;camera=None

@@ -33,7 +33,7 @@ void AFoundrylinePlayerController::ServerFactoryCommand_Implementation(const FFo
 void AFoundrylinePlayerController::ClientFactoryReply_Implementation(const FString& E){
  const bool Confirmed=E.StartsWith(TEXT("FL_OK|"));const FString Error=Confirmed?FString():E;FoundrylineOperationFeedback::FinishFactory(this);
  if(bPlannerPending){bPlannerPending=false;PlannerStatus=Error;if(Error.IsEmpty())bLastPlannerEdit=true;}
- if(Confirmed){UFoundrylineUIAudio::Play(this,TEXT("Confirm"));ConfirmOperations(E.RightChop(6));}
+ if(Confirmed){UFoundrylineUIAudio::Play(this,TEXT("Confirm"));ConfirmOperations(E.RightChop(6));if(E.Contains(TEXT("Shop saved:")))for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)It->Status=E.RightChop(6);}
  else if(!Error.IsEmpty()){UFoundrylineUIAudio::Play(this,TEXT("Error"));OperationsStatus=Error;OperationsStatusAt=GetWorld()->GetRealTimeSeconds();OperationsWatch=0;}
  FactoryStatus=Error;if(!Error.IsEmpty())OperationsHireRequest.Invalidate();
 }

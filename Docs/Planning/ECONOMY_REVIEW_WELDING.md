@@ -1,5 +1,7 @@
 # Economy review: the welding chain (29 October 2026)
 
+> October 31 payroll policy and current profit measurements: [Daily payroll and profit](../Validation/DAILY_PAYROLL_AND_PROFIT_2026_10_31.md).
+
 > Later collector-era prices supersede this historical review: see [Pricing Collector Update](PRICING_COLLECTOR_UPDATE.md). The later adjustment was not rebuilt or retested.
 
 Ben: "Check pricing. I have not at all. So economy is not set at all." This review reads the current numbers from code, works out what one headache rack really costs and earns, and proposes a coherent price set.

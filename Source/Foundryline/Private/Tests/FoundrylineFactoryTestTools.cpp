@@ -30,6 +30,17 @@ FString UFoundrylineNetworkTestTools::InspectFactoryZones(APlayerController* Pla
 #endif
  return TEXT("unavailable");
 }
+bool UFoundrylineNetworkTestTools::TestFactoryCheckpoint(APlayerController* Player,const FString& Slot,bool Load){
+#if WITH_EDITOR
+ auto* PC=Cast<AFoundrylinePlayerController>(Player);
+ if(!PC||!PC->HasAuthority()||PC->GetWorld()->WorldType!=EWorldType::PIE||!Slot.StartsWith(TEXT("Foundryline_QA_")))return false;
+ auto* Plant=PC->FactoryPlant();FString Error;
+ const bool Ok=Plant&&(Load?Plant->LoadFactory(Error,Slot):Plant->SaveFactory(Error,Slot));
+ if(!Ok)UE_LOG(LogTemp,Warning,TEXT("Factory QA checkpoint: %s"),*Error);return Ok;
+#else
+ return false;
+#endif
+}
 bool UFoundrylineNetworkTestTools::QueueFactoryConsole(APlayerController* Player,int32 Machine){
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController()||Machine<1||Machine>3)return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;

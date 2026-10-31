@@ -10,6 +10,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
+#include "UI/FoundrylineMainMenu.h"
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCommerceWorldRestore,"Foundryline.Commerce.WorldSaveAccountAndUpgradeRestore",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FCommerceWorldRestore::RunTest(const FString&){
  const FString Base=TEXT("FoundrylineAutomation_CommerceBase"),Upgrade=TEXT("FoundrylineAutomation_CommerceUpgrade"),Broken=TEXT("FoundrylineAutomation_CommerceInvalid");
@@ -18,6 +19,12 @@ bool FCommerceWorldRestore::RunTest(const FString&){
  const int BaseNavigationCount=P->Model.Solids.Num();
  if(!TestTrue(TEXT("Save base to isolated test slot"),P->SaveFactory(E,Base))){AddError(E);Finish();return false;}
  auto* S=Cast<UFoundrylineFactorySave>(UGameplayStatics::LoadGameFromSlot(Base,0));if(!TestNotNull(TEXT("Read isolated save"),S)){Finish();return false;}
+ TestTrue(TEXT("Menu recognises a combined starter save"),AFoundrylineMainMenuHUD::HasStarterSave(Base));
+ TestFalse(TEXT("Menu disables missing saves"),AFoundrylineMainMenuHUD::HasStarterSave(Base+TEXT("Missing")));
+ const bool Starter=S->Factory.bCutPartsStarter;S->Factory.bCutPartsStarter=false;UGameplayStatics::SaveGameToSlot(S,Broken,0);
+ TestFalse(TEXT("Menu rejects another scenario"),AFoundrylineMainMenuHUD::HasStarterSave(Broken));
+ S->Factory.bCutPartsStarter=Starter;const auto PropertyBytes=S->Property;S->Property.Reset();UGameplayStatics::SaveGameToSlot(S,Broken,0);
+ TestFalse(TEXT("Menu rejects a save without its property"),AFoundrylineMainMenuHUD::HasStarterSave(Broken));S->Property=PropertyBytes;
  auto* Property=Cast<UFoundrylinePlacementSave>(UGameplayStatics::LoadGameFromMemory(S->Property));if(!TestNotNull(TEXT("Read property"),Property)){Finish();return false;}
  Property->SchemaVersion=999;UGameplayStatics::SaveGameToMemory(Property,S->Property);S->Factory.Commerce.CashCents=123456;UGameplayStatics::SaveGameToSlot(S,Broken,0);
  auto* Placement=W->GetSubsystem<UFoundrylinePlacementSubsystem>();const auto Revision=Placement->GetRevision();const auto Cash=R->GetLedger().Company(P->BusinessCompanyId)->BalanceCents;const auto Digest=P->GetLedgerDigest();
