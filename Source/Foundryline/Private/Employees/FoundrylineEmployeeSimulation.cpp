@@ -4,8 +4,8 @@
 namespace {using Activity=EFoundrylineEmployeeActivity;using Wait=EFoundrylineEmployeeWait;using Role=EFoundrylineEmployeeRole;}
 FVector FFoundrylineFactorySimulation::OperatorWorkPoint(int32 Id)const{
  const auto* M=State.Machines.FindByPredicate([&](const auto& V){return V.Id==Id;});if(!M)return {};
- if(State.bCutPartsStarter&&Id==2)return M->Origin+FVector(180,280,0);
- return M->Origin+(Id==1?FVector(326,201,0):Id==2?FVector(180,300,0):FVector(115,350,0));
+ if(State.bCutPartsStarter&&Id==2)return M->Origin+FRotator(0,M->QuarterTurns*90,0).RotateVector(FVector(180,280,0));
+ return M->Origin+FRotator(0,M->QuarterTurns*90,0).RotateVector(M->Kind()==1?FVector(326,201,0):M->Kind()==2?FVector(180,300,0):FVector(115,350,0));
 }
 void FFoundrylineFactorySimulation::AddOperatorAccessLanes(int32 Machine){
  auto Add=[&](FVector2D Min,FVector2D Max){if(State.Lanes.Num()>=64||State.Lanes.ContainsByPredicate([&](const auto& L){return L.Kind==EFoundrylineFloorLane::Pedestrian&&L.Min.Equals(Min,.01)&&L.Max.Equals(Max,.01);}))return;FFoundrylineFactoryLane L;L.Id=State.NextId++;L.Kind=EFoundrylineFloorLane::Pedestrian;L.Min=Min;L.Max=Max;State.Lanes.Add(L);};
@@ -32,13 +32,13 @@ bool FFoundrylineFactorySimulation::AssignEmployeeInternal(int32 Id,Role Type,in
  ++State.Revision;return true;
 }
 void FFoundrylineFactorySimulation::UpdateOperators(float Dt){
- for(auto& O:State.Operators){O.Speed=0;O.Retry=FMath::Max(0.f,O.Retry-Dt);const auto* M=State.Machines.FindByPredicate([&](const auto& V){return V.Id==O.Machine;});const bool AutoDemand=M&&M->Auto&&State.Zones.ContainsByPredicate([](const auto& Z){return Z.Ordered;});const bool Needed=M&&(M->Remaining>0||M->Enabled&&(M->BatchRemaining>0&&!M->Auto||M->HasQueuedProgram||AutoDemand));O.WorkPoint=M?OperatorWorkPoint(M->Id):O.Home;
+ for(auto& O:State.Operators){O.Speed=0;O.Retry=FMath::Max(0.f,O.Retry-Dt);const auto* M=State.Machines.FindByPredicate([&](const auto& V){return V.Id==O.Machine;});const bool AutoDemand=M&&M->Auto&&State.Zones.ContainsByPredicate([](const auto& Z){return Z.Ordered;});const bool Needed=M&&(M->Remaining>0||M->Enabled&&(M->BatchRemaining>0&&!M->Auto||M->HasQueuedProgram||!M->Queue.IsEmpty()||AutoDemand));O.WorkPoint=M?OperatorWorkPoint(M->Id):O.Home;
   // Let a departing colleague clear the shared access lane before a replacement leaves home.
   if(Needed&&O.Position.Equals(O.Home,1)&&!O.Home.Equals(O.WorkPoint,1)&&State.Operators.ContainsByPredicate([&](const auto& Other){return Other.Id!=O.Id&&!Other.Machine&&!Other.Position.Equals(Other.Home,1);})){O.Target=O.Home;O.Path={O.Home};O.Distance=0;O.Activity=Activity::Waiting;O.Wait=Wait::Traffic;continue;}
   const FVector Goal=Needed?O.WorkPoint:O.Home;
   if(!O.Target.Equals(Goal,1)){O.Target=Goal;O.Path.Reset();O.Distance=0;O.Retry=0;}
-  if(FVector::Dist2D(O.Position,Goal)<=1){O.Position=Goal;O.Activity=Activity::Idle;O.Wait=M?Wait::None:Wait::Unassigned;if(Needed){const FVector Screen=M->Origin+(M->Id==1?FVector(269,197,0):M->Id==2?FVector(180,215,0):FVector(115,277.6,0));O.Yaw=(Screen-O.Position).Rotation().Yaw;if(M->Remaining>0){O.Activity=Activity::Operating;O.Wait=Wait::None;}else{O.Activity=Activity::Waiting;O.Wait=Wait::Materials;for(const auto& P:State.Pallets)if(P.Place==EFoundrylinePalletPlace::MachineOutput&&P.Owner==M->Id&&(P.Part!=M->Making||P.Quantity>=FFoundrylineFactoryCatalog::Part(P.Part).Capacity))O.Wait=Wait::OutputFull;}}continue;}
-  if(O.Path.IsEmpty()&&O.Retry<=0){const bool Moved=M&&!M->Origin.Equals(State.bCutPartsStarter&&M->Id==2?FVector(-1900,1850,20):FFoundrylineWorkshopLayout::Machine(M->Id),.1);O.Path=Path(O.Position,Goal,true,false,Moved);O.Distance=0;O.Retry=1;}
+  if(FVector::Dist2D(O.Position,Goal)<=1){O.Position=Goal;O.Activity=Activity::Idle;O.Wait=M?Wait::None:Wait::Unassigned;if(Needed){const FVector Screen=M->Origin+FRotator(0,M->QuarterTurns*90,0).RotateVector(M->Kind()==1?FVector(269,197,0):M->Kind()==2?FVector(180,215,0):FVector(115,277.6,0));O.Yaw=(Screen-O.Position).Rotation().Yaw;if(M->Remaining>0){O.Activity=Activity::Operating;O.Wait=Wait::None;}else{O.Activity=Activity::Waiting;O.Wait=Wait::Materials;for(const auto& P:State.Pallets)if(P.Place==EFoundrylinePalletPlace::MachineOutput&&P.Owner==M->Id&&(P.Part!=M->Making||P.Quantity>=FFoundrylineFactoryCatalog::Part(P.Part).Capacity))O.Wait=Wait::OutputFull;}}continue;}
+  if(O.Path.IsEmpty()&&O.Retry<=0){const bool Moved=M&&(M->QuarterTurns!=0||M->MachineType!=0||!M->Origin.Equals(State.bCutPartsStarter&&M->Id==2?FVector(-1900,1850,20):FFoundrylineWorkshopLayout::Machine(M->Id),.1));O.Path=Path(O.Position,Goal,true,false,Moved);O.Distance=0;O.Retry=1;}
   if(O.Path.IsEmpty()){O.Activity=Activity::Waiting;O.Wait=Wait::NoRoute;continue;}
   const float Next=FMath::Min(Length(O.Path),O.Distance+110*Dt);float Yaw=O.Yaw;const FVector P=Along(O.Path,Next,&Yaw);if(!CanEmployeeAdvance(O.Position,P,O.Id)){TryEmployeePassing(O.Position,P,O.Id,O.Path,O.Distance);O.Activity=Activity::Waiting;O.Wait=Wait::Traffic;continue;}O.Distance=Next;O.Speed=Dt>0?FVector::Dist2D(O.Position,P)/Dt:0;O.Position=P;O.Yaw=FMath::FixedTurn(O.Yaw,Yaw,240*Dt);O.Activity=Activity::Walking;O.Wait=Wait::None;
  }

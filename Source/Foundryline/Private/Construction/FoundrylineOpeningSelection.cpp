@@ -28,6 +28,7 @@ const FFoundrylinePlacedObject* AFoundrylineBuildSite::PickOpening(FIntVector Cu
   {
    for(const auto& V:Values)
    {
+    if(V.OfficeLevel!=(Cursor.Z>=320?1:0))continue;
     const double Along=V.Edge%2==0?P.X-Min.X:P.Y-Min.Y;
     const double Across=V.Edge==0?P.Y-Min.Y:V.Edge==1?P.X-Max.X:V.Edge==2?P.Y-Max.Y:P.X-Min.X;
     double Distance=FMath::Abs(Across)+FMath::Max(0.,FMath::Abs(Along-V.OffsetCm-V.WidthCm()*.5)-V.WidthCm()*.5);
@@ -69,7 +70,7 @@ bool AFoundrylineBuildSite::OpeningEditRequest(FIntVector Cursor,bool Remove,FFo
  uint8 Edge=0;for(uint8 E=1;E<4;++E)if(Distances[E]<Distances[Edge])Edge=E;
  if(Distances[Edge]>200)return false;
  auto* V=Values.FindByPredicate([&](const auto& Item){return Item.OpeningId==Original->OpeningId;});if(!V)return false;
- const int Snap=V->Kind==EFoundrylineOpeningKind::OfficeGlassWall?25:100;V->Edge=Edge;V->OffsetCm=FMath::RoundToInt(((Edge%2==0?P.X:P.Y)-V->WidthCm()*.5)/Snap)*Snap;V->bAutomatic=false;
+ const int Snap=(V->Kind==EFoundrylineOpeningKind::OfficeGlassWall||V->Kind==EFoundrylineOpeningKind::Personnel||V->Kind==EFoundrylineOpeningKind::OfficeDoor)?25:100;V->Edge=Edge;V->OffsetCm=FMath::RoundToInt(((Edge%2==0?P.X:P.Y)-V->WidthCm()*.5)/Snap)*Snap;V->bAutomatic=false;
  if(!Room&&Original->Kind!=EFoundrylineOpeningKind::ShopWindow)FFoundrylineFacadeLayout::Reflow(R.Replacement,D->Footprint.Max.X,D->Footprint.Max.Y,D->Footprint.Max.Z);
  return true;
 }

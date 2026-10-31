@@ -38,6 +38,7 @@ struct FOUNDRYLINE_API FFoundrylineWorkshopLayout {
  // Painted starter areas that stay clear of new stations: outbound staging, forklift bay and burn-table cell.
  // Starter building slab; the commerce floor extends outside onto the truck apron.
  static FBox2D CutShopInterior(){return {{-2370,30},{370,2170}};}
+ static FBox2D CutShopInterior(const FFoundrylineFactoryState& State){return {State.FloorMin,FVector2D(FMath::Min(370.,State.FloorMax.X),State.FloorMax.Y)};}
  static TArray<FBox2D> CutShopReserved(){return {FBox2D({-1100,1850},{-600,2170}),FBox2D({0,220},{200,720}),FBox2D({-1600,400},{-1000,1100})};}
  static TArray<FBox2D> Solids();
  // Equipment footprint for a replicated plant state, matching what the server seeded/installed.

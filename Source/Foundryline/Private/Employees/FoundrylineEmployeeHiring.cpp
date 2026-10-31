@@ -5,7 +5,13 @@ FString FFoundrylineFactorySimulation::NewEmployeeName(int32 Id,bool Random)cons
  static const TCHAR* First[]={TEXT("Avery"),TEXT("Jordan"),TEXT("Morgan"),TEXT("Riley"),TEXT("Casey"),TEXT("Taylor"),TEXT("Alex"),TEXT("Sam"),TEXT("Cameron"),TEXT("Drew"),TEXT("Jamie"),TEXT("Reese"),TEXT("Quinn"),TEXT("Parker"),TEXT("Logan"),TEXT("Rowan"),TEXT("Blake"),TEXT("Skyler"),TEXT("Hayden"),TEXT("Emerson"),TEXT("Dakota"),TEXT("Finley"),TEXT("Charlie"),TEXT("Sage")};
  static const TCHAR* Last[]={TEXT("Bennett"),TEXT("Carter"),TEXT("Hayes"),TEXT("Walker"),TEXT("Brooks"),TEXT("Reed"),TEXT("Morgan"),TEXT("Hayden"),TEXT("Foster"),TEXT("Ellis"),TEXT("Parker"),TEXT("Sullivan"),TEXT("Cooper"),TEXT("Bailey"),TEXT("Reynolds"),TEXT("Spencer"),TEXT("Mason"),TEXT("Walsh"),TEXT("Harper"),TEXT("Dawson"),TEXT("West"),TEXT("Coleman"),TEXT("Porter"),TEXT("Mitchell")};
  TSet<FString> Used;for(const auto& C:State.Collectors)Used.Add(C.DisplayName);for(const auto& O:State.Operators)Used.Add(O.DisplayName);for(const auto& W:State.Walkers)Used.Add(W.DisplayName);for(const auto& D:State.Drivers)if(D.EmployeeId)Used.Add(D.DisplayName);for(const auto& D:State.StandbyDrivers)Used.Add(D.DisplayName);for(const auto& D:State.UnassignedEmployees)Used.Add(D.DisplayName);
- constexpr int Count=UE_ARRAY_COUNT(First)*UE_ARRAY_COUNT(Last);const uint32 Start=Random?FMath::RandHelper(Count):HashCombine(GetTypeHash(State.CompanyId),GetTypeHash(Id))%Count;
+ // New hires occasionally get a workshop pun; existing saved names are never regenerated.
+ static const TCHAR* Playful[]={TEXT("Rusty Sparks"),TEXT("Skip Lunch"),TEXT("Chip Grinder"),TEXT("Doug Dimmweld"),TEXT("Minnie Welds"),TEXT("Max Amps"),TEXT("Pat Pending"),TEXT("Will Weld"),TEXT("Rivet Jones"),TEXT("Chuck Socket"),TEXT("Dot Matrix"),TEXT("Rita Rivet"),TEXT("Bolt Bennett"),TEXT("Penny Plasma"),TEXT("Bill Ding"),TEXT("Dusty Sprocket")};
+ const uint32 Identity=HashCombine(GetTypeHash(State.CompanyId),GetTypeHash(Id));
+ FRandomStream Choices{int32(HashCombine(Identity,HashCombine(GetTypeHash(State.PlantId),uint32(0x464C4E4D))))};
+ // Twenty percent of fresh identities try the playful pool; the rest use ordinary names.
+ if(Random&&Choices.RandRange(0,4)==0){const int Start=Choices.RandRange(0,UE_ARRAY_COUNT(Playful)-1);for(int I=0;I<UE_ARRAY_COUNT(Playful);++I){const FString Candidate=Playful[(Start+I)%UE_ARRAY_COUNT(Playful)];if(!Used.Contains(Candidate))return Candidate;}}
+ constexpr int Count=UE_ARRAY_COUNT(First)*UE_ARRAY_COUNT(Last);const uint32 Start=Random?Choices.RandRange(0,Count-1):Identity%Count;
  for(int I=0;I<Count;++I){const int Pick=(Start+I)%Count;FString Name=FString(First[Pick/UE_ARRAY_COUNT(Last)])+TEXT(" ")+Last[Pick%UE_ARRAY_COUNT(Last)];if(!Used.Contains(Name))return Name;}return FString::Printf(TEXT("%s %s %d"),First[0],Last[0],Id);
 }
 int32 FFoundrylineFactorySimulation::EmployeeHireCapacity(Role)const{return FMath::Max(0,HireLimitTotal-FFoundrylineEmployeeRoster::Build(State).Num());}

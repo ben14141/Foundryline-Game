@@ -17,7 +17,7 @@ void AFoundrylineBuildHUD::DrawFactoryMap(AFoundrylinePlayerController* PC){if(P
 
  }
  // Sits below the PRODUCTION / OVERLAY buttons in the top-right corner.
-  DrawRect(Ink,(W-282)*S,246*S,258*S,175*S);T(TEXT("FLOOR LEGEND"),W-266,264,Paper,1.15);const TCHAR* Names[]={TEXT("WORK / MACHINE CELLS"),TEXT("PARTS INSIDE ZONE"),TEXT("FORKLIFT LANES")};const FLinearColor Colors[]={Orange,Blue,Yellow};for(int I=0;I<UE_ARRAY_COUNT(Names);++I){DrawRect(Colors[I],(W-266)*S,(304+I*35)*S,22*S,8*S);T(Names[I],W-232,299+I*35,Paper,.9);}
+  DrawRect(Ink,(W-282)*S,246*S,258*S,175*S);T(TEXT("FLOOR LEGEND"),W-266,264,Paper,1.15);const TCHAR* Names[]={TEXT("WORK / MACHINE CELLS"),TEXT("PARTS INSIDE ZONE"),TEXT("FORKLIFT AREAS")};const FLinearColor Colors[]={Orange,Blue,Yellow};for(int I=0;I<UE_ARRAY_COUNT(Names);++I){DrawRect(Colors[I],(W-266)*S,(304+I*35)*S,22*S,8*S);T(Names[I],W-232,299+I*35,Paper,.9);}
  }
  if(PC->FactorySelectedPart>=0){const auto Part=EFoundrylinePart(PC->FactorySelectedPart);const auto Size=FFoundrylineFactoryCatalog::DropSizeCm(Part);DrawRect(Ink,(W-330)*S,510*S,306*S,190*S);T(FFoundrylineFactoryCatalog::Part(Part).Name,W-312,529,Blue,1.2);T(TEXT("PART-SIZED DELIVERY BAY"),W-312,568,Paper,.95);T(FFoundrylineUnits::Length(Size.X)+TEXT(" x ")+FFoundrylineUnits::Length(Size.Y),W-312,607,Paper,1.05);T(FString::Printf(TEXT("Pallet capacity: %d"),FFoundrylineFactoryCatalog::Part(Part).Capacity),W-312,648,Paper,1);}
 }

@@ -9,6 +9,20 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  // The practice scene starts stocked; recipe tests can start with raw materials only.
  void Seed(bool StockedWorkshop=false);
  void SeedCutPartsShop(bool Commerce=true);
+ // Driver preferences are Receiving / Production / Shipping, independent of the part's type.
+ static int32 ForkPriorityGroup(const FFoundrylineFactoryJob& Job){
+  if(Job.DestinationPlace==EFoundrylinePalletPlace::Pickup||Job.DestinationPlace==EFoundrylinePalletPlace::Outbound)return 2;
+  if(Job.Task==EFoundrylineForkTask::Truck||Job.SourcePlace==EFoundrylinePalletPlace::Receiving||Job.SourcePlace==EFoundrylinePalletPlace::Inbound)return 0;
+  return 1;
+ }
+ void MigrateCurrentParts();
+ static FBox2D MachineWorkspaceBounds(int32 Kind,FVector At,int32 Quarter);
+ bool CanBuyMachine(int32 Kind,FVector At,int32 Quarter,FString& Error)const;
+ bool BuyMachine(int32 Kind,FVector At,int32 Quarter,FString& Error);
+ bool BuyStoredMachine(int32 Kind,FString& Error);
+ bool QueueMachineJob(int32 Machine,int32 Order,int32 Quantity,FString& Error,EFoundrylinePart Component=EFoundrylinePart::Sheet);
+ int32 SelectMachineOutput(int32 Machine,EFoundrylinePart Part);
+ void InitialiseMachineRacks(int32 Machine,bool Starter=false);
  void AddMachineOperator(int32 Machine,bool StartAtWork=false);
  void MigrateEmployees();
  void MigrateEmployeeNames();
@@ -16,7 +30,7 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void MigrateAssemblySupply();
  bool CanBuyPlanningEquipment(int32 Item,FVector At,int32 Quarter,int32 Levels,FString& Error,bool Swap=false)const;
  bool RequestPlanningPalletMove(int32 Pallet,int32 Slot,FString& Error);
- bool EditPlanningItem(int32 Kind,int32 Id,FVector At,bool Remove,FString& Error);
+ bool EditPlanningItem(int32 Kind,int32 Id,FVector At,bool Remove,FString& Error,int32 Quarter=-1,FVector Size=FVector::ZeroVector);
  bool BuyPlanningEquipment(int32 Item,FVector At,int32 Quarter,int32 Levels,FString& Error,bool Swap=false);
  bool AssignCollector(int32 Employee,int32 Area,FString& Error);
  bool ConfigureSupplyBin(int32 Area,int32 Compartments,FString& Error);
@@ -55,11 +69,18 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void CommerceIncome(int64 Cents,const FString& Label);
  void RefreshCommerceOffers();
  static FVector PickupPosition(int32 Slot);
+ FVector ShippingPickupPosition(int32 Slot)const;
+ FVector ShippingPickupDock(int32 Slot)const;
+ FBox2D ShippingPickupBounds()const;
+ bool CanRelocateShippingPickup()const;
  static FVector CarrierPalletPosition(int32 Slot,int32 Carrier=1,bool Wide=false);
  static FVector CarrierDock(int32 Slot,int32 Carrier=1,bool Wide=false);
  void Step(float Seconds);
  bool Valid(FString& Error)const;
  bool PaintLane(EFoundrylineFloorLane Kind,FVector A,FVector B,float Width,int32 Direction,FString& Error);
+ // Player-painted forklift areas use opposite corners, with room for two trucks.
+ bool PaintForkliftArea(FVector A,FVector B,FString& Error);
+ bool CommitPaintedFloorLane(FFoundrylineFactoryLane Lane,FString& Error);
  bool AddZone(FVector A,FVector B,FString& Error);
  bool AddPresetZone(FVector Center,int32 Preset,int32 QuarterTurns,int32 Side,int32 Route,FString& Error);
  bool CanPlaceZone(const FFoundrylineFactoryZone& Zone,FString& Error)const;

@@ -37,6 +37,8 @@ public:
  bool bStarterProperty = false;
  bool bProductionWorkshop = false;
  bool bCutPartsStarter = false;
+ // Server-only authored layout choice; ordinary construction records replicate to clients.
+ bool bFirstShopStarter = false;
 	void PreviewDoor(FName Tool, FIntVector Cursor);
 	void PreviewColumns(FIntVector Cursor);
 	void HidePreview();
@@ -70,6 +72,10 @@ public:
  bool HasUnsavedChanges() const;
  FString PropertyStatus=TEXT("NOT SAVED");
  void SetRoofsVisible(bool Visible);
+ int32 OfficeViewLevel=0;
+ bool PlaceOfficeStairs(FIntVector Cursor,int32 Quarter,bool Preview=false,uint8 Style=0);
+ bool OfficeStoreyRequestsClear(const TArray<FFoundrylinePlacementRequest>& Requests,FString& Error)const;
+ bool OfficeStoreyWorldClear(const FFoundrylinePlacedObject& Candidate,FString& Error)const;
  bool AreRoofsVisible() const {return bRoofsVisible;}
  UFUNCTION(BlueprintCallable,Category="Construction") bool PaintSelected(int32 Channel,FLinearColor Color);
  const FFoundrylinePlacedObject* GetSelectedBuilding() const;
@@ -133,7 +139,7 @@ private:
 	bool DoorRequest(FName Tool, FIntVector Cursor, FFoundrylinePlacementRequest& Out) const;
 	void Changed(const FFoundrylinePlacementChange& Change);
 	AActor* RenderManufacturingSign(const FFoundrylinePlacedObject& Object,bool Preview,bool Valid);
-	AActor* Render(const FFoundrylinePlacedObject& Object, bool bPreview=false, bool bValid=true, bool bOpeningOnly=false, bool bColumnsOnly=false, bool bOfficeOnly=false);
+	AActor* Render(const FFoundrylinePlacedObject& Object, bool bPreview=false, bool bValid=true, bool bOpeningOnly=false, bool bColumnsOnly=false, bool bOfficeOnly=false,bool UpperOffice=false);
 	void ShowPreview(const FFoundrylinePlacedObject& Object, bool bValid, const FString& Key);
 	void ClearGrass(const FFoundrylineGridBounds& Bounds, int32 MarginCm=30);
  void ClearPavementGrass(const FFoundrylinePlacedObject& Object);

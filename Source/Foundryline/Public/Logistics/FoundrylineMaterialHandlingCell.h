@@ -30,6 +30,7 @@ public:
  UPROPERTY(ReplicatedUsing=OnRep_Stock,BlueprintReadOnly) TArray<FFoundrylineSheetStock> Stock;
  UPROPERTY(Replicated) FGuid BusinessCompanyId=FGuid(0xF001,1,1,1);
  UPROPERTY(Replicated) FGuid BusinessPlantId=FGuid(0xF001,2,1,1);
+ UPROPERTY(Replicated) int32 MachineId=3;
  UPROPERTY(Replicated,BlueprintReadOnly) TObjectPtr<class APlayerState> Driver;
  UPROPERTY(Replicated,BlueprintReadOnly) FString Feedback;
  UPROPERTY(Replicated,BlueprintReadOnly) int32 Carried=INDEX_NONE;

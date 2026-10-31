@@ -105,7 +105,7 @@ bool UFoundrylineNetworkTestTools::QueueConstructionTool(APlayerController* Play
    else if(Tool==TEXT("PlannerSelect")){if(Weak->SelectPlannerItem(Start))It->SelectedObject.Invalidate();}
    else if(Tool==TEXT("SignName")){Weak->SignAction(TEXT("Name"));}
    else if(Tool==TEXT("SignClose")){Weak->FinishSignName(TEXT(""),false);}
-   else if(Tool==TEXT("PlannerPlace")){Weak->PlannerKind=Channel;Weak->PlannerId=Start.X;Weak->PlannerAt=FVector(End.X,End.Y,20);Weak->PlannerAction(TEXT("Place"));}
+   else if(Tool==TEXT("PlannerPlace")){Weak->PlannerKind=Channel;Weak->PlannerId=Start.X;Weak->PlannerAt=FVector(End.X,End.Y,20+Weak->OfficePlanningLevel*320);Weak->PlannerAction(TEXT("Place"));}
    else if(Tool==TEXT("PlannerStore")){Weak->PlannerKind=Channel;Weak->PlannerId=Start.X;Weak->PlannerAction(TEXT("Delete"));}
    else if(Tool==TEXT("Paint")) {It->BeginEdit(TEXT("Select"),Start);It->PaintSelected(Channel,Color);}
    else if(AFoundrylineBuildSite::IsEditTool(Tool)) {if(It->BeginEdit(Tool,Start)) It->CommitEdit(Tool,Start,End);}
@@ -116,6 +116,9 @@ bool UFoundrylineNetworkTestTools::QueueConstructionTool(APlayerController* Play
     Weak->SubmitConstruction({R});
    }
     else if(Tool==TEXT("GridTruck13")) {TGuardValue<int32> Width(It->DraftTruckWidthCm,1300);It->BuildRectangle(TEXT("TruckAccess"),Start,End);}
+    else if(Tool==TEXT("OfficeStairs")||Tool==TEXT("OfficeStairsStraight")) It->PlaceOfficeStairs(Start,Channel,false,Tool==TEXT("OfficeStairsStraight")?1:0);
+    else if(Tool==TEXT("OfficeFloor")) Weak->SetOfficePlanningLevel(Channel);
+    else if(Tool==TEXT("RoomDoor")||Tool==TEXT("RoomWindow")) It->OfficeOpening(Tool,Start);
     else if(Tool==TEXT("OfficeArea") || Tool==TEXT("OfficeRoom")) It->OfficeRectangle(Tool,Start,End);
    else if(Tool==TEXT("Personnel") || Tool==TEXT("Garage") || Tool==TEXT("TruckDoor") || Tool==TEXT("OfficeGlass")) It->PlaceDoor(Tool,Start);
    else It->BuildRectangle(Tool,Start,End);

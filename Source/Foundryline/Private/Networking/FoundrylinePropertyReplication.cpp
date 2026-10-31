@@ -1,4 +1,5 @@
 #include "Construction/FoundrylineBuildSite.h"
+#include "Buildings/FoundrylineOfficeStoreyLink.h"
 #include "Buildings/FoundrylinePersonnelDoorComponent.h"
 #include "UI/FoundrylinePlayerController.h"
 #include "Net/UnrealNetwork.h"
@@ -26,7 +27,7 @@ void AFoundrylineBuildSite::PublishNetworkState()
  NetworkState.Revision=Placement->GetRevision();NetworkState.Objects=Placement->GetObjects();NetworkState.Regions=Placement->GetRegions();NetworkState.bStarterProperty=bStarterProperty;NetworkState.Doors.Reset();
  for(const auto& Pair:Visuals) if(IsValid(Pair.Value))
  {
-  TInlineComponentArray<UFoundrylinePersonnelDoorComponent*> Doors;Pair.Value->GetComponents(Doors);
+  auto Doors=UFoundrylineOfficeStoreyLink::Doors(Pair.Value);
   for(const auto* D:Doors) {FFoundrylineDoorState State;State.ObjectId=Pair.Key;State.OpeningId=D->OpeningId;State.bOpen=D->IsOpen();NetworkState.Doors.Add(State);}
  }
  ForceNetUpdate();
@@ -42,7 +43,7 @@ void AFoundrylineBuildSite::ReceiveNetworkState()
  if(bStarterProperty) DrawLotBoundary();
  for(const auto& Pair:Visuals) if(IsValid(Pair.Value))
  {
-  TInlineComponentArray<UFoundrylinePersonnelDoorComponent*> Doors;Pair.Value->GetComponents(Doors);
+  auto Doors=UFoundrylineOfficeStoreyLink::Doors(Pair.Value);
   for(auto* D:Doors) D->ApplyNetworkOpen(DoorStates.Contains(D->OpeningId)?DoorStates[D->OpeningId]:true);
  }
  for(TActorIterator<AFoundrylinePlayerController> It(GetWorld());It;++It) if(It->IsLocalController()) {SetRoofsVisible(It->AreRoofsShown());break;}
@@ -52,7 +53,7 @@ bool AFoundrylineBuildSite::UseDoor(APawn* User,FGuid ObjectId,FGuid OpeningId)
 {
  if(!HasAuthority() || !IsValid(User) || User->GetWorld()!=GetWorld()) return false;
  const auto* Actor=Visuals.Find(ObjectId);if(!Actor || !IsValid(*Actor)) return false;
- TInlineComponentArray<UFoundrylinePersonnelDoorComponent*> Doors;(*Actor)->GetComponents(Doors);
+ auto Doors=UFoundrylineOfficeStoreyLink::Doors(*Actor);
  for(auto* D:Doors) if(D->OpeningId==OpeningId && D->TryToggle(User)) {DoorStates.Add(OpeningId,D->IsOpen());PublishNetworkState();return true;}
  return false;
 }

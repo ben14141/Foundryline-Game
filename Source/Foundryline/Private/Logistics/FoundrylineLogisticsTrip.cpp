@@ -1,5 +1,5 @@
-#include "Construction/FoundrylinePavementGeometry.h"
 #include "Logistics/FoundrylineLogisticsTrip.h"
+#include "Construction/FoundrylinePavementGeometry.h"
 TArray<FFoundrylineLogisticsGate> FFoundrylineLogisticsTrip::Gates(const FFoundrylineDrivingMap& M,bool Semi,bool SmallTruck)
 {
  TArray<FFoundrylineLogisticsGate> Out;const auto V=Semi?(SmallTruck?FFoundrylineVehicleProfile::BoxTruck():FFoundrylineVehicleProfile::Truck()):FFoundrylineVehicleProfile::Car();

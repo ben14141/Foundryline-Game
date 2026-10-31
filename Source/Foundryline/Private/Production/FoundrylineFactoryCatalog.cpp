@@ -1,13 +1,37 @@
 #include "Production/FoundrylineFactoryTypes.h"
 #include "Economy/FoundrylineEconomyTuning.h"
+#include "Inventory/FoundrylineSheetStock.h"
+double FFoundrylineFactoryCatalog::PalletCargoLimitLb(EFoundrylinePart Id){return StandardPalletCargoLb*((Id==EFoundrylinePart::Sheet||Id==EFoundrylinePart::HeadacheRack)?2:1);}
+bool FFoundrylineFactoryCatalog::FitsPalletWeight(EFoundrylinePart Id,int32 Quantity,double UnitLb){return Quantity>0&&FMath::IsFinite(UnitLb)&&UnitLb>=0&&(!AvailableNow(Id)||UnitLb>0)&&double(Quantity)*UnitLb<=PalletCargoLimitLb(Id)+.01;}
+bool FFoundrylineFactoryCatalog::AvailableNow(EFoundrylinePart Id){
+ return Id==EFoundrylinePart::Sheet||Id==EFoundrylinePart::Bracket||Id==EFoundrylinePart::BentBracket||Id==EFoundrylinePart::MountingPlate||Id==EFoundrylinePart::FrameSection||Id==EFoundrylinePart::LightKit||Id==EFoundrylinePart::HeadacheRack;
+}
+TArray<FFoundrylineFactoryProgram> FFoundrylineFactoryCatalog::StarterPrograms(bool Brake){
+ auto Rows=DefaultPrograms();Rows.RemoveAll([&](const auto& P){return !AvailableNow(P.Part)||(P.Machine!=1&&(!Brake||P.Machine!=2));});return Rows;
+}
+TArray<FFoundrylineFactoryProgram> FFoundrylineFactoryCatalog::MachinePrograms(int32 Id,int32 Kind,bool Current){
+ auto Rows=DefaultPrograms();Rows.RemoveAll([&](const auto& P){return P.Machine!=Kind||(Current&&!AvailableNow(P.Part));});for(auto& P:Rows)P.Machine=Id;return Rows;
+}
 FFoundrylinePartSpec FFoundrylineFactoryCatalog::Part(EFoundrylinePart Id){
  static const FFoundrylinePartSpec Specs[]={{TEXT("Steel sheets"),10},{TEXT("Bracket blanks"),50},{TEXT("Rail blanks"),12},{TEXT("Frame rails"),12},{TEXT("Shell blanks"),3},{TEXT("Rolled shells"),3},{TEXT("Dished tank heads"),2},{TEXT("Running gear kits"),2},{TEXT("Fittings kits"),10},{TEXT("Bent brackets"),50},{TEXT("Mounting plates"),100},{TEXT("Gusset plates"),75},{TEXT("Reinforcement plates"),30},{TEXT("Support channels"),20},{TEXT("Frame sections"),12},{TEXT("Light kits"),8},{TEXT("Headache racks"),4}};
- return Specs[FMath::Clamp(int32(Id),0,PartCount-1)];
+ auto Out=Specs[FMath::Clamp(int32(Id),0,PartCount-1)];
+ if(Id==EFoundrylinePart::BentBracket)Out.Name=TEXT("Formed brackets");
+ else if(Id==EFoundrylinePart::FrameRail)Out.Name=TEXT("Formed frame rails");
+ else if(Id==EFoundrylinePart::SupportChannel)Out.Name=TEXT("Formed support channels");
+ if(Id==EFoundrylinePart::Sheet)Out.UnitLb=FFoundrylineSteelSheet::PoundsEach();
+ else if(Id==EFoundrylinePart::Bracket||Id==EFoundrylinePart::BentBracket)Out.UnitLb=5;
+ else if(Id==EFoundrylinePart::MountingPlate)Out.UnitLb=2;
+ else if(Id==EFoundrylinePart::FrameSection)Out.UnitLb=16;
+ else if(Id==EFoundrylinePart::LightKit)Out.UnitLb=4.5f;
+ else if(Id==EFoundrylinePart::HeadacheRack)Out.UnitLb=129;
+ if(Out.UnitLb>0)Out.Capacity=FMath::Min(Out.Capacity,FMath::FloorToInt(PalletCargoLimitLb(Id)/Out.UnitLb));
+ return Out;
 }
 // Bought parts reuse the closest existing component art: channel lengths for frame sections, a kit crate for lights.
 FString FFoundrylineFactoryCatalog::PartMesh(EFoundrylinePart Id){
  static const TCHAR* Names[]={TEXT("SteelSheet_60x120"),TEXT("BracketBlank"),TEXT("RailBlank"),TEXT("FrameRail"),TEXT("ShellBlank"),TEXT("ShellSection"),TEXT("TankHead_ASME_FD"),TEXT("RunningGearKit"),TEXT("FittingsKit"),TEXT("BentBracket"),TEXT("MountingPlate"),TEXT("GussetPlate"),TEXT("ReinforcementPlate"),TEXT("SupportChannel"),TEXT("SupportChannel"),TEXT("FittingsKit"),TEXT("HeadacheRack")};
  const int32 I=FMath::Clamp(int32(Id),0,PartCount-1);
+ if(Id==EFoundrylinePart::LightKit)return TEXT("/Game/Foundryline/Products/Components/LightKit/SM_LightKitBox");
  const TCHAR* Folder=I==0?TEXT("Inventory/Materials/Steel"):I==6?TEXT("Products/Components/DishedHeads"):Id==EFoundrylinePart::HeadacheRack?TEXT("Products/HeadacheRack"):TEXT("Products/Components/Fabrication");
  return FString(TEXT("/Game/Foundryline/"))+Folder+TEXT("/SM_")+Names[I];
 }
@@ -19,12 +43,12 @@ bool FFoundrylineFactoryCatalog::Bought(EFoundrylinePart Id,FFoundrylineBoughtPa
  else return false;
  if(Out)*Out=P;return true;
 }
-const TCHAR* FFoundrylineFactoryCatalog::AssemblyName(EFoundrylinePart Id){switch(Id){case EFoundrylinePart::MountingPlate:return TEXT("Steel Plates");case EFoundrylinePart::Bracket:return TEXT("Steel Brackets");case EFoundrylinePart::FrameSection:return TEXT("Frame Sections");case EFoundrylinePart::LightKit:return TEXT("Light Kits");default:return Part(Id).Name;}}
+const TCHAR* FFoundrylineFactoryCatalog::AssemblyName(EFoundrylinePart Id){switch(Id){case EFoundrylinePart::MountingPlate:return TEXT("Steel Plates");case EFoundrylinePart::BentBracket:return TEXT("Formed brackets");case EFoundrylinePart::FrameSection:return TEXT("Frame Sections");case EFoundrylinePart::LightKit:return TEXT("Light Kits");default:return Part(Id).Name;}}
 // Initial balancing bill from the welding workstation plan; visual slats, gussets and bolts are not extra SKUs.
 bool FFoundrylineFactoryCatalog::Recipe(int32 Id,FFoundrylineAssemblyRecipe& Out){
  if(Id!=1)return false;
  Out.Id=1;Out.Name=TEXT("Headache rack");Out.Output=EFoundrylinePart::HeadacheRack;Out.Bill.Init(0,PartCount);
- Out.Bill[int32(EFoundrylinePart::MountingPlate)]=2;Out.Bill[int32(EFoundrylinePart::Bracket)]=4;Out.Bill[int32(EFoundrylinePart::FrameSection)]=6;Out.Bill[int32(EFoundrylinePart::LightKit)]=2;
+ Out.Bill[int32(EFoundrylinePart::MountingPlate)]=2;Out.Bill[int32(EFoundrylinePart::BentBracket)]=4;Out.Bill[int32(EFoundrylinePart::FrameSection)]=6;Out.Bill[int32(EFoundrylinePart::LightKit)]=2;
  // Two welders share one rack: 170% together, less than double because they work around each other at one fixture.
  Out.TwoWelderRate=FFoundrylineEconomyTuning::TwoWelderRate;
  return true;

@@ -17,6 +17,11 @@ def hose(k,name,pts,r,m=rubber):
 for x in [-.97,.97]:
  put('Body',box('LongBoxSection',(x,0,.72),(.18,3.65,.24),graphite,bevel=.012))
  put('Body',box('OrangeSideSkirt',(x*1.064,0,.53),(.035,3.45,.32),orange,bevel=.009))
+ # Continuous welded rail girder closes the 22.25 cm gap above the main side beam.
+ # The machined cap meets the rail underside; heights/pivots stay fixed for the gantry.
+ put('Body',box('RailGirderBase',(x,0,.845),(.14,3.62,.018),graphite,bevel=.003))
+ put('Body',box('RailGirderWeb',(x,0,.947),(.09,3.62,.218),graphite,bevel=.004))
+ put('Body',box('RailMountingCap',(x,0,1.054),(.10,3.62,.020),steel,bevel=.003))
  put('Body',box('LinearRail',(x,0,1.08),(.07,3.62,.035),steel,bevel=.004))
  put('Body',box('RackDrive',(x+.045,0,1.025),(.022,3.54,.035),dark))
  for i in range(96):put('Body',box('RackTooth',(x+.045,-1.72+i*.036,1.047),(.026,.015,.012),steel))

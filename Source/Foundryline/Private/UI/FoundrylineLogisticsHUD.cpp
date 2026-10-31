@@ -1,4 +1,5 @@
 #include "Construction/FoundrylinePavementGeometry.h"
+#include "FoundrylineUISurface.h"
 #include "UI/FoundrylineBuildHUD.h"
 #include "UI/FoundrylinePlayerController.h"
 #include "Pathing/FoundrylineVehiclePathSubsystem.h"
@@ -21,7 +22,7 @@ void AFoundrylineBuildHUD::DrawLogisticsMap(AFoundrylinePlayerController* PC)
  auto Shape=[&](const FFoundrylineDriveSurface& S,const TArray<FFoundrylinePavementPolygon>& Polys,FLinearColor Color){for(const auto& P:Polys){TArray<FVector2D> V;TArray<int32> T;if(!FFoundrylinePavementGeometry::Triangulate(P,V,T))continue;for(int I=0;I<T.Num();I+=3)Polygon({S.World(V[T[I]]),S.World(V[T[I+1]]),S.World(V[T[I+2]])},Color);}};
  auto Rect=[&](const FFoundrylineDriveSurface& S,const FFoundrylineDriveRect& R,FLinearColor Color){if(!S.Pavement.Polygons.IsEmpty()){const auto Box=FFoundrylinePavementGeometry::Rectangle(R.Min,R.Max);TArray<FFoundrylinePavementPolygon> Outside,Clipped;if(FFoundrylinePavementGeometry::Boolean(Box,S.Pavement.Polygons,true,Outside)&&FFoundrylinePavementGeometry::Boolean(Box,Outside,true,Clipped))Shape(S,Clipped,Color);}else Polygon({S.World(R.Min),S.World({R.Max.X,R.Min.Y}),S.World(R.Max),S.World({R.Min.X,R.Max.Y})},Color);};
  auto Arrow=[&](FVector2D P,float Yaw,float Length,float Width,FLinearColor C){const FVector2D F(FMath::Cos(Yaw),FMath::Sin(Yaw)),L(-F.Y,F.X);Polygon({P-F*Length*.5-L*Width*.22,P+F*Length*.1-L*Width*.22,P+F*Length*.1-L*Width*.5,P+F*Length*.5,P+F*Length*.1+L*Width*.5,P+F*Length*.1+L*Width*.22,P-F*Length*.5+L*Width*.22},C);};
- auto Label=[&](FVector2D W,const FString& Value,FLinearColor Color,float Size=1.3f){FVector2D P;if(!Project(W,P) || P.X<420*Scale || P.X>Canvas->ClipX-20 || P.Y<15 || P.Y>Canvas->ClipY-20) return;float TW=0,TH=0;GetTextSize(Value,TW,TH,Font,Size*Scale);DrawRect(Ink,P.X-TW/2-8*Scale,P.Y-TH/2-6*Scale,TW+16*Scale,TH+12*Scale);DrawRect(Color,P.X-TW/2-8*Scale,P.Y+TH/2+4*Scale,TW+16*Scale,2*Scale);DrawText(Value,Color,P.X-TW/2,P.Y-TH/2,Font,Size*Scale);};
+ auto Label=[&](FVector2D W,const FString& Value,FLinearColor Color,float Size=1.3f){FVector2D P;if(!Project(W,P) || P.X<420*Scale || P.X>Canvas->ClipX-20 || P.Y<15 || P.Y>Canvas->ClipY-20) return;float TW=0,TH=0;GetTextSize(Value,TW,TH,Font,Size*Scale);FoundrylineUISurface::Panel(Canvas,P.X-TW/2-12*Scale,P.Y-TH/2-7*Scale,TW+24*Scale,TH+14*Scale,Scale,Ink,FLinearColor(FColor::FromHex(TEXT("2D3237"))),FLinearColor(Color.R,Color.G,Color.B,.7f),1,6);DrawRect(Color,P.X-TW/2-9*Scale,P.Y-TH/2-2*Scale,2*Scale,TH+4*Scale);DrawText(Value,Color,P.X-TW/2,P.Y-TH/2,Font,Size*Scale);};
  for(const auto& S:M->Surfaces) {
   if(S.Public) {Rect(S,{{0,0},S.Size},FLinearColor(.15f,.2f,.25f,.16f));continue;}
   if(S.Function==TEXT("Pavement")&&PC->bShowTruckLayer&&S.Pavement.Lanes)Shape(S,S.Pavement.Polygons,FLinearColor(.12f,.55f,.72f,.12f));
@@ -119,6 +120,8 @@ void AFoundrylineBuildHUD::DrawLogisticsMap(AFoundrylinePlayerController* PC)
   Label(P.Position+F*(V.Front+150),TEXT("PREVIEW / ")+Phase,Paper,1.35f);
  }
  // A persistent on-map legend makes route direction and layer meanings explicit.
- const float X=430*Scale,Y=24*Scale;DrawRect(Ink,X,Y,470*Scale,38*Scale);
- DrawText(PC->LogisticsPanel!=1?TEXT("Blue: forward   /   Amber: backing   /   Green: waiting"):TEXT("Green: truck access   /   Blue: parking   /   Amber: loading"),Paper,X+14*Scale,Y+12*Scale,Font,1.15f*Scale);
+ const float X=430*Scale,Y=24*Scale,LegendWidth=FMath::Min(560*Scale,Canvas->ClipX-X-24*Scale);
+ if(LegendWidth>180*Scale){FoundrylineUISurface::Panel(Canvas,X,Y,LegendWidth,56*Scale,Scale,Ink,FLinearColor(FColor::FromHex(TEXT("2D3237"))),FLinearColor(FColor::FromHex(TEXT("4B5258"))),2,7);DrawRect(Amber,X+1*Scale,Y+10*Scale,3*Scale,36*Scale);DrawText(TEXT("LOGISTICS OVERLAY"),Paper,X+16*Scale,Y+10*Scale,Font,.9f*Scale);
+  const FString Legend=PC->LogisticsPanel!=1?TEXT("Blue: forward  /  Amber: backing  /  Green: waiting"):TEXT("Green: truck access  /  Blue: parking  /  Amber: loading");float TextWidth=0,TextHeight=0;GetTextSize(Legend,TextWidth,TextHeight,Font,.95f*Scale);const float Fit=FMath::Min(.95f*Scale,(LegendWidth-32*Scale)/FMath::Max(1.f,TextWidth)*.95f*Scale);DrawText(Legend,Paper,X+16*Scale,Y+32*Scale,Font,Fit);
+ }
 }

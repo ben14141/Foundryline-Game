@@ -34,6 +34,7 @@ private:
  UPROPERTY() TObjectPtr<class UStaticMeshComponent> Body;
  UPROPERTY() TObjectPtr<class UStaticMeshComponent> Bed;
  UPROPERTY() TObjectPtr<class UStaticMeshComponent> Gate;
+ UPROPERTY() TObjectPtr<class UStaticMeshComponent> GateLeft;
  UPROPERTY() TArray<TObjectPtr<class UBoxComponent>> PawnCollision;
  UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> Proxy;
  UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> Pallets;
@@ -46,6 +47,12 @@ private:
  bool bFlatbedReady=false;
  FVector PreviousHitch;
  float TrailerYaw=0;
+ void RefreshWheelContact();
+ FVector GroundedPosition(FVector Nominal);
+ float WheelContactZ=0;
+ double CachedGroundZ=0,NextGroundSample=0;
+ bool bGroundReady=false;
+ int32 GroundBookingId=0;
  void RebuildFlatbed();
  void TickFlatbed(float Dt,float Distance);
  float WheelAngle=0;

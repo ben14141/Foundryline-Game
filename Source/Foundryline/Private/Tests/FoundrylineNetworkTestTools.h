@@ -26,6 +26,7 @@ public:
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Commerce",meta=(DevelopmentOnly)) static bool QueueCommerceAction(APlayerController* Player,const FString& Action);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Commerce",meta=(DevelopmentOnly)) static bool QueueCommerceForeignTarget(APlayerController* Player,FGuid PlantId);
  UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Commerce") static FString CommerceReport(APlayerController* Player);
+ UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Office",meta=(DevelopmentOnly)) static FString OfficeStoreyReport(APlayerController* Player);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Commerce",meta=(DevelopmentOnly)) static bool AdvanceCommerceTest(APlayerController* Host,int32 Steps);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Commerce",meta=(DevelopmentOnly)) static bool SetupOperationsReview(APlayerController* Player,int32 Scene);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Commerce",meta=(DevelopmentOnly)) static AActor* CreateReviewCamera(APlayerController* Player);

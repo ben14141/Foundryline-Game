@@ -1,5 +1,6 @@
 #include "UI/FoundrylineOperationsTerminal.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/BoxComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Net/UnrealNetwork.h"
 #include "UI/FoundrylinePlayerController.h"
@@ -12,8 +13,13 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
-AFoundrylineOperationsTerminal::AFoundrylineOperationsTerminal(){bReplicates=true;bAlwaysRelevant=true;Mesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Terminal"));SetRootComponent(Mesh);Mesh->SetMobility(EComponentMobility::Movable);Mesh->SetCollisionProfileName(TEXT("BlockAll"));Mesh->SetCanEverAffectNavigation(false);}
+#include "Employees/FoundrylineEmployeeVisualComponent.h"
+AFoundrylineOperationsTerminal::AFoundrylineOperationsTerminal(){PrimaryActorTick.bCanEverTick=true;PrimaryActorTick.bStartWithTickEnabled=false;bReplicates=true;SetReplicateMovement(true);bAlwaysRelevant=true;SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("WorkstationRoot")));Mesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Terminal"));Mesh->SetupAttachment(RootComponent);Mesh->SetMobility(EComponentMobility::Movable);Mesh->SetCollisionProfileName(TEXT("BlockAll"));Mesh->SetCanEverAffectNavigation(false);}
 void AFoundrylineOperationsTerminal::BeginPlay(){Super::BeginPlay();Mesh->SetRelativeRotation(FRotator(0,180,0));Mesh->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,Terminal==1?TEXT("/Game/Foundryline/UI/Operations/SM_OfficeWorkstation.SM_OfficeWorkstation"):TEXT("/Game/Foundryline/UI/Operations/SM_LoadingTablet.SM_LoadingTablet")));
+ if(Terminal==1){
+  auto* Body=NewObject<UBoxComponent>(this);Body->SetupAttachment(Mesh);Body->SetBoxExtent(FVector(80,40,65));Body->SetRelativeLocation(FVector(0,0,65));Body->SetCollisionProfileName(TEXT("BlockAll"));Body->RegisterComponent();AddInstanceComponent(Body);
+  auto* Chair=NewObject<UStaticMeshComponent>(this);Chair->SetupAttachment(Mesh);Chair->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Factory/Meshes/Office/SM_Chairs_01.SM_Chairs_01")));Chair->SetRelativeLocationAndRotation(FVector(0,-85,0),FRotator::ZeroRotator);Chair->SetCollisionProfileName(TEXT("BlockAll"));Chair->RegisterComponent();AddInstanceComponent(Chair);
+ }
  if(Terminal==1&&GetNetMode()!=NM_DedicatedServer){
   auto* Base=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/UI/Operations/M_OfficeDesktopScreen.M_OfficeDesktopScreen"));
   if(Base){Desktop=UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(this,UCanvasRenderTarget2D::StaticClass(),1536,864);Desktop->ClearColor=FLinearColor::Black;Desktop->OnCanvasRenderTargetUpdate.AddDynamic(this,&AFoundrylineOperationsTerminal::DrawDesktop);DesktopMaterial=UMaterialInstanceDynamic::Create(Base,this);DesktopMaterial->SetTextureParameterValue(TEXT("DesktopTexture"),Desktop);LeftDesktop=UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(this,UCanvasRenderTarget2D::StaticClass(),1536,864);RightDesktop=UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(this,UCanvasRenderTarget2D::StaticClass(),1536,864);LeftDesktop->OnCanvasRenderTargetUpdate.AddDynamic(this,&AFoundrylineOperationsTerminal::DrawLeftDesktop);RightDesktop->OnCanvasRenderTargetUpdate.AddDynamic(this,&AFoundrylineOperationsTerminal::DrawRightDesktop);const auto Slots=Mesh->GetMaterialSlotNames();for(int32 I=0;I<Slots.Num();++I){const FString Slot=Slots[I].ToString();if(!Slot.Contains(TEXT("OfficeDesktopScreen")))continue;auto* Material=DesktopMaterial.Get();if(Slot.Contains(TEXT("Left"))||Slot.Contains(TEXT("Right"))){Material=UMaterialInstanceDynamic::Create(Base,this);Material->SetTextureParameterValue(TEXT("DesktopTexture"),Slot.Contains(TEXT("Left"))?LeftDesktop.Get():RightDesktop.Get());SideMaterials.Add(Material);}Mesh->SetMaterial(I,Material);}RefreshDesktop();GetWorldTimerManager().SetTimer(DesktopTimer,this,&AFoundrylineOperationsTerminal::RefreshDesktop,1.f,true);}
@@ -30,7 +36,7 @@ void AFoundrylineOperationsTerminal::DrawScreen(UCanvas* Canvas,int32 Width,int3
  const auto Ink=Col(TEXT("1F2327")),Muted=Col(TEXT("4B5258")),Orange=Col(TEXT("F07A2F")),White=FLinearColor::White,Surface=Col(TEXT("F7F5F1"));
  auto Box=[&](float X,float Y,float W,float H,FLinearColor Color){FCanvasTileItem Tile(FVector2D(X,Y),FVector2D(W,H),Color);Tile.BlendMode=SE_BLEND_Opaque;Canvas->DrawItem(Tile);};
  auto Text=[&](const FString& S,float X,float Y,float Size,FLinearColor Color){FCanvasTextItem Item(FVector2D(X,Y),FText::FromString(S),GEngine->GetMediumFont(),Color);Item.Scale=FVector2D(Size/20.f);Item.bCentreX=false;Canvas->DrawItem(Item);};
- Box(0,0,Width,Height,Surface);Box(0,0,Width,48,Ink);Box(0,0,Width,5,Orange);Text(TEXT("FOUNDRYLINE  /  WORKSHOP"),28,15,19,White);Text(TEXT("WORKSTATION 01"),1270,15,17,White);
+ Box(0,0,Width,Height,Surface);Box(0,0,Width,48,Ink);Box(0,0,Width,5,Orange);Text(TEXT("FOUNDRYLINE  /  WORKSHOP"),28,15,19,White);Text(PlanningDeskId?TEXT("OFFICE WORKSTATION"):TEXT("WORKSTATION 01"),1220,15,17,White);
  Box(0,48,Width,124,White);Text(TEXT("YOUR WORKSHOP"),32,70,21,Orange);
  auto* PC=Cast<AFoundrylinePlayerController>(UGameplayStatics::GetPlayerController(this,0));auto* Plant=PC?PC->FactoryPlant():nullptr;
  const bool Access=Plant&&Plant->BusinessCompanyId==CompanyId&&Plant->BusinessPlantId==PlantId&&Plant->Snapshot.Commerce.Enabled;
@@ -54,4 +60,13 @@ void AFoundrylineOperationsTerminal::DrawScreen(UCanvas* Canvas,int32 Width,int3
  Box(0,816,Width,48,Ink);Text(TEXT("FOUNDRYLINE  /  YOUR COMPANY"),28,832,20,White);Text(TEXT("[ E ]  OPEN WORKSHOP"),1190,832,18,White);
 
 }
-void AFoundrylineOperationsTerminal::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const{Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AFoundrylineOperationsTerminal,Terminal);DOREPLIFETIME(AFoundrylineOperationsTerminal,CompanyId);DOREPLIFETIME(AFoundrylineOperationsTerminal,PlantId);}
+void AFoundrylineOperationsTerminal::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const{Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AFoundrylineOperationsTerminal,Terminal);DOREPLIFETIME(AFoundrylineOperationsTerminal,PlanningDeskId);DOREPLIFETIME(AFoundrylineOperationsTerminal,CompanyId);DOREPLIFETIME(AFoundrylineOperationsTerminal,PlantId);}
+
+void AFoundrylineOperationsTerminal::PreviewOfficeWorker(bool Enabled){
+#if WITH_EDITOR
+ if(Terminal!=1||GetNetMode()==NM_DedicatedServer)return;
+ if(Enabled&&!OfficeWorkerPreview){OfficeWorkerPreview=NewObject<UFoundrylineEmployeeVisualComponent>(this);OfficeWorkerPreview->SetupAttachment(RootComponent);OfficeWorkerPreview->SetRelativeLocationAndRotation(FVector(0,85,0),FRotator(0,-90,0));OfficeWorkerPreview->RegisterComponent();AddInstanceComponent(OfficeWorkerPreview);}
+ if(OfficeWorkerPreview)OfficeWorkerPreview->SetVisibility(Enabled,true);SetActorTickEnabled(Enabled);
+#endif
+}
+void AFoundrylineOperationsTerminal::Tick(float Dt){Super::Tick(Dt);if(OfficeWorkerPreview)OfficeWorkerPreview->PresentOfficeComputer(Dt,PlanningDeskId?PlanningDeskId:1);}

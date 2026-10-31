@@ -1,5 +1,7 @@
-#include "FoundrylineBuildCatalog.h"
 #include "UI/FoundrylineBuildHUD.h"
+#include "FoundrylineBuildCatalog.h"
+#include "FoundrylineOperationFeedback.h"
+#include "FoundrylineUISurface.h"
 #include "Audio/FoundrylineUIAudio.h"
 #include "UI/FoundrylinePlayerController.h"
 #include "Construction/FoundrylineBuildSite.h"
@@ -24,11 +26,12 @@ void AFoundrylineBuildHUD::DrawHUD()
  Super::DrawHUD();auto* PC=Cast<AFoundrylinePlayerController>(GetOwningPlayerController());if(!Canvas||!PC)return;
  PC->BuildHUDCanvasSize={Canvas->ClipX,Canvas->ClipY};
  if(!Logo)Logo=LoadObject<UTexture2D>(nullptr,TEXT("/Game/Foundryline/UI/Brand/T_FoundrylineLogo.T_FoundrylineLogo"));
- if(DrawOperations(PC)||DrawFactory(PC))return;DrawMaterialHandling(PC);if(PC->LocalMaterialCell)return;DrawFreightControls(PC);if(PC->LocalFreightRig)return;
+ if(DrawOperations(PC)||DrawFactory(PC)){FoundrylineOperationFeedback::Draw(this,PC,Canvas);return;}DrawMaterialHandling(PC);if(PC->LocalMaterialCell){FoundrylineOperationFeedback::Draw(this,PC,Canvas);return;}DrawFreightControls(PC);if(PC->LocalFreightRig){FoundrylineOperationFeedback::Draw(this,PC,Canvas);return;}
  const float S=FMath::Clamp(FMath::Min(Canvas->ClipY/900.f,Canvas->ClipX/1440.f),.65f,1.4f);
  const auto Ink=Brand(TEXT("1F2327")),Graphite=Brand(TEXT("4B5258")),Paper=Brand(TEXT("F7F5F1")),Orange=Brand(TEXT("F07A2F")),Muted=Brand(TEXT("E8E7E2"));
  auto* Font=GEngine->GetMediumFont();
  auto Rect=[&](float X,float Y,float W,float H,FLinearColor C){DrawRect(C,X*S,Y*S,W*S,H*S);};
+ auto Panel=[&](float X,float Y,float W,float H){FoundrylineUISurface::Panel(Canvas,X*S,Y*S,W*S,H*S,S,Paper,FMath::Lerp(Paper,Muted,.28f),Muted,2,8);};
  auto Line=[&](float X,float Y,float A,float B,FLinearColor C,float Width=2.f){DrawLine(X*S,Y*S,A*S,B*S,C,Width*S);};
  auto Text=[&](const FString& V,float X,float Y,float Size,FLinearColor C){DrawText(V,C,X*S,Y*S,Font,Size*S);};
  if(PC->IsWalking())
@@ -37,23 +40,32 @@ void AFoundrylineBuildHUD::DrawHUD()
   // Quiet, centred reticle; a dark outline keeps it readable against bright steel.
   Line(CX-3,CY,CX+3,CY,Ink,4);Line(CX,CY-3,CX,CY+3,Ink,4);
   Line(CX-2,CY,CX+2,CY,Paper,2);Line(CX,CY-2,CX,CY+2,Paper,2);
-  Rect(28,28,420,86,FLinearColor(0,0,0,.16));Rect(24,24,420,86,Paper);Rect(24,24,4,86,Orange);
-  if(Logo)DrawTexture(Logo,42*S,41*S,138*S,50.3*S,0,0,1,1);
-  Line(198,40,198,92,Muted,1);Text(TEXT("COMPANY BALANCE"),216,39,.8f,Graphite);
-  if(auto* Plant=PC->FactoryPlant()){Text(FFoundrylineCommerceCatalog::Money(Plant->Snapshot.Commerce.CashCents),216,58,1.4f,Ink);Text(FFoundrylineCommerceCatalog::Date(Plant->Snapshot.Commerce.Clock),216,84,.85f,Graphite);}
-  Rect(24,Bottom-65,610,41,Paper);Rect(24,Bottom-65,4,41,Orange);
+  // Compact instrument bar: brand, money and workshop clock have distinct visual weight.
+  Panel(24,24,660,94);Rect(32,24,644,3,Orange);
+  if(Logo)DrawTexture(Logo,43*S,44*S,156*S,56.9f*S,0,0,1,1);
+  Line(220,43,220,100,Muted,1);
+  Text(TEXT("BUSINESS FUNDS"),240,40,.78f,Graphite);
+  if(auto* Plant=PC->FactoryPlant()){
+   const auto& State=Plant->Snapshot;
+   Text(FFoundrylineCommerceCatalog::Money(State.Commerce.CashCents),240,62,1.65f,Ink);
+   FoundrylineUISurface::Panel(Canvas,480*S,40*S,184*S,60*S,S,Ink,Ink,Graphite,1,6);
+   Text(FFoundrylineCommerceCatalog::Date(State.Commerce.Clock),494,49,1.02f,Paper);
+   Rect(495,81,6,6,State.Running?FLinearColor(.15f,.65f,.32f):Orange);
+   Text(State.Running?TEXT("WORKSHOP RUNNING"):TEXT("WORKSHOP PAUSED"),509,77,.7f,Paper);
+  }
+  Panel(24,Bottom-65,610,41);Rect(25,Bottom-55,3,21,Orange);
   Text(TEXT("WASD"),42,Bottom-51,1.05f,Ink);Text(TEXT("Walk"),108,Bottom-51,1.05f,Graphite);
   Text(TEXT("MOUSE"),181,Bottom-51,1.05f,Ink);Text(TEXT("Look"),259,Bottom-51,1.05f,Graphite);
   Text(TEXT("E"),331,Bottom-51,1.05f,Ink);Text(TEXT("Use / inspect"),354,Bottom-51,1.05f,Graphite);
   Text(TEXT("OFFICE COMPUTER  /  Planning & expansion"),24,Bottom-91,.9f,Paper);
   if(auto* Door=PC->FocusedDoor())DrawFirstPersonPrompt(Door->IsOpen()?TEXT("Close door"):TEXT("Open door"),TEXT("PERSONNEL DOOR"));
-  return;
+  FoundrylineOperationFeedback::Draw(this,PC,Canvas);return;
  }
  if(!FoundrylineBuildCatalogOpen(this)){
   DrawSelectionOutlines(PC);DrawPlacementGuide(PC);DrawPavementTools(PC);DrawPlannerInspector(PC);
   if(PC->IsLogisticsOverlayVisible())DrawLogisticsMap(PC);
  }
- DrawFoundrylineBuildCatalog(this,PC,Canvas);
+ DrawFoundrylineBuildCatalog(this,PC,Canvas);FoundrylineOperationFeedback::Draw(this,PC,Canvas);
 }
 
 void AFoundrylineBuildHUD::NotifyHitBoxClick(FName BoxName)

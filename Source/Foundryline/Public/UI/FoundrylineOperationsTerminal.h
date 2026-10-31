@@ -9,12 +9,17 @@ public:
  AFoundrylineOperationsTerminal();
  virtual void BeginPlay()override;
  virtual void EndPlay(const EEndPlayReason::Type Reason)override;
+ virtual void Tick(float DeltaSeconds)override;
+ // Local animation review only. Does not hire staff, reserve a desk or change company state.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Office",meta=(DevelopmentOnly)) void PreviewOfficeWorker(bool Enabled);
  virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out)const override;
  UPROPERTY(Replicated) int32 Terminal=1;
+ UPROPERTY(Replicated) int32 PlanningDeskId=0;
  UPROPERTY(Replicated) FGuid CompanyId=FGuid(0xF001,1,1,1);
  UPROPERTY(Replicated) FGuid PlantId=FGuid(0xF001,2,1,1);
  FVector InteractionPoint()const{return GetActorLocation()+FVector(0,0,Terminal==1?111:113);}
 private:
+ UPROPERTY() TObjectPtr<class UFoundrylineEmployeeVisualComponent> OfficeWorkerPreview;
  void RefreshDesktop();
  UFUNCTION() void DrawDesktop(class UCanvas* Canvas,int32 Width,int32 Height);
  UFUNCTION() void DrawLeftDesktop(class UCanvas* Canvas,int32 Width,int32 Height);

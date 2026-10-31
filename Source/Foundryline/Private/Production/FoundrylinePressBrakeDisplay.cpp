@@ -21,4 +21,4 @@ void AFoundrylinePressBrakeDisplay::SetFactoryPresentation(float Phase,bool Acti
  FlatPart->SetVisibility(HasWork&&P<.45f);BentPart->SetVisibility(HasWork&&P>=.45f);const float Feed=FFoundrylineMachineMotion::Ease(P/.12f);FlatPart->SetRelativeLocation({FMath::Lerp(80.f,52.f,Feed),0,104.1});
 }
 
-void AFoundrylinePressBrakeDisplay::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const{Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AFoundrylinePressBrakeDisplay,BusinessCompanyId);DOREPLIFETIME(AFoundrylinePressBrakeDisplay,BusinessPlantId);}
+void AFoundrylinePressBrakeDisplay::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const{Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AFoundrylinePressBrakeDisplay,BusinessCompanyId);DOREPLIFETIME(AFoundrylinePressBrakeDisplay,BusinessPlantId);DOREPLIFETIME(AFoundrylinePressBrakeDisplay,MachineId);}

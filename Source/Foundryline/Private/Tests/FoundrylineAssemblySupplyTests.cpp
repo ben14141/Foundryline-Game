@@ -11,7 +11,7 @@ using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;
 FFoundrylineFactorySimulation Fixture(){
  FFoundrylineFactorySimulation M;M.State.FloorMin={-2000,-2000};M.State.FloorMax={2500,2500};
  FFoundrylineWeldingStationRecord Z;Z.Id=M.State.NextId++;Z.Center={500,500,20};Z.Recipe=1;Z.BatchRemaining=10;Z.Reserved.Init(0,17);M.State.WeldingStations.Add(Z);
- int32 Slot=100;for(Part P:{Part::Bracket,Part::MountingPlate,Part::LightKit}){FFoundrylineFactorySlot S;S.Id=Slot++;S.Part=P;S.Position={-900.,-900.+(Slot-100)*200.,20};S.Dock=S.Position;M.State.Slots.Add(S);FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=20;A.UnitLb=P==Part::Bracket?5:P==Part::MountingPlate?2:4.5f;A.Place=Place::Rack;A.Owner=S.Id;A.Position=S.Position;M.State.Pallets.Add(A);}
+ int32 Slot=100;for(Part P:{Part::BentBracket,Part::MountingPlate,Part::LightKit}){FFoundrylineFactorySlot S;S.Id=Slot++;S.Part=P;S.Position={-900.,-900.+(Slot-100)*200.,20};S.Dock=S.Position;M.State.Slots.Add(S);FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=20;A.UnitLb=P==Part::BentBracket?5:P==Part::MountingPlate?2:4.5f;A.Place=Place::Rack;A.Owner=S.Id;A.Position=S.Position;M.State.Pallets.Add(A);}
 
  return M;
 }
@@ -35,11 +35,11 @@ bool FSupplyTrip::RunTest(const FString&){
  if(!TestTrue(TEXT("Assign existing person to area"),M.AssignEmployee(Id,EFoundrylineEmployeeRole::PartsCollector,Area,E))){AddError(E);return false;}
  M.State.Running=true;const float Mass=M.SteelMass();M.UpdateCollectors(.1);
  TestEqual(TEXT("One trip carries multiple ingredient types"),M.State.Collectors[0].Load.Num(),3);
- TestEqual(TEXT("Bracket trip reserved"),M.CollectorIncoming(Area,int32(Part::Bracket)),8);
+ TestEqual(TEXT("Bracket trip reserved"),M.CollectorIncoming(Area,int32(Part::BentBracket)),8);
  const int32 Second=Person(M,{-1400,-1200,20});TestTrue(TEXT("Additional collector assigned same area"),M.AssignCollector(Second,Area,E));M.UpdateCollectors(.1);
- TestEqual(TEXT("Second collector does not duplicate demand"),M.CollectorIncoming(Area,int32(Part::Bracket)),8);
+ TestEqual(TEXT("Second collector does not duplicate demand"),M.CollectorIncoming(Area,int32(Part::BentBracket)),8);
  TestTrue(TEXT("Reserved state validates: ")+E,M.SupplyValid(E));
- Run(M);TestEqual(TEXT("Brackets actually arrive"),M.Available(Part::Bracket,Place::Buffer,Area),8);TestEqual(TEXT("Purchased fittings arrive too"),M.Available(Part::LightKit,Place::Buffer,Area),4);
+ Run(M);TestEqual(TEXT("Brackets actually arrive"),M.Available(Part::BentBracket,Place::Buffer,Area),8);TestEqual(TEXT("Purchased fittings arrive too"),M.Available(Part::LightKit,Place::Buffer,Area),4);
  TestTrue(TEXT("Transport preserves steel mass"),FMath::IsNearlyEqual(M.SteelMass(),Mass,.01f));TestTrue(TEXT("Delivered state validates: ")+E,M.SupplyValid(E));
  TestTrue(TEXT("Release requested without teleport"),M.AssignEmployee(Id,EFoundrylineEmployeeRole::Unassigned,0,E));Run(M);
  TestFalse(TEXT("Collector removed after returning"),M.State.Collectors.ContainsByPredicate([&](const auto& C){return C.Id==Id;}));TestTrue(TEXT("Same employee becomes unassigned"),M.State.UnassignedEmployees.ContainsByPredicate([&](const auto& P){return P.Id==Id;}));return true;
@@ -52,7 +52,7 @@ bool FSupplyPersistence::RunTest(const FString&){
  auto* Save=NewObject<UFoundrylineFactorySave>();Save->Factory=M.State;TArray<uint8> Bytes;TestTrue(TEXT("Serialize"),UGameplayStatics::SaveGameToMemory(Save,Bytes));
  auto* Loaded=Cast<UFoundrylineFactorySave>(UGameplayStatics::LoadGameFromMemory(Bytes));if(!TestNotNull(TEXT("Load"),Loaded))return false;
  FFoundrylineFactorySimulation Restored;Restored.State=Loaded->Factory;Run(M);Run(Restored);
- TestEqual(TEXT("Restored delivery matches uninterrupted"),Restored.Available(Part::Bracket,Place::Buffer,Area),M.Available(Part::Bracket,Place::Buffer,Area));TestTrue(TEXT("Restored supply valid: ")+E,Restored.SupplyValid(E));TestTrue(TEXT("Restored material mass matches"),FMath::IsNearlyEqual(M.SteelMass(),Restored.SteelMass(),.01f));return true;
+ TestEqual(TEXT("Restored delivery matches uninterrupted"),Restored.Available(Part::BentBracket,Place::Buffer,Area),M.Available(Part::BentBracket,Place::Buffer,Area));TestTrue(TEXT("Restored supply valid: ")+E,Restored.SupplyValid(E));TestTrue(TEXT("Restored material mass matches"),FMath::IsNearlyEqual(M.SteelMass(),Restored.SteelMass(),.01f));return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSupplyFailures,"Foundryline.AssemblySupply.MissingStockOwnershipAndMigration",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FSupplyFailures::RunTest(const FString&){
@@ -60,7 +60,7 @@ bool FSupplyFailures::RunTest(const FString&){
  TestFalse(TEXT("Cannot assign employee from another business"),M.AssignCollector(99999,Area,E));TestFalse(TEXT("Unknown area rejected"),M.AssignCollector(Id,99999,E));
  if(!TestTrue(TEXT("Assign valid area"),M.AssignCollector(Id,Area,E))){AddError(E);return false;}M.State.Running=true;for(auto& P:M.State.Pallets)P.OrderId=10;
  Run(M,30);TestTrue(TEXT("Order-reserved stock is not stolen"),M.State.Collectors[0].Load.IsEmpty());for(auto& P:M.State.Pallets)P.OrderId=0;
- Run(M);TestEqual(TEXT("Newly available stock resumes supply"),M.Available(Part::Bracket,Place::Buffer,Area),8);
+ Run(M);TestEqual(TEXT("Newly available stock resumes supply"),M.Available(Part::BentBracket,Place::Buffer,Area),8);
  auto Legacy=Fixture();Legacy.State.Version=14;const int Next=Legacy.State.NextId;Legacy.MigrateAssemblySupply();Legacy.MigrateAssemblySupply();TestEqual(TEXT("Schema migrated once"),Legacy.State.Version,15);TestEqual(TEXT("Migration preserves IDs"),Legacy.State.NextId,Next);
  auto Other=M.State;Other.CompanyId=FGuid::NewGuid();Other.PlantId=FGuid::NewGuid();const auto A=FFoundrylineEmployeeRoster::Build(M.State),B=FFoundrylineEmployeeRoster::Build(Other);TestTrue(TEXT("Company-scoped collector identity"),A[0].Key!=B[0].Key);return true;
 }

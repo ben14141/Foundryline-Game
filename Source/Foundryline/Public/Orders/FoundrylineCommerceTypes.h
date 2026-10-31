@@ -5,7 +5,7 @@ UENUM() enum class EFoundrylinePayment:uint8 {PerDelivery,OnCompletion,Upfront};
 UENUM() enum class EFoundrylineOrderState:uint8 {Offered,Accepted,Completed};
 UENUM() enum class EFoundrylineBookingState:uint8 {Booked,Approaching,Waiting,Loading,Departing,InTransit,Delivered};
 UENUM() enum class EFoundrylineForkTask:uint8 {Truck,Machine,Storage};
-UENUM() enum class EFoundrylineCommerceAction:uint8 {AcceptOrder,BuySteel,AssignPickup,BookPickup,Reschedule,DriverPriority,BuyBrake,BuyForklift,BuyParts};
+UENUM() enum class EFoundrylineCommerceAction:uint8 {AcceptOrder,BuySteel,AssignPickup,BookPickup,Reschedule,DriverPriority,BuyBrake,BuyForklift,BuyParts,StagePallet};
 USTRUCT() struct FFoundrylineCustomerOrder {
  GENERATED_BODY()
  UPROPERTY(SaveGame) int32 Id=0;

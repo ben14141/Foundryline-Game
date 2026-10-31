@@ -10,6 +10,7 @@
 struct FOUNDRYLINE_API FFoundrylineEconomyTuning {
  // Company start and equipment.
  static constexpr int64 StartingCashCents=400000;
+ static constexpr int64 OfficeWorkstationCents=50000;
  // Starter assembly expansion leaves working capital for steel and freight.
  static constexpr int64 FabStationCents=100000;
  static constexpr int64 PartsRackBaseCents=25000;

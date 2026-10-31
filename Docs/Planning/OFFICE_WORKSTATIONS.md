@@ -1,0 +1,15 @@
+# Purchasable office workstations
+
+Office > Desk & computer in the planning catalogue buys and places an additional workstation for $500. The package includes the existing real-scale 60 x 30 inch desk, tower, keyboard/mouse, three monitors and a chair. Rotation uses R. The placement hologram shows the desk and chair; placement footprint follows the desk and chair only, without an extra service/circulation zone. No painted floor boundary or placement-grid rectangle is shown for desks. Invalid placement is rejected without payment. Canceling a hologram does not buy anything.
+
+Workstations are company/plant-owned saved records. Existing saves default to an empty list of additional desks; the original starter computer remains available. Each valid placement charges the owning company's cash through the existing authoritative planning command. Paused planning and valid owned-building floor are required. Move/rotate/remove are available through planner selection. Moving does not charge again, and removing does not refund the purchase.
+
+The server creates a replicated functional office terminal for each record, with the correct business IDs and physical collision. Moving updates the same actor; removal/load reconciliation destroys missing actors. Clients receive saved records and replicated actors. Press E near an added computer to access the owning business desktop and planner. Monitor textures reuse the existing office ERP displays.
+
+This adds office furniture and computer access points. Manager/office-worker hiring roles and desk-to-employee assignments are future gameplay, not included in this change. Additional desks do not create employees or silently alter payroll.
+
+The bounded limit is 32 additional workstations per business. This is an object limit, not an established multiplayer player cap.
+
+Validation: editor build succeeded; 192/192 automation checks passed. Native unsaved starter-office review passed 7/7 checks: two additional workstations placed through planner commands, exactly $1,000 charged, owned terminal actors spawned and the new computer opened the desktop. Catalogue and placed-office screenshots rendered and inspected. These are local automation/PIE checks, not a new remote multiplayer acceptance run. No commit, push or merge performed.
+Chair orientation correction: office terminals now have a separate scene root, so the mesh facing adjustment cannot overwrite the purchased actor rotation. The chair remains attached to the workstation mesh in both hologram and final placement. The original starter desk also includes a chair. Rotation/seat-side regression assertions, all 192 automation checks, and all 7 native purchase/terminal checks passed. Fresh corrected office screenshot inspected: Saved/Screenshots/Reviews/OfficeDesk_Corrected_Placed00000.png.
+Final keyboard-side correction: the imported workstation seating side is local -Y relative to its mesh. Chair attachment and hologram use that side and face the controls; compact placement bounds follow the corrected side. Native seated-employee screenshots confirm the keyboard and mouse are in front of the chair.

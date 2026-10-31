@@ -59,7 +59,7 @@ FFoundrylineStarterGuide FFoundrylineERPViewModel::Guide(const FFoundrylineFacto
  auto Need=[&](const FString& Text,const FString& Action){Out.Problems.Add({Text,Action});};
  // Planning still needs a material estimate before a machine and its installed programs exist.
  const auto StandardPrograms=FFoundrylineFactoryCatalog::DefaultPrograms();
- auto SteelLb=[&](int32 Part){const auto* P=S.Programs.FindByPredicate([&](const auto& V){return V.Machine==1&&int(V.Part)==Part;});if(!P)P=StandardPrograms.FindByPredicate([&](const auto& V){return V.Machine==1&&int(V.Part)==Part;});return P?double(P->SteelLb):0.;};
+ auto SteelLb=[&](int32 Part){if(Part==int(EFoundrylinePart::BentBracket))Part=int(EFoundrylinePart::Bracket);const auto* P=S.Programs.FindByPredicate([&](const auto& V){return V.Machine==1&&int(V.Part)==Part;});if(!P)P=StandardPrograms.FindByPredicate([&](const auto& V){return V.Machine==1&&int(V.Part)==Part;});return P?double(P->SteelLb):0.;};
  // Staffing: an operator assigned to the plasma (machine 1) and a driver on any owned forklift.
  for(const auto& E:FFoundrylineEmployeeRoster::Build(S)){
   if(E.Role==EFoundrylineEmployeeRole::Operator&&E.Assignment==1&&!Out.bOperator){Out.bOperator=true;Out.OperatorName=E.Label;}
@@ -108,7 +108,7 @@ else ++Out.PickupsBooked;}
  Out.SheetsToBuy=FMath::Max(0,FMath::CeilToInt((Out.SteelNeededLb-Out.SteelOnHandLb-Out.SteelIncomingLb-.01)/SheetLb));
  const auto* Focus=Accepted.IsEmpty()?nullptr:Accepted[0];
  auto& Done=Out.bStepDone;
- Done[int(G::AcceptOrder)]=Focus&&Out.bAssignedToBay;Done[int(G::BuySteel)]=Focus&&Out.SheetsToBuy==0;Done[int(G::StaffWork)]=Out.bWeldedOrder?Out.bWelder&&Out.bForkliftDriver:Out.bOperator&&Out.bForkliftDriver;
+ Done[int(G::AcceptOrder)]=Focus!=nullptr;Done[int(G::BuySteel)]=Focus&&Out.SheetsToBuy==0;Done[int(G::StaffWork)]=Out.bWeldedOrder?Out.bWelder&&Out.bForkliftDriver:Out.bOperator&&Out.bForkliftDriver;
  Done[int(G::ProgramPlasma)]=Focus&&Out.PartsToMake==0;Done[int(G::BookFreight)]=Focus&&Out.PartsToMake+Out.PartsCutting+Out.PartsReady==0;Done[int(G::GetPaid)]=false;
  Out.Step=G::GetPaid;for(int I=0;I<int(G::Count);++I)if(!Done[I]){Out.Step=G(I);break;}
  // Payroll runs every game hour, so idle paid people are a cost: point at the next order. A station idles with no batch and
@@ -130,15 +130,16 @@ else ++Out.PickupsBooked;}
   case G::StaffWork:if(Out.bWeldedOrder){Out.Title=Out.bWelder?TEXT("Put a driver on the forklift"):TEXT("Assign a welder to the welding station");Out.Detail=TEXT("A welder builds each rack at the station, and a forklift driver takes the finished pallets from OUT to the loading bay or storage. Hire and assign them in Team.");Out.ActionLabel=TEXT("Open Team");Out.Action=TEXT("Page7");break;}
    Out.Title=TEXT("Put people on the plasma and forklift");Out.Detail=TEXT("Someone must run the plasma cutter, and a forklift driver unloads steel and moves finished parts. Assign them in Team.");Out.ActionLabel=TEXT("Open Team");Out.Action=TEXT("Page7");break;
   case G::ProgramPlasma:if(Out.bWeldedOrder){Out.Title=FString::Printf(TEXT("Set %s: make %d %s"),Out.StationName.IsEmpty()?TEXT("a welding station"):*Out.StationName,Out.PartsToMake,*Out.OrderPartName.ToLower());Out.Detail=TEXT("The station orders its frame sections and light kits from the panel, takes plates and brackets from your racks, and builds one rack at a time. Racks already made or in progress are not counted again.");Out.ActionLabel=TEXT("Set the station");Out.Action=FString::Printf(TEXT("StationOrder%d"),Out.OrderId);break;}
-   Out.Title=FString::Printf(TEXT("Program the plasma: %d x %s"),Out.PartsToMake,*Out.OrderPartName);Out.Detail=TEXT("This fills in the part and quantity on the plasma screen. Check it, then press Start. Parts already made or cutting are not counted again.");Out.ActionLabel=TEXT("Program plasma");Out.Action=FString::Printf(TEXT("ProgramOrder%d"),Out.OrderId);break;
+   Out.Title=FString::Printf(TEXT("At the plasma: %d x %s"),Out.PartsToMake,*Out.OrderPartName);Out.Detail=TEXT("Walk to the plasma table's computer and press E. Choose the job, set its part and quantity, then start the batch there. This office screen shows your remaining demand; machine programming stays at the machine.");Out.ActionLabel=TEXT("Use the plasma terminal");Out.Action.Reset();break;
   case G::BookFreight:
+   if(!Out.bAssignedToBay&&Out.PartsReady>0){Out.Title=FString::Printf(TEXT("Stage %d ready parts for %s"),Out.PartsReady,*Out.OrderReference);Out.Detail=TEXT("Production has matching stock ready. Request a forklift load to the loading bay, then book a carrier when you are ready to ship.");Out.ActionLabel=TEXT("Move ready parts to bay");Out.Action=FString::Printf(TEXT("AssignOrder%d"),Out.OrderId);break;}
    if(Out.PartsAtBay>0&&Out.PartsAtBay>=Out.PartsReady+Out.PartsCutting){Out.Title=TEXT("Book a pickup truck");Out.Detail=FString::Printf(TEXT("%d %s are waiting at the loading bay. Open the loading tablet, tick the pallets and book a truck that fits them.%s"),Out.PartsAtBay,*Out.OrderPartName,Out.bWeldedOrder?TEXT(" A 6 ft 6 in rack needs a flatbed or larger, and each rack pallet takes two deck spaces."):TEXT(""));Out.ActionLabel=TEXT("Open loading tablet");Out.Action=TEXT("Tablet");}
    else if(Out.bWeldedOrder){Out.Title=Out.PartsCutting?FString::Printf(TEXT("Welding racks: %d left"),Out.PartsCutting):TEXT("Moving racks to the loading bay");Out.Detail=TEXT("The welder builds each rack, and the forklift takes its OUT pallet to the loading bay. Speed up time with 4x or 8x at the top.");Out.ActionLabel=TEXT("View production");Out.Action=TEXT("Page10");}
    else {Out.Title=Out.PartsCutting?FString::Printf(TEXT("Cutting parts: %d left"),Out.PartsCutting):TEXT("Moving parts to the loading bay");Out.Detail=TEXT("The operator cuts the parts and the forklift stacks them at the loading bay. Speed up time with 4x or 8x at the top.");Out.ActionLabel=TEXT("View production");Out.Action=TEXT("Page10");}
    break;
   default:
    // Nothing pending on the focused order while paid people sit idle: the next step is another order.
-   if(!Out.IdleWhilePaid.IsEmpty()&&(!Focus||Out.PartsToMake+Out.PartsCutting+Out.PartsReady==0)){Out.Title=TEXT("Accept another order");Out.Detail=FString::Printf(TEXT("Payroll %s/h is running while %s. Overlap orders so your people keep working."),*FFoundrylineCommerceCatalog::Money(Out.PayrollCentsPerHour),*Out.IdleWhilePaid);Out.ActionLabel=TEXT("Find an order");Out.Action=TEXT("Page0");break;}
+   if(!Out.IdleWhilePaid.IsEmpty()&&(!Focus||Out.PartsToMake+Out.PartsCutting+Out.PartsReady==0)){Out.Title=TEXT("Accept another order");Out.Detail=FString::Printf(TEXT("Payroll %s per game hour continues while %s. Overlap orders so your people keep working."),*FFoundrylineCommerceCatalog::Money(Out.PayrollCentsPerHour),*Out.IdleWhilePaid);Out.ActionLabel=TEXT("Find an order");Out.Action=TEXT("Page0");break;}
    Out.Title=TEXT("Truck is on its way - payment follows");Out.Detail=FString::Printf(TEXT("%s: %s once the truck delivers. Nothing else to do for this order; try 8x speed."),*Out.OrderCustomer,FFoundrylineCommerceCatalog::PaymentName(Focus->Payment));Out.ActionLabel=TEXT("Track shipment");Out.Action=TEXT("Page4");break;
  }
  // Everything missing right now, in plain language, each with the screen that fixes it.
@@ -152,7 +153,7 @@ else ++Out.PickupsBooked;}
  if(!Out.bForkliftDriver)Need(TEXT("No forklift driver: steel can't be unloaded or parts moved"),TEXT("Page7"));
  if(Focus&&!Out.bWeldedOrder&&Out.SheetsToBuy>0&&Out.Step!=G::BuySteel)Need(FString::Printf(TEXT("Not enough steel: need %.0f lb, have %.0f lb (+%.0f lb coming)"),Out.SteelNeededLb,Out.SteelOnHandLb,Out.SteelIncomingLb),FString::Printf(TEXT("BuySheets%d"),FMath::Clamp(Out.SheetsToBuy,1,10)));
  if(Focus&&Out.SheetsToBuy>0&&C.CashCents<SheetsCost)Need(FString::Printf(TEXT("Not enough cash for %d sheets (%s)"),Out.SheetsToBuy,*FFoundrylineCommerceCatalog::Money(SheetsCost)),TEXT("Page5"));
- if(Focus&&!Out.bAssignedToBay&&Out.Step!=G::AcceptOrder)Need(TEXT("This order is not at the loading bay yet"),FString::Printf(TEXT("AssignOrder%d"),Out.OrderId));
+ if(Focus&&!Out.bAssignedToBay&&Out.PartsReady>0)Need(TEXT("Ready stock can now be moved to the loading bay"),FString::Printf(TEXT("AssignOrder%d"),Out.OrderId));
  if(Focus&&!S.Running)Need(TEXT("Time is paused: press Resume at the top"),TEXT("Run"));
  if(Focus&&Focus->Late)Need(TEXT("This order is past its deadline"),FString::Printf(TEXT("LinkedOrder%d"),Out.OrderId));
  return Out;

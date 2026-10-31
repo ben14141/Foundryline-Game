@@ -10,7 +10,7 @@ FVector FFoundrylineWeldingStationLayout::Dock(const FFoundrylineWeldingStationR
 FVector FFoundrylineWeldingStationLayout::WorkPoint(const FFoundrylineWeldingStationRecord& S,int32 Side){return Side?CorePoint(S,9.5,10):CorePoint(S,7.5,3);}
 // The bench's torch holster end faces OUT, leaving the full IN port clear for pallets.
 FTransform FFoundrylineWeldingStationLayout::BenchTransform(const FFoundrylineWeldingStationRecord& S){return FTransform(FRotator(0,Rotation(S).Yaw+(S.bSwapSides?0:180),0),CorePoint(S,8.5,6.5));}
-int32 FFoundrylineWeldingStationLayout::BinCapacity(EFoundrylinePart P){switch(P){case EFoundrylinePart::MountingPlate:return 4;case EFoundrylinePart::Bracket:return 8;case EFoundrylinePart::FrameSection:return 12;case EFoundrylinePart::LightKit:return 4;default:return 0;}}
+int32 FFoundrylineWeldingStationLayout::BinCapacity(EFoundrylinePart P){switch(P){case EFoundrylinePart::MountingPlate:return 4;case EFoundrylinePart::BentBracket:return 8;case EFoundrylinePart::FrameSection:return 12;case EFoundrylinePart::LightKit:return 4;default:return 0;}}
 // Stock on the IN pallets: frame sections along one side of their pallet with the light kits beside them, plates and
 // brackets side by side on the other pallet.
 FVector FFoundrylineWeldingStationLayout::BinPoint(const FFoundrylineWeldingStationRecord& S,EFoundrylinePart P){

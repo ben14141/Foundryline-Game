@@ -12,7 +12,7 @@ bool FFoundrylineFactorySimulation::WeldingStationsValid(FString& E)const{
  const FBox2D Floor(State.FloorMin,State.FloorMax);TSet<int> Numbers;
  for(int I=0;I<State.WeldingStations.Num();++I){const auto& S=State.WeldingStations[I];
   if(S.Number<1||S.Number>99||Numbers.Contains(S.Number)||S.Center.ContainsNaN()||S.QuarterTurns<0||S.QuarterTurns>3||FMath::Abs(S.InDockOffsetFt)>Layout::MaxDockOffsetFt||FMath::Abs(S.OutDockOffsetFt)>Layout::MaxDockOffsetFt){E=TEXT("Invalid welding station record");return false;}Numbers.Add(S.Number);
-  const auto B=Layout::Bounds(S);const FBox2D Shop=State.bCutPartsStarter&&!State.Machines.IsEmpty()?FFoundrylineWorkshopLayout::CutShopInterior():Floor;if(!Shop.IsInsideOrOn(B.Min)||!Shop.IsInsideOrOn(B.Max)){E=TEXT("Saved welding station is outside the shop floor");return false;}
+  const auto B=Layout::Bounds(S);if(!Floor.IsInsideOrOn(B.Min)||!Floor.IsInsideOrOn(B.Max)){E=TEXT("Saved welding station is outside the shop floor");return false;}
   for(int J=I+1;J<State.WeldingStations.Num();++J)if(Overlap(B,Layout::Bounds(State.WeldingStations[J]))){E=TEXT("Saved welding stations overlap");return false;}
   for(const auto& L:State.Lanes)if(Overlap(B,FBox2D(L.Min,L.Max))){E=TEXT("Saved welding station overlaps a lane; layout was not loaded");return false;}
   for(const auto& Z:State.Zones)if(Overlap(B,FFoundrylineWorkZoneLayout::Bounds(Z))){E=TEXT("Saved welding station overlaps a work zone");return false;}

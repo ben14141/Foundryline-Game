@@ -22,7 +22,7 @@
 // selection, tabs and help are per-player local state, so co-op players browse independently.
 bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
 {
- auto* Plant=PC->FactoryPlant();if(!Plant)return false;
+ auto* Plant=PC->FactoryPlant();if(!Plant)return false;const bool EmployeeView=PC->OperationsScreen==4;if(EmployeeView){PC->OperationsPage=7;PC->OperationsWorkspaceTab=0;PC->OperationsEmployeeChoice=PC->EmployeeInspectId;}
  const auto& S=Plant->Snapshot;const auto& C=S.Commerce;
  const auto VM=FFoundrylineERPViewModel::Build(C,FFoundrylineERPViewModel::CompanyName(GetWorld(),Plant->BusinessCompanyId));
  const auto Guide=FFoundrylineERPViewModel::Guide(S);
@@ -105,7 +105,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
  auto Pager=[&](int Count,int Rows,float A,float B,float D){if(Count<=Rows)return;const int P=FMath::Clamp(PC->OperationsListPage,0,FMath::Max(0,(Count-1)/Rows));Text(FString::Printf(TEXT("Showing %d-%d of %d"),P*Rows+1,FMath::Min((P+1)*Rows,Count),Count),A,B+9,13,false,Muted);Button(TEXT("Previous"),TEXT("< Back"),A+D-210,B,100,36,EStyle::Secondary,P>0,TEXT("Show the previous page. The mouse wheel also scrolls."));Button(TEXT("Next"),TEXT("More >"),A+D-100,B,100,36,EStyle::Secondary,(P+1)*Rows<Count,TEXT("Show the next page. The mouse wheel also scrolls."));};
  auto First=[&](int Count,int Rows){return FMath::Clamp(PC->OperationsListPage,0,FMath::Max(0,(Count-1)/Rows))*Rows;};
  auto Tabs=[&](TArray<TTuple<FString,FString,bool,FString>> Items,float A,float B){float At=A;Rect(A,B+43,CW,1,Line);for(const auto& T:Items){const float D=Width(T.Get<1>(),15,true)+52;Button(T.Get<0>(),T.Get<1>(),At,B,D,44,EStyle::Tab,true,T.Get<3>(),T.Get<2>());At+=D+4;}};
- auto PageHeader=[&](const FString& Title,const FString& Sub){const FString Copy=(Title==TEXT("Orders")||Title==TEXT("Contracts"))?TEXT("Choose customer work. Follow each job to delivery."):Title==TEXT("Buy steel")?TEXT("Order sheets and keep your next batch supplied."):Title==TEXT("Production")?TEXT("Set jobs. Keep your machines working."):Title==TEXT("Stock & trucks")?TEXT("Track pallets and schedule your next truck."):Title==TEXT("Team")?TEXT("Build your crew. Give everyone a job."):Title==TEXT("Money")?TEXT("Income, costs and customer payments."):TEXT("Your next job starts here.");Text(Title,CX,CY,30,true,Ink,CW);Text(Copy,CX,CY+43,15,false,Muted,CW);HelpArea(TEXT("PageIntro"),CX,CY+40,CW,26,Sub);};
+ auto PageHeader=[&](const FString& Title,const FString& Sub){const FString Copy=(Title==TEXT("Orders")||Title==TEXT("Contracts"))?TEXT("Choose customer work. Follow each job to delivery."):Title==TEXT("Buy steel")?TEXT("Order sheets and keep your next batch supplied."):Title==TEXT("Production")?TEXT("Set jobs. Keep your machines working."):Title==TEXT("Inventory")?TEXT("Your steel, parts and finished assemblies."):Title==TEXT("Trucks")?TEXT("Carriers, deliveries and pickup bookings."):Title==TEXT("Team")?TEXT("Build your crew. Give everyone a job."):Title==TEXT("Money")?TEXT("Income, costs and customer payments."):TEXT("Your next job starts here.");Text(Title,CX,CY,30,true,Ink,CW);Text(Copy,CX,CY+43,15,false,Muted,CW);HelpArea(TEXT("PageIntro"),CX,CY+40,CW,26,Sub);};
  auto PartName=[](int32 Part){return FString(FFoundrylineFactoryCatalog::Part(EFoundrylinePart(Part)).Name);};
  auto Terms=[](EFoundrylinePayment P){return FString(P==EFoundrylinePayment::Upfront?TEXT("Pays when you accept"):P==EFoundrylinePayment::PerDelivery?TEXT("Pays for each delivery"):TEXT("Pays when all parts arrive"));};
  auto PlaceName=[](EFoundrylinePalletPlace P){const TCHAR* N[]={TEXT("Receiving area"),TEXT("Storage rack"),TEXT("Plasma input"),TEXT("Machine output"),TEXT("Buffer"),TEXT("On a forklift"),TEXT("Loading bay"),TEXT("Delivery truck"),TEXT("Pickup truck"),TEXT("On the road"),TEXT("Welding station IN"),TEXT("Welding station OUT")};return FString(N[FMath::Clamp(int(P),0,11)]);};
@@ -131,10 +131,11 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
   {0,TEXT("Contracts"),TEXT("MenuOrders"),Guide.OffersWaiting,TEXT("Find customer orders, accept them and follow deliveries.")},
   {3,TEXT("Buy steel"),TEXT("SteelSheets"),0,TEXT("Order sheets for your next batch.")},
   {10,TEXT("Production"),TEXT("Stored1"),0,TEXT("Set machine jobs, check progress and buy equipment.")},
-  {4,TEXT("Stock & trucks"),TEXT("Forklift"),VM.Summary.OpenBookings,TEXT("See your pallets, book pickups and manage deliveries.")},
+  {11,TEXT("Inventory"),TEXT("Parts2"),S.Pallets.Num(),TEXT("Steel, parts, assemblies and every stored pallet.")},
+  {4,TEXT("Trucks"),TEXT("TruckDoor"),VM.Summary.OpenBookings,TEXT("Carrier bookings, incoming deliveries and outgoing pickups.")},
   {7,TEXT("Team"),TEXT("MenuTeam"),FFoundrylineEmployeeRoster::Build(S).Num(),TEXT("Hire your crew and assign their jobs.")},
   {5,TEXT("Money"),TEXT("MenuMoney"),0,TEXT("Your income, costs and customer payments.")}};
- for(int I=0;I<7;++I){const auto& N=Nav[I];const bool On=Page==N.Page||(N.Page==0&&Page==2)||(N.Page==10&&Page==6)||(N.Page==4&&Page==11);const float At=Y+HeadH+38+I*66;const float V=Hit(FString::Printf(TEXT("Page%d"),N.Page),X+24,At,NavW-36,54,true,N.Help);
+ for(int I=0;I<UE_ARRAY_COUNT(Nav);++I){const auto& N=Nav[I];if(EmployeeView&&N.Page!=7)continue;const bool On=Page==N.Page||(N.Page==0&&Page==2)||(N.Page==10&&Page==6);const float At=Y+HeadH+32+(EmployeeView?0:I)*59;const float V=Hit(FString::Printf(TEXT("Page%d"),N.Page),X+24,At,NavW-36,54,true,N.Help);
   const auto NavBase=On?Orange:FMath::Lerp(Dark,Graphite,V*.85f);SurfacePanel(X+24,At,NavW-36,54,FMath::Lerp(NavBase,Paper,On?.06f:.025f),NavBase,On?Hex(TEXT("BD5B24")):FMath::Lerp(Dark,Orange,V*.6f),On?2.f:V,6);SurfacePanel(X+30,At+4,68,46,On?Paper:FMath::Lerp(Hex(TEXT("E1DFDA")),Paper,V),Rail,Line,0,4);MenuImage(N.Preview,X+32,At+7-2*V,64,40);
   const float NameW=NavW-(N.Badge>0?157:132);Wrap(N.Label,X+109+V*2,At+(Width(N.Label,16,true)>NameW?8:17),NameW,16,true,On?Ink:Surface,2,18);
   if(N.Badge>0){const FString Count=FString::FromInt(N.Badge);const float BW=FMath::Max(26.f,Width(Count,12,true)+16);Round(X+NavW-32-BW,At+14,BW,26,On?Dark:Graphite,13);Text(Count,X+NavW-32-BW+(BW-Width(Count,12,true))/2,At+20,12,true,Paper);}}
@@ -142,7 +143,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
  Rect(X+28,ControlY,NavW-52,1,Graphite);Text(TEXT("WORKSHOP TIME"),X+32,ControlY+22,12,true,Hex(TEXT("C7C9CA")));
  for(int I=0;I<3;++I){const int Rate=I==0?1:I==1?4:8;Button(FString::Printf(TEXT("Speed%d"),Rate),FString::Printf(TEXT("%dx"),Rate),X+28+I*88,ControlY+48,80,38,S.Speed==Rate?EStyle::Primary:EStyle::Secondary,!PC->bOperationsPending,TEXT("Change how quickly workshop time passes."),S.Speed==Rate);}
  Button(TEXT("Run"),S.Running?TEXT("PAUSE TIME"):TEXT("RESUME TIME"),X+28,ControlY+98,NavW-52,44,S.Running?EStyle::Secondary:EStyle::Primary,!PC->bOperationsPending,TEXT("Pause or resume people, machines and trucks."));
- const bool Prop=PC->bPropertyViewAccess;Button(Prop?TEXT("ReturnOffice"):TEXT("PropertyView"),Prop?TEXT("OFFICE"):TEXT("PLANNER"),X+28,Y+H-FootH-86,NavW-52,54,EStyle::Primary,Prop||PC->IsNearOfficeComputer(),TEXT("Open the property planner from your office computer."));MenuImage(TEXT("Building"),X+36,Y+H-FootH-79,64,40);
+ const bool Prop=PC->bPropertyViewAccess;Button(Prop?TEXT("ReturnOffice"):TEXT("PropertyView"),Prop?TEXT("OFFICE"):TEXT("PLANNER"),X+28,Y+H-FootH-86,NavW-52,54,EStyle::Primary,!EmployeeView&&(Prop||PC->IsNearOfficeComputer()),TEXT("Open the property planner from your office computer."));MenuImage(TEXT("Building"),X+36,Y+H-FootH-79,64,40);
 
  // Footer: last error from the server, otherwise a hint.
  Rect(X,Y+H-FootH,W,FootH,Hex(TEXT("E8EBEE")));Rect(X,Y+H-FootH,W,1,Line);
@@ -159,7 +160,8 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
   const float Top=CY+86,HeroH=244;Rect(CX,Top,CW,HeroH,Dark);Rect(CX+CW-380,Top,380,HeroH,Graphite);
   Rect(CX,Top,6,HeroH,Orange);Text(TEXT("YOUR NEXT JOB"),CX+28,Top+22,13,true,Orange);RightText(FString::Printf(TEXT("STEP %d / 6"),FMath::Min(6,int(Guide.Step)+1)),CX+CW-28,Top+22,12,true,Paper);
   const float CopyW=CW-420;float At=Top+51;At+=Wrap(Guide.Title,CX+28,At,CopyW,28,true,Paper,2,34)+8;Wrap(Guide.Detail,CX+28,At,CopyW,15,false,Hex(TEXT("D5D6D4")),2,22);
-  Button(Guide.Action,Guide.ActionLabel+TEXT("  >"),CX+28,Top+HeroH-64,310,44,EStyle::Primary,!PC->bOperationsPending,TEXT("Open the next step. Purchases still require their normal confirmation."));
+  if(Guide.Step==EFoundrylineGuideStep::ProgramPlasma&&!Guide.bWeldedOrder){Text(TEXT("Use the plasma terminal"),CX+28,Top+HeroH-58,18,true,Paper,CopyW);Text(TEXT("Set the part and batch at the machine."),CX+28,Top+HeroH-32,13,false,Hex(TEXT("D5D6D4")),CopyW);}
+  else Button(Guide.Action,Guide.ActionLabel+TEXT("  >"),CX+28,Top+HeroH-64,310,44,EStyle::Primary,!PC->bOperationsPending,TEXT("Open the next step. Purchases still require their normal confirmation."));
   if(Guide.OrderId&&Guide.Problems.Num()){const auto& Problem=Guide.Problems[0];const FString Label=Problem.Action==TEXT("Page7")?TEXT("Assign employees  >"):Problem.Action==TEXT("Run")?TEXT("Resume time  >"):TEXT("Review issue  >");Button(Problem.Action,Label,CX+360,Top+HeroH-64,220,44,EStyle::Secondary,!PC->bOperationsPending,Problem.Text);}
   static TWeakObjectPtr<UTexture2D> WeldingImage,CuttingImage;auto& WorkshopImage=Guide.bWeldedOrder?WeldingImage:CuttingImage;if(!WorkshopImage.IsValid())WorkshopImage=LoadObject<UTexture2D>(nullptr,Guide.bWeldedOrder?TEXT("/Game/Foundryline/UI/BuildCatalogue/T_Catalog_Workstation.T_Catalog_Workstation"):TEXT("/Game/Foundryline/UI/BuildCatalogue/T_Catalog_Stored1.T_Catalog_Stored1"));
   if(WorkshopImage.IsValid())DrawTexture(WorkshopImage.Get(),(CX+CW-350)*Scale,(Top+38)*Scale,300*Scale,187.5f*Scale,0,0,1,1);
@@ -171,7 +173,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    {TEXT("Page0"),TEXT("Contracts"),FString::Printf(TEXT("%d active / %d offers"),Guide.AcceptedOrders,Guide.OffersWaiting),TEXT("Choose work and track deliveries"),TEXT("MenuOrders"),1},
    {TEXT("Page3"),TEXT("Buy steel"),Lb(Guide.SteelOnHandLb)+TEXT(" in your shop"),TEXT("Order sheets for your next batch"),TEXT("SteelSheets"),2},
    {TEXT("Page10"),TEXT("Production"),FString::Printf(TEXT("%d machine%s installed"),S.Machines.Num(),S.Machines.Num()==1?TEXT(""):TEXT("s")),TEXT("Set jobs and manage equipment"),TEXT("Stored1"),3},
-   {TEXT("Page4"),TEXT("Stock & trucks"),FString::Printf(TEXT("%d open freight bookings"),VM.Summary.OpenBookings),TEXT("Manage pallets and book pickups"),TEXT("Forklift"),4},
+   {TEXT("Page11"),TEXT("Inventory"),FString::Printf(TEXT("%d tracked pallets"),S.Pallets.Num()),TEXT("Steel, parts and finished assemblies"),TEXT("Parts2"),4},
    {TEXT("Page7"),TEXT("Team"),FString::Printf(TEXT("%d employees"),Roster.Num()),TEXT("Hire people and assign their jobs"),TEXT("MenuTeam"),5},
    {TEXT("Page5"),TEXT("Money"),Cash(Guide.OwedToYouCents)+TEXT(" owed to you"),TEXT("See income, costs and payments"),TEXT("MenuMoney"),6}};
   static TMap<FString,TStrongObjectPtr<UTexture2D>> AppImages;
@@ -204,8 +206,8 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    const bool Welded=O->Part==uint8(EFoundrylinePart::HeadacheRack);const bool Bent=O->Part==uint8(EFoundrylinePart::BentBracket)||O->Part==uint8(EFoundrylinePart::SupportChannel)||O->Part==uint8(EFoundrylinePart::FrameRail);const int Left=FMath::Max(0,O->Quantity-O->Delivered);
    const auto Programs=FFoundrylineFactoryCatalog::DefaultPrograms();const auto Blank=O->Part==uint8(EFoundrylinePart::BentBracket)?EFoundrylinePart::Bracket:O->Part==uint8(EFoundrylinePart::SupportChannel)?EFoundrylinePart::ReinforcementPlate:O->Part==uint8(EFoundrylinePart::FrameRail)?EFoundrylinePart::RailBlank:EFoundrylinePart(O->Part);
    const auto* Program=Programs.FindByPredicate([&](const auto& P){return P.Machine==1&&P.Part==Blank;});const double NeedLb=Program?Left*double(Program->SteelLb):0;
-   const bool BrakeStaffed=Roster.ContainsByPredicate([](const auto& E){return E.Role==EFoundrylineEmployeeRole::Operator&&E.Assignment==2;});
-   const bool PlasmaReady=S.Machines.ContainsByPredicate([](const auto& M){return M.Id==1&&!M.bStored;}),BrakeReady=S.Machines.ContainsByPredicate([](const auto& M){return M.Id==2&&!M.bStored;});
+   const bool BrakeStaffed=Roster.ContainsByPredicate([&](const auto& E){return E.Role==EFoundrylineEmployeeRole::Operator&&S.Machines.ContainsByPredicate([&](const auto& M){return M.Kind()==2&&!M.bStored&&M.Id==E.Assignment;});});
+   const bool PlasmaReady=S.Machines.ContainsByPredicate([](const auto& M){return M.Kind()==1&&!M.bStored;}),BrakeReady=S.Machines.ContainsByPredicate([](const auto& M){return M.Kind()==2&&!M.bStored;});
    FFoundrylineAssemblyRecipe Kit;FFoundrylineFactoryCatalog::Recipe(1,Kit);auto KitNeed=[&](EFoundrylinePart P){return Kit.Bill.IsValidIndex(int(P))?Kit.Bill[int(P)]*Left:0;};
    auto OnHand=[&](EFoundrylinePart P){int N=0;for(const auto& X:S.Pallets)if(X.Part==P&&!X.BookingId&&X.Place!=EFoundrylinePalletPlace::InTransit)N+=X.Quantity-X.Reserved;return N;};
    Mark(O->Customer,RX+24,Top+18,54);Text(O->Customer.ToUpper(),RX+94,Top+25,17,true,Ink,RW-118);Text(O->Reference+TEXT(" / ")+(O->Email?TEXT("Direct customer offer"):TEXT("Customer contract")),RX+94,Top+53,12,false,Muted,RW-118);
@@ -236,10 +238,11 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
     if(O->Status==EFoundrylineOrderState::Accepted){
      if(Guide.OrderId==O->Id){Rect(RX+28,At,BW,40,SoftOrange);Text(TEXT("Next: ")+Guide.Title,RX+42,At+11,14,true,Amber,BW-28);At+=48;}
      const float Half=(BW-12)/2;
-     if(C.PickupOrder==O->Id)Button(TEXT("HelpAtBay"),TEXT("At the loading bay"),RX+28,CB-76,Half,54,EStyle::Ghost,false,TEXT("Finished parts for this order are stacked at the loading bay so a pickup truck can collect them. Only one order uses the bay at a time."));
-     else Button(TEXT("Assign"),TEXT("Send to loading bay"),RX+28,CB-76,Half,54,EStyle::Primary,!PC->bOperationsPending,TEXT("Make this the order whose finished parts the forklift stacks at the loading bay. Only one order uses the bay at a time."));
+     int ReadyToMove=0;for(const auto& P:S.Pallets)if(int(P.Part)==O->Part&&!P.BookingId&&!P.Reserved&&(P.Place==EFoundrylinePalletPlace::Rack||P.Place==EFoundrylinePalletPlace::MachineOutput||P.Place==EFoundrylinePalletPlace::StationOut))ReadyToMove+=P.Quantity;
+     int Moving=0;for(const auto& J:S.Jobs)if(J.OrderId==O->Id&&J.DestinationPlace==EFoundrylinePalletPlace::Pickup)Moving+=J.Quantity;const int StillToStage=FMath::Max(0,O->Quantity-O->Delivered-Trucks-Bay-Moving);ReadyToMove=FMath::Min(ReadyToMove,StillToStage);
+     Button(TEXT("Assign"),ReadyToMove>0?TEXT("Move ready parts to bay"):StillToStage==0?TEXT("Already staged / booked"):TEXT("No parts ready"),RX+28,CB-76,Half,54,ReadyToMove>0?EStyle::Primary:EStyle::Ghost,ReadyToMove>0&&!PC->bOperationsPending,FString::Printf(TEXT("%d matching, unreserved parts are ready for this contract. %d are already moving to the bay. A real forklift load is requested only when stock is ready."),ReadyToMove,Moving));
      if(O->Part==uint8(EFoundrylinePart::HeadacheRack))Button(FString::Printf(TEXT("StationOrder%d"),O->Id),TEXT("Set welding station"),RX+40+Half,CB-76,Half,54,C.PickupOrder==O->Id?EStyle::Primary:EStyle::Secondary,!PC->bOperationsPending&&Guide.OrderId==O->Id&&Guide.PartsToMake>0,TEXT("Set the welding station's batch to the racks this order still needs. Racks already made or in progress are not counted again."));
-     else Button(FString::Printf(TEXT("ProgramOrder%d"),O->Id),TEXT("Program plasma"),RX+40+Half,CB-76,Half,54,C.PickupOrder==O->Id?EStyle::Primary:EStyle::Secondary,!PC->bOperationsPending,TEXT("Open the plasma screen with this part and the quantity still needed filled in. You press Start there."));
+     else {Rect(RX+40+Half,CB-76,Half,54,Surface);Text(TEXT("Use machine terminal"),RX+52+Half,CB-66,13,true,Muted,Half-24);Text(TEXT("Set parts and batches there"),RX+52+Half,CB-44,12,false,Muted,Half-24);}
     } else Text(O->Late?TEXT("Completed late."):TEXT("Completed and delivered."),RX+28,At,15,true,Green,BW);
    }
   }
@@ -262,7 +265,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    Button(TEXT("SheetsMinus"),TEXT("-"),CX+28,At+24,60,56,EStyle::Secondary,N>1,TEXT("One sheet fewer."));Text(FString::FromInt(N),CX+98+(70-Width(FString::FromInt(N),34,true))/2,At+30,34,true,Ink);Button(TEXT("SheetsPlus"),TEXT("+"),CX+178,At+24,60,56,EStyle::Secondary,N<10,TEXT("One sheet more (up to 10 per delivery)."));
    Text(FString::Printf(TEXT("= %s of steel"),*Lb(Pounds)),CX+260,At+40,16,false,Muted);
    At+=110;Text(TEXT("DELIVERY ARRIVES"),CX+28,At,12,true,Muted);Text(FFoundrylineCommerceCatalog::Date(C.Clock+PC->OperationsDelay),CX+28,At+22,22,true,Ink);HelpArea(TEXT("Arrival"),CX+28,At-4,260,56,TEXT("When the supplier's truck reaches your loading bay. It may wait if another truck is using the bay."));
-   Button(TEXT("TimeMinus"),TEXT("Sooner -30m"),CX+300,At+14,150,42,EStyle::Secondary,PC->OperationsDelay>30,TEXT("Ask for the delivery 30 minutes earlier."));Button(TEXT("TimePlus"),TEXT("Later +30m"),CX+460,At+14,150,42,EStyle::Secondary,true,TEXT("Ask for the delivery 30 minutes later."));
+   Button(TEXT("TimeMinus"),TEXT("Sooner -30m"),CX+300,At+14,150,42,EStyle::Secondary,PC->OperationsDelay>30,TEXT("Ask for the delivery 30 game minutes earlier."));Button(TEXT("TimePlus"),TEXT("Later +30m"),CX+460,At+14,150,42,EStyle::Secondary,true,TEXT("Ask for the delivery 30 game minutes later."));
    At+=86;Wrap(TEXT("The truck unloads at the loading bay, then your forklift driver puts the sheets on the steel rack next to the plasma cutter."),CX+28,At,LW-56,14,false,Muted,2);
    if(!Guide.bForkliftDriver){Rect(CX+28,CB-70,LW-56,46,SoftRed);Rect(CX+28,CB-70,4,46,Red);Text(TEXT("No forklift driver: delivered steel can't be unloaded."),CX+46,CB-56,14,true,Red,LW-220);Button(TEXT("Page7"),TEXT("Fix this >"),CX+LW-150,CB-64,110,34,EStyle::Secondary,true,TEXT("Open Team to assign a forklift driver."));}
    Card(RX,Top,RW,CB-Top,TEXT("Order summary"));
@@ -276,7 +279,7 @@ bool AFoundrylineBuildHUD::DrawBusinessDesktop(AFoundrylinePlayerController* PC)
    TArray<const FFoundrylineFreightBooking*> Rows;for(const auto& B:C.Bookings)if(B.Inbound)Rows.Add(&B);Rows.Sort([](const auto& A,const auto& B){return A.ArrivalAt>B.ArrivalAt;});
    Card(CX,Top,CW,CB-Top);const int Per=FMath::Max(1,int((CB-Top-110)/64)),F=First(Rows.Num(),Per);
    Text(TEXT("ORDER"),CX+24,Top+18,12,true,Muted);Text(TEXT("STEEL"),CX+CW*.2f,Top+18,12,true,Muted);Text(TEXT("ARRIVES"),CX+CW*.42f,Top+18,12,true,Muted);Text(TEXT("WHERE IT IS"),CX+CW*.66f,Top+18,12,true,Muted);Rect(CX+16,Top+44,CW-32,1,Line);
-   for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& B=*Rows[I];const float RY=Top+52+(I-F)*64;const float V=Hit(FString::Printf(TEXT("CalendarBooking%d"),B.Id),CX+8,RY,CW-16,58,true,TEXT("Open this delivery in Stock & trucks."));if(V>.01f||(I-F)%2)Rect(CX+8,RY,CW-16,58,V>.01f?Hex(TEXT("F4E8DC")):Rail);Hover(CX+8,RY,CW-16,58,V);
+   for(int I=F;I<FMath::Min(F+Per,Rows.Num());++I){const auto& B=*Rows[I];const float RY=Top+52+(I-F)*64;const float V=Hit(FString::Printf(TEXT("CalendarBooking%d"),B.Id),CX+8,RY,CW-16,58,true,TEXT("Open this delivery in Trucks."));if(V>.01f||(I-F)%2)Rect(CX+8,RY,CW-16,58,V>.01f?Hex(TEXT("F4E8DC")):Rail);Hover(CX+8,RY,CW-16,58,V);
     Text(FString::Printf(TEXT("PO-%04d"),B.Id),CX+24,RY+18,15,true,Ink);Text(B.Part?FFoundrylineCommerceCatalog::InboundLabel(B):FString::Printf(TEXT("%d sheet%s  /  %s"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s"),*Lb(B.Sheets*SheetLb)),
 CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.ArrivalAt),CX+CW*.42f,RY+18,15,false,Ink,CW*.22f);
     Chip(BookingStatus(B).ToUpper(),CX+CW*.66f,RY+17,B.Status==EFoundrylineBookingState::Delivered?Green:Blue,B.Status==EFoundrylineBookingState::Delivered?SoftGreen:SoftBlue);}
@@ -286,24 +289,23 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
  }
  else if(Page==10||Page==6){
   PageHeader(TEXT("Production"),Page==10?TEXT("What each machine is doing. The plasma cutter turns steel sheet into parts."):TEXT("Add machines and forklifts as your business grows. New equipment needs a person assigned in Team."));
-  Tabs({MakeTuple(FString(TEXT("Page10")),FString(TEXT("Machines")),Page==10,FString(TEXT("Live status of your machines."))),MakeTuple(FString(TEXT("Page6")),FString(TEXT("Buy equipment")),Page==6,FString(TEXT("Buy a press brake or another forklift.")))},CX,CY+74);
+  Tabs({MakeTuple(FString(TEXT("Page10")),FString(TEXT("Machines")),Page==10,FString(TEXT("Live status of your machines."))),MakeTuple(FString(TEXT("Page6")),FString(TEXT("Buy equipment")),Page==6,FString(TEXT("Purchase machines or forklifts, then place your owned equipment from Planning.")))},CX,CY+74);
   const float Top=CY+134;
   if(Page==10){
-   int Row=0;for(const auto& M:S.Machines){const float RY=Top+Row++*196;if(RY+184>CB)break;const auto* Op=Roster.FindByPredicate([&](const auto& E){return E.Role==EFoundrylineEmployeeRole::Operator&&E.Assignment==M.Id;});
-    const FString Name=M.Id==1?TEXT("Plasma cutter"):M.Id==2?TEXT("Press brake"):TEXT("Sheet roller");const int Left=M.Auto?0:M.BatchRemaining+(M.Remaining>0?1:0);
+   int Row=0;for(const auto& M:S.Machines){if(M.bStored)continue;const float RY=Top+Row++*196;if(RY+184>CB)break;const auto* Op=Roster.FindByPredicate([&](const auto& E){return E.Role==EFoundrylineEmployeeRole::Operator&&E.Assignment==M.Id;});
+    const FString Name=M.Kind()==1?TEXT("Plasma cutter"):M.Kind()==2?TEXT("Press brake"):TEXT("Sheet roller");const int Left=M.Auto?0:M.BatchRemaining+(M.Remaining>0?1:0);
     const bool Cutting=S.Running&&M.Enabled&&M.Remaining>0;FString State;FLinearColor Col;
-    if(M.Id==2&&C.BrakeInstallMinutes>0){State=FString::Printf(TEXT("INSTALLING / %.0f MIN LEFT"),FMath::CeilToFloat(C.BrakeInstallMinutes));Col=Amber;}
-    else if(!S.Running&&Left){State=TEXT("TIME PAUSED");Col=Amber;}else if(!M.Enabled){State=TEXT("MACHINE PAUSED");Col=Amber;}else if(Cutting){State=M.Id==1?TEXT("CUTTING"):TEXT("WORKING");Col=Green;}else if(Left&&!Op){State=TEXT("NEEDS AN OPERATOR");Col=Red;}else if(Left){State=M.Id==1?TEXT("WAITING FOR STEEL"):TEXT("WAITING FOR PARTS");Col=Amber;}else {State=TEXT("NO JOB");Col=Muted;}
-    Card(CX,RY,CW,184);Rect(CX,RY,4,184,Col);MenuImage(M.Id==1?TEXT("Stored1"):M.Id==2?TEXT("Stored2"):TEXT("Stored3"),CX+16,RY+24,128,80);Text(Name,CX+156,RY+22,22,true,Ink,CW*.36f-180);Chip(State,CX+156,RY+58,Col,Col==Green?SoftGreen:Col==Red?SoftRed:Col==Muted?Surface:SoftOrange);
+    if(M.Id==2&&C.BrakeInstallMinutes>0){State=FString::Printf(TEXT("INSTALLING / %.0f GAME MIN"),FMath::CeilToFloat(C.BrakeInstallMinutes));Col=Amber;}
+    else if(!S.Running&&Left){State=TEXT("TIME PAUSED");Col=Amber;}else if(!M.Enabled){State=TEXT("MACHINE PAUSED");Col=Amber;}else if(Cutting){State=M.Kind()==1?TEXT("CUTTING"):TEXT("WORKING");Col=Green;}else if(Left&&!Op){State=TEXT("NEEDS AN OPERATOR");Col=Red;}else if(Left){State=M.Kind()==1?TEXT("WAITING FOR STEEL"):TEXT("WAITING FOR PARTS");Col=Amber;}else {State=TEXT("NO JOB");Col=Muted;}
+    Card(CX,RY,CW,184);Rect(CX,RY,4,184,Col);MenuImage(M.Kind()==1?TEXT("Stored1"):M.Kind()==2?TEXT("Stored2"):TEXT("Stored3"),CX+16,RY+24,128,80);Text(Name,CX+156,RY+22,22,true,Ink,CW*.36f-180);Chip(State,CX+156,RY+58,Col,Col==Green?SoftGreen:Col==Red?SoftRed:Col==Muted?Surface:SoftOrange);
     HelpArea(FString::Printf(TEXT("MachineState%d"),M.Id),CX+70,RY+54,220,32,TEXT("Cutting: working now. Waiting for steel: the forklift still has to bring a sheet. Needs an operator: assign someone in Team. No job: program it with a part and quantity."));
     const float IX=CX+CW*.36f;Text(TEXT("OPERATOR"),IX,RY+24,12,true,Muted);Text(Op?Op->Label:FString(TEXT("Nobody assigned")),IX,RY+44,17,true,Op?Ink:Red,CW*.26f);
     Text(TEXT("MAKING"),IX,RY+90,12,true,Muted);Text(Left?FString::Printf(TEXT("%s  /  %d left"),*PartName(int(M.Making)),Left):FString(TEXT("Nothing programmed")),IX,RY+110,17,true,Ink,CW*.3f);
     HelpArea(FString::Printf(TEXT("MachineMaking%d"),M.Id),IX-4,RY+86,CW*.3f,50,TEXT("The part this machine is making and how many are left in the batch, including the one in progress."));
-    if(M.Id==1){Text(TEXT("STEEL LOADED"),IX+CW*.32f,RY+24,12,true,Muted);Text(Lb(M.BedLb),IX+CW*.32f,RY+44,17,true,Ink);HelpArea(TEXT("Bed"),IX+CW*.32f-4,RY+20,170,50,TEXT("Steel already on the cutting table. Each part uses a fixed weight; leftovers carry over to the next part."));}
+    if(M.Kind()==1){Text(TEXT("STEEL LOADED"),IX+CW*.32f,RY+24,12,true,Muted);Text(Lb(M.BedLb),IX+CW*.32f,RY+44,17,true,Ink);HelpArea(TEXT("Bed"),IX+CW*.32f-4,RY+20,170,50,TEXT("Steel already on the cutting table. Each part uses a fixed weight; leftovers carry over to the next part."));}
     const float Progress=M.Duration>0?1-M.Remaining/M.Duration:0;if(M.Remaining>0){Text(FString::Printf(TEXT("Current part %d%%"),FMath::RoundToInt(Progress*100)),IX+CW*.32f,RY+90,12,true,Muted);Bar(IX+CW*.32f,RY+114,CW*.18f,Progress,Orange);}
     const float BX=CX+CW-266;
-    if(M.Id==1&&Guide.Step==EFoundrylineGuideStep::ProgramPlasma)Button(FString::Printf(TEXT("ProgramOrder%d"),Guide.OrderId),FString::Printf(TEXT("Program for %s"),*Guide.OrderReference),BX,RY+28,240,50,EStyle::Primary,!PC->bOperationsPending,TEXT("Open the plasma screen with this order's part and remaining quantity filled in."));
-    if(M.Id<=2)Button(M.Id==1?TEXT("Plasma"):TEXT("BrakeComputer"),M.Id==1?TEXT("Open plasma screen"):TEXT("Open brake screen"),BX,RY+(M.Id==1&&Guide.Step==EFoundrylineGuideStep::ProgramPlasma?94:28),240,50,EStyle::Secondary,true,TEXT("Open this machine's own control screen."));
+    Text(TEXT("MACHINE CONTROLS"),BX,RY+28,12,true,Muted,240);Text(TEXT("Use machine terminal"),BX,RY+51,16,true,Ink,240);Text(TEXT("Walk to its screen and press E."),BX,RY+77,12,false,Muted,240);
     if(!Op)Button(TEXT("Page7"),TEXT("Assign operator"),BX,RY+112,240,44,EStyle::Secondary,true,TEXT("Open Team to put someone on this machine."));
    }
    // Welding stations: what each is building, why it waits, and what sits on its OUT pallets.
@@ -317,7 +319,7 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
     HelpArea(FString::Printf(TEXT("StationOut%d"),St.Id),IX+CW*.32f-4,RY+20,170,50,FString::Printf(TEXT("Finished racks on the station's two OUT pallets, %d per pallet. A forklift takes a pallet when it is full, when the batch ends, or when an order needs it."),FFoundrylineWeldingStationLayout::RacksPerOutPallet));
     if(Guide.StationId==St.Id&&Guide.bWeldedOrder&&Guide.Step==EFoundrylineGuideStep::ProgramPlasma)Button(FString::Printf(TEXT("StationOrder%d"),Guide.OrderId),FString::Printf(TEXT("Set for %s"),*Guide.OrderReference),CX+CW-266,RY+28,240,50,EStyle::Primary,!PC->bOperationsPending,TEXT("Set this station's batch to the racks the order still needs."));
    }
-   if(S.Machines.IsEmpty()&&S.WeldingStations.IsEmpty())Text(TEXT("No machines installed."),CX,Top+20,20,true,Muted);
+   if(!S.Machines.ContainsByPredicate([](const auto& M){return !M.bStored;})&&S.WeldingStations.IsEmpty()){Text(TEXT("No equipment on the floor yet."),CX,Top+20,20,true,Muted);Text(TEXT("Purchase equipment here, then open Planning to place your owned machines."),CX,Top+60,15,false,Muted,CW);}
    // How parts move through the shop, with live counts.
    {const float FT=Top+Row*196+8;if(FT+200<CB){Card(CX,FT,CW,CB-FT>260?250:CB-FT,TEXT("How parts move through your shop"));
     struct FStage {const TCHAR* Name;FString Value;const TCHAR* Who;int Icon;};
@@ -325,19 +327,20 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
     const float SW5=(CW-48-4*36)/5;for(int I=0;I<5;++I){const float A=CX+24+I*(SW5+36),B=FT+56;Rect(A,B,SW5,140,Rail);Border(A,B,SW5,140,Line);Icon(Flow[I].Icon,A+18,B+18,26,Graphite);Text(Flow[I].Name,A+56,B+20,15,true,Ink,SW5-70);Text(Flow[I].Value,A+18,B+60,22,true,Ink,SW5-36);Wrap(Flow[I].Who,A+18,B+96,SW5-36,12,false,Muted,2,17);
      if(I<4){Rect(A+SW5+8,B+68,18,4,Orange);Rect(A+SW5+20,B+62,4,16,Orange);Rect(A+SW5+24,B+65,3,10,Orange);}}}}
   } else {
-   const float EW=(CW-22)/2;
-   auto Offer=[&](float A,const FString& Name,const FString& What,const FString& Note,int64 Price,const FString& Key,const FString& Label,bool Can,const FString& Help){Card(A,Top,EW,CB-Top);Text(Name,A+28,Top+30,26,true,Ink,EW-56);MenuImage(Key==TEXT("BuyBrake")?TEXT("Stored2"):TEXT("Forklift"),A+(EW-280)/2,Top+78,280,175);
-    float At=Top+278;At+=Wrap(What,A+28,At,EW-56,16,false,Ink,3)+10;Wrap(Note,A+28,At,EW-56,14,false,Muted,3);Text(TEXT("PRICE"),A+28,CB-176,12,true,Muted);Text(Cash(Price),A+28,CB-154,30,true,Ink);
-    Button(Key,Label,A+28,CB-90,EW-56,56,EStyle::Primary,Can&&!PC->bOperationsPending,Help);};
-   Offer(CX,TEXT("Press brake"),TEXT("Bends flat parts into bent brackets and support channels, which sell for more."),TEXT("Comes with its own input storage. You also need an operator: hire someone and assign them in Team."),450000,TEXT("BuyBrake"),C.BrakeOwned?TEXT("Already installed"):TEXT("Buy & install"),!C.BrakeOwned,TEXT("Pay now and install the press brake in your shop."));
-   Offer(CX+EW+22,TEXT("Extra forklift"),TEXT("A second forklift moves steel and parts faster when the shop gets busy."),FString::Printf(TEXT("You have %d of 2 forklift parking spots filled. Each forklift needs its own driver."),S.Drivers.Num()),120000,TEXT("BuyForklift"),S.Drivers.Num()>=2?TEXT("Both spots filled"):TEXT("Buy forklift"),S.Drivers.Num()<2,TEXT("Pay now for another forklift. Assign a driver in Team."));
+   const float EW=(CW-22)/2,EH=(CB-Top-18)/2;
+   struct FEquipmentOffer {int Kind;const TCHAR* Name;const TCHAR* Preview;const TCHAR* Description;int64 Price;};
+   const FEquipmentOffer Offers[]={{1,TEXT("Plasma cutter"),TEXT("Stored1"),TEXT("Cuts bracket blanks and plates from steel sheets. Includes dedicated sheet input and four output pallet positions."),850000},{2,TEXT("Press brake"),TEXT("Stored2"),TEXT("Forms cut bracket blanks into formed brackets. Includes its connected material and pallet storage."),450000},{3,TEXT("Sheet roller"),TEXT("Stored3"),TEXT("Rolls sheet steel for larger fabrication work. Place the workspace before assigning its operator."),600000},{4,TEXT("Forklift"),TEXT("Forklift"),TEXT("Moves pallets between receiving, storage, machines and shipping. Assign a driver after placement."),120000}};
+   for(int I=0;I<UE_ARRAY_COUNT(Offers);++I){const auto& Offer=Offers[I];const float A=CX+(I%2)*(EW+22),B=Top+(I/2)*(EH+18);const int Owned=Offer.Kind==4?S.UnplacedForklifts:S.Machines.FilterByPredicate([&](const auto& M){return M.Kind()==Offer.Kind&&M.bStored;}).Num();const bool Capacity=Offer.Kind==4?S.Drivers.Num()+S.UnplacedForklifts<4:S.Machines.Num()<12;const bool Affordable=C.CashCents>=Offer.Price&&!C.UnpaidCents,AtOffice=PC->IsWalking()&&PC->IsNearOfficeComputer();
+    Card(A,B,EW,EH);Text(Offer.Name,A+22,B+20,22,true,Ink,EW-210);RightText(Cash(Offer.Price),A+EW-22,B+22,21,true,Orange);MenuImage(Offer.Preview,A+12,B+64,176,110);Wrap(Offer.Description,A+194,B+72,EW-218,14,false,Muted,4,20);Text(FString::Printf(TEXT("%d owned / waiting for placement"),Owned),A+22,B+EH-116,14,true,Owned?Green:Muted,EW-44);
+    const float Half=(EW-56)/2;Button(FString::Printf(TEXT("BuyEquipment%d"),Offer.Kind),!AtOffice?TEXT("Use office computer"):!Capacity?TEXT("Equipment limit reached"):!Affordable?TEXT("Not enough available cash"):TEXT("Buy equipment"),A+22,B+EH-66,Half,44,EStyle::Primary,AtOffice&&Capacity&&Affordable&&!PC->bOperationsPending,TEXT("Purchase into owned equipment storage. It is not placed automatically and will not be charged again when placed."));Button(TEXT("PropertyView"),TEXT("Plan placement"),A+34+Half,B+EH-66,Half,44,EStyle::Secondary,Owned>0&&PC->IsNearOfficeComputer(),TEXT("Open Planning to choose and position equipment you already own."));
+   }
   }
  }
  else if(Page==4||Page==11){
   const bool Trucks=Page==4;
-  PageHeader(TEXT("Stock & trucks"),Trucks?TEXT("Steel deliveries coming in and customer pickups going out, all through your one loading bay."):TEXT("Every pallet you own: steel sheets and finished parts, where they are and whether they're spoken for."));
+  PageHeader(Trucks?TEXT("Trucks"):TEXT("Inventory"),Trucks?TEXT("Steel deliveries coming in and customer pickups going out, all through your one loading bay."):TEXT("Every pallet you own: steel sheets and finished parts, where they are and whether they're spoken for."));
   int Open=0;for(const auto& B:C.Bookings)Open+=B.Status!=EFoundrylineBookingState::Delivered;
-  Tabs({MakeTuple(FString(TEXT("Page4")),FString::Printf(TEXT("Trucks (%d)"),Open),Trucks,FString(TEXT("Booked deliveries and pickups."))),MakeTuple(FString(TEXT("Page11")),FString::Printf(TEXT("Stock (%d pallets)"),S.Pallets.Num()),!Trucks,FString(TEXT("Everything on your pallets.")))},CX,CY+74);
+  Text(Trucks?FString::Printf(TEXT("%d active carrier booking%s / shared loading bay"),Open,Open==1?TEXT(""):TEXT("s")):FString::Printf(TEXT("%d tracked pallets / exact quantities and reservations"),S.Pallets.Num()),CX,CY+84,15,true,Muted,CW);
   const float Top=CY+134;
   if(Trucks){
    const float BannerH=74;Card(CX,Top,CW,BannerH);Rect(CX,Top,4,BannerH,Guide.FinishedAtBay+Guide.FinishedAtBayProducts?Green:Line);
@@ -363,7 +366,7 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
     Text(TEXT("ARRIVAL"),RX+24,At,12,true,Muted);Text(FFoundrylineCommerceCatalog::Date(B.ArrivalAt),RX+24,At+20,17,true,Ink);Text(TEXT("FREIGHT FEE"),RX+RW/2,At,12,true,Muted);Text(Cash(B.OriginalFeeCents),RX+RW/2,At+20,17,true,Ink);HelpArea(TEXT("Fee"),RX+RW/2-4,At-4,RW/2-20,50,TEXT("What this truck booking cost when it was made."));At+=64;
     if(B.OrderId)Button(FString::Printf(TEXT("LinkedOrder%d"),B.OrderId),TEXT("Open this order  >"),RX+24,At,RW-48,42,EStyle::Secondary,true,TEXT("Open the customer order this pickup belongs to."));At+=56;
     if(B.Status==EFoundrylineBookingState::Booked&&C.Clock<B.DispatchAt){Rect(RX+24,At,RW-48,1,Line);At+=14;Text(TEXT("CHANGE THE TIME (COSTS HALF THE FEE)"),RX+24,At,12,true,Muted,RW-48);Text(FFoundrylineCommerceCatalog::Date(C.Clock+PC->OperationsDelay),RX+24,At+20,17,true,Ink);
-     Button(TEXT("TimeMinus"),TEXT("Sooner"),RX+24,At+50,(RW-60)/2,40,EStyle::Secondary,true,TEXT("Move the new time 30 minutes earlier."));Button(TEXT("TimePlus"),TEXT("Later"),RX+36+(RW-60)/2,At+50,(RW-60)/2,40,EStyle::Secondary,true,TEXT("Move the new time 30 minutes later."));
+     Button(TEXT("TimeMinus"),TEXT("Sooner"),RX+24,At+50,(RW-60)/2,40,EStyle::Secondary,true,TEXT("Move the new time 30 game minutes earlier."));Button(TEXT("TimePlus"),TEXT("Later"),RX+36+(RW-60)/2,At+50,(RW-60)/2,40,EStyle::Secondary,true,TEXT("Move the new time 30 game minutes later."));
      Button(TEXT("Rebook"),TEXT("Move truck to this time"),RX+24,CB-74,RW-48,52,EStyle::Primary,!PC->bOperationsPending,TEXT("Rebook this truck for the new time. Costs half of the original fee."));}}
   } else {
    // Summary by material, then every pallet.
@@ -392,7 +395,7 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
  else if(Page==7){
   TArray<FFoundrylineEmployeeRecord> Staff;for(const auto& E:Roster)if(E.CompanyId==Plant->BusinessCompanyId&&E.PlantId==Plant->BusinessPlantId)Staff.Add(E);Staff.Sort([](const auto& A,const auto& B){return A.Id>B.Id;});
   const bool HirePending=PC->OperationsHireRequest.IsValid()&&!S.HireRequests.Contains(PC->OperationsHireRequest);
-  auto AssignmentName=[&](const FFoundrylineEmployeeRecord& E){if(!E.Assignment)return FString(TEXT("No job yet"));if(E.Role==EFoundrylineEmployeeRole::Operator)return FString(E.Assignment==1?TEXT("Plasma cutter"):E.Assignment==2?TEXT("Press brake"):TEXT("Sheet roller"));if(E.Role==EFoundrylineEmployeeRole::PartsCollector)return FString::Printf(TEXT("Assembly area %d"),E.Assignment);if(E.Role==EFoundrylineEmployeeRole::Welder){if(const auto* St=S.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==E.Assignment;}))return FFoundrylineWeldingStationLayout::Name(St->Number)+(E.StationSlot?TEXT(" / Welder B"):TEXT(" / Welder A"));return FString::Printf(TEXT("Welding zone %d"),E.Assignment);}const int Index=S.Drivers.IndexOfByPredicate([&](const auto& D){return D.Id==E.VehicleId;});return Index>=0?FString::Printf(TEXT("Forklift %d"),Index+1):FString(TEXT("No job yet"));};
+  auto AssignmentName=[&](const FFoundrylineEmployeeRecord& E){if(!E.Assignment)return FString(TEXT("No job yet"));if(E.Role==EFoundrylineEmployeeRole::Operator){const auto* Machine=S.Machines.FindByPredicate([&](const auto& M){return M.Id==E.Assignment;});return Machine?FString::Printf(TEXT("%s / %03d"),Machine->Kind()==1?TEXT("Plasma cutter"):Machine->Kind()==2?TEXT("Press brake"):TEXT("Sheet roller"),Machine->Id):FString(TEXT("Machine unavailable"));}if(E.Role==EFoundrylineEmployeeRole::PartsCollector)return FString::Printf(TEXT("Assembly area %d"),E.Assignment);if(E.Role==EFoundrylineEmployeeRole::Welder){if(const auto* St=S.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==E.Assignment;}))return FFoundrylineWeldingStationLayout::Name(St->Number)+(E.StationSlot?TEXT(" / Welder B"):TEXT(" / Welder A"));return FString::Printf(TEXT("Welding zone %d"),E.Assignment);}const int Index=S.Drivers.IndexOfByPredicate([&](const auto& D){return D.Id==E.VehicleId;});return Index>=0?FString::Printf(TEXT("Forklift %d"),Index+1):FString(TEXT("No job yet"));};
   PageHeader(TEXT("Team"),TEXT("Hiring adds a person. Then give them a job: run a machine or drive a forklift. Everyone in your co-op company shares this team."));
   // Who the starter shop needs.
   {const float RY=CY+70;float A=CX;auto Need=[&](const FString& Job,bool Ok,const FString& Who){const FString T=Job+TEXT(": ")+(Ok?Who:FString(TEXT("nobody")));const float D=Width(T,14,true)+52;Rect(A,RY,D,34,Ok?SoftGreen:SoftRed);Rect(A+12,RY+12,10,10,Ok?Green:Red);Text(T,A+32,RY+8,14,true,Ok?Green:Red);HelpArea(TEXT("Need")+Job,A,RY,D,34,Ok?FString(TEXT("Covered. This job is filled.")):FString(TEXT("Missing. Without this job filled, the starter loop stops. Pick an employee below and assign the job.")));A+=D+12;};
@@ -405,21 +408,24 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
   const float Top=CY+176;
   if(PC->OperationsWorkspaceTab==0&&EmployeeSelected){
    const auto& E=*EmployeeSelected;const float LW=CW*.64f,RX=CX+LW+22,RW=CW-LW-22;const int JobRoleId=FMath::Clamp(PC->OperationsJobRole,0,4);const bool Returning=E.bMoving||(!E.Assignment&&FVector::Dist2D(E.Position,E.Home)>3);const bool CanAssign=!E.Assignment&&!Returning;
-   Card(CX,Top,LW,CB-Top);Text(TEXT("Give ")+E.Label+TEXT(" a job"),CX+24,Top+22,22,true,Ink,LW-250);Button(TEXT("TeamRoster"),TEXT("< Back to team"),CX+LW-204,Top+18,180,40,EStyle::Secondary,true,TEXT("Back to the list of people."));
+   Card(CX,Top,LW,CB-Top);Text(TEXT("Give ")+E.Label+TEXT(" a job"),CX+24,Top+22,22,true,Ink,LW-250);Button(EmployeeView?TEXT("Close"):TEXT("TeamRoster"),EmployeeView?TEXT("Close employee"):TEXT("< Back to team"),CX+LW-204,Top+18,180,40,EStyle::Secondary,true,TEXT("Back to the list of people."));
    Text(TEXT("1   CHOOSE THE KIND OF JOB"),CX+24,Top+76,12,true,Muted);const TCHAR* JobTitles[]={TEXT("Machine operator"),TEXT("Forklift driver"),TEXT("Welder"),TEXT("Parts collector")};const int JobValues[]={0,2,1,4};
    const TCHAR* JobHelp[]={TEXT("Runs a machine such as the plasma cutter. Must walk to the machine before it can work."),TEXT("Drives a forklift: unloads steel, feeds the plasma and stacks finished parts."),TEXT("Welds at a welding station (Welder A side) or a product work zone."),TEXT("Collects mixed parts by cart for an assembly area.")};
    for(int J=0;J<4;++J)Button(FString::Printf(TEXT("JobRole%d"),JobValues[J]),JobTitles[J],CX+24+J*(LW-48+12)/4,Top+98,(LW-48-36)/4,46,EStyle::Secondary,true,JobHelp[J],JobRoleId==JobValues[J]);
    Text(TEXT("2   CHOOSE WHERE THEY WORK"),CX+24,Top+170,12,true,Muted);
    struct FJobOption {int Id;FString Title,Detail;bool Occupied=false,Ready=true;int Slot=0;};TArray<FJobOption> Options;
-   if(JobRoleId==0){for(const auto& M:S.Machines){const auto* Assigned=Staff.FindByPredicate([&](const auto& Other){return Other.Id!=E.Id&&int(Other.Role)==JobRoleId&&Other.Assignment==M.Id;});Options.Add({M.Id,M.Id==1?TEXT("Plasma cutter"):M.Id==2?TEXT("Press brake"):TEXT("Sheet roller"),Assigned?FString(TEXT("Already run by "))+Assigned->Label:FString(TEXT("Free: no operator yet")),Assigned!=nullptr,true});}}
+   if(JobRoleId==0){for(const auto& M:S.Machines){if(M.bStored)continue;const auto* Assigned=Staff.FindByPredicate([&](const auto& Other){return Other.Id!=E.Id&&int(Other.Role)==JobRoleId&&Other.Assignment==M.Id;});Options.Add({M.Id,M.Kind()==1?TEXT("Plasma cutter"):M.Kind()==2?TEXT("Press brake"):TEXT("Sheet roller"),Assigned?FString(TEXT("Already run by "))+Assigned->Label:FString(TEXT("Free: no operator yet")),Assigned!=nullptr,true});}}
    else if(JobRoleId==2){for(int V=0;V<S.Drivers.Num();++V){const auto& D=S.Drivers[V];const bool Parked=!D.Job&&FVector::Dist2D(D.Position,D.Parking)<20;Options.Add({D.Id,FString::Printf(TEXT("Forklift %d"),V+1),D.EmployeeId?TEXT("Already has a driver"):Parked?TEXT("Free and parked"):TEXT("Driving back to its parking spot"),D.EmployeeId!=0&&D.EmployeeId!=E.Id,Parked});}}
    else if(JobRoleId==4){for(const auto& St:S.WeldingStations)Options.Add({St.Id,FFoundrylineWeldingStationLayout::Name(St.Number),TEXT("Automatic cart collection / Assembly Supply Bin"),false,true});}
    else{for(const auto& St:S.WeldingStations)for(int Slot=0;Slot<2;++Slot){const auto* Assigned=Staff.FindByPredicate([&](const auto& Other){return Other.Id!=E.Id&&Other.Role==EFoundrylineEmployeeRole::Welder&&Other.Assignment==St.Id&&Other.StationSlot==Slot;});
      Options.Add({St.Id,FFoundrylineWeldingStationLayout::Name(St.Number)+(Slot?TEXT(" / Welder B"):TEXT(" / Welder A")),Assigned?FString(TEXT("Already worked by "))+Assigned->Label:FString(Slot?TEXT("Second welder: 170% with both at work"):TEXT("Headache-rack assembly at the bench")),Assigned!=nullptr,true,Slot});}
     for(const auto& Z:S.Zones){const bool Occupied=Staff.ContainsByPredicate([&](const auto& Other){return Other.Id!=E.Id&&Other.Role==EFoundrylineEmployeeRole::Welder&&Other.Assignment==Z.Id;});Options.Add({Z.Id,FString::Printf(TEXT("Welding zone %d"),Z.Id),TEXT("Product assembly station"),Occupied,true});}}
    const int Per=FMath::Max(1,int((CB-Top-260)/80)),F=FMath::Clamp(PC->OperationsJobPage,0,FMath::Max(0,(Options.Num()-1)/Per))*Per;
-   for(int I=F;I<FMath::Min(F+Per,Options.Num());++I){const auto& Option=Options[I];const float RY=Top+194+(I-F)*80;Rect(CX+24,RY,LW-48,72,(I-F)%2?Rail:Paper);Border(CX+24,RY,LW-48,72,Line);Text(Option.Title,CX+42,RY+12,18,true,Ink,LW-280);Text(Option.Detail,CX+42,RY+42,13,false,Option.Occupied?Amber:Muted,LW-280);
-    const bool Current=int(E.Role)==JobRoleId&&E.Assignment==Option.Id&&E.StationSlot==Option.Slot;const FString Label=Current?TEXT("Current job"):Option.Occupied?TEXT("Taken"):!Option.Ready?TEXT("Not ready"):TEXT("Assign here");
+   for(int I=F;I<FMath::Min(F+Per,Options.Num());++I){const auto& Option=Options[I];const float RY=Top+194+(I-F)*80;
+    const bool Current=int(E.Role)==JobRoleId&&E.Assignment==Option.Id&&E.StationSlot==Option.Slot;
+    const FString Detail=Current?FString(TEXT("Currently assigned to "))+E.Label:Option.Detail;
+    Rect(CX+24,RY,LW-48,72,(I-F)%2?Rail:Paper);Border(CX+24,RY,LW-48,72,Line);Text(Option.Title,CX+42,RY+12,18,true,Ink,LW-280);Text(Detail,CX+42,RY+42,13,false,Current?Green:Option.Occupied?Amber:Muted,LW-280);
+    const FString Label=Current?TEXT("Current job"):Option.Occupied?TEXT("Taken"):!Option.Ready?TEXT("Not ready"):TEXT("Assign here");
     Button(Option.Slot?FString::Printf(TEXT("AssignEmployee%d_%d_%d_%d"),E.Id,JobRoleId,Option.Id,Option.Slot):FString::Printf(TEXT("AssignEmployee%d_%d_%d"),E.Id,JobRoleId,Option.Id),Label,CX+LW-210,RY+14,170,44,EStyle::Primary,CanAssign&&!Option.Occupied&&Option.Ready&&!PC->bOperationsPending,Current?TEXT("This is their job now."):!CanAssign?TEXT("Release their current job first (on the right), and let them reach the waiting area."):Option.Occupied?TEXT("Someone else already works here."):TEXT("Give them this job. They'll walk over and start."));}
    if(Options.IsEmpty()){Text(JobRoleId==1?TEXT("No welding stations placed"):TEXT("No equipment installed"),CX+42,Top+210,20,true,Ink,LW-84);Wrap(JobRoleId==1?TEXT("Place a welding station first (Production > Welding station)."):JobRoleId==2?TEXT("Buy a forklift first (Production > Buy equipment). Hiring gives you a person only."):TEXT("Install a machine first."),CX+42,Top+246,LW-84,14,false,Muted,2);}
    if(Options.Num()>Per){Button(TEXT("JobPrevious"),TEXT("< Back"),CX+LW-250,CB-56,100,36,EStyle::Secondary,F>0);Button(TEXT("JobNext"),TEXT("More >"),CX+LW-140,CB-56,100,36,EStyle::Secondary,F+Per<Options.Num());}
@@ -453,10 +459,10 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
    Text(TEXT("Hiring is free for now. Machines and forklifts are bought separately."),CX+28,CB-62,13,false,Muted,LW-56);
    Card(RX,Top,RW,CB-Top,TEXT("Newest team members"));for(int I=0;I<FMath::Min(int((CB-Top-60)/70),Staff.Num());++I){const auto& E=Staff[I];const float RY=Top+48+I*70;if(I%2)Rect(RX+10,RY,RW-20,64,Rail);Text(E.Label,RX+24,RY+10,15,true,Ink,RW-210);Text(AssignmentName(E),RX+24,RY+36,13,false,E.Assignment?Muted:Orange,RW-210);Button(FString::Printf(TEXT("SelectEmployee%d"),E.Id),E.Assignment?TEXT("Change"):TEXT("Give a job"),RX+RW-164,RY+12,140,40,E.Assignment?EStyle::Secondary:EStyle::Primary,true,TEXT("Open this person's job."));}
   }else{
-   Card(CX,Top,CW,CB-Top);Wrap(TEXT("Drivers do the most important job first. Click a job to change its priority (1 is first). Drivers pick available work automatically."),CX+24,Top+20,CW-48,15,false,Muted,2);
-   const TCHAR* Tasks[]={TEXT("Trucks: unload & load"),TEXT("Feed the machines"),TEXT("Put away finished parts")};
+   Card(CX,Top,CW,CB-Top);Wrap(TEXT("Check a priority for each task: 1 first, then 2, then 3. Click the checked number to turn a task off. One driver can do all three."),CX+24,Top+20,CW-48,15,false,Muted,2);
+   const TCHAR* Tasks[]={TEXT("Receiving"),TEXT("Production"),TEXT("Shipping")};
    for(int I=0;I<S.Drivers.Num()&&I<4;++I){const auto& D=S.Drivers[I];const float RY=Top+76+I*134;Rect(CX+20,RY,CW-40,120,Rail);Border(CX+20,RY,CW-40,120,Line);Icon(4,CX+40,RY+20,28,Graphite);Text(FString::Printf(TEXT("Forklift %d"),I+1),CX+80,RY+20,18,true,Ink);Text(D.EmployeeId?TEXT("Driver: ")+D.DisplayName:FString(TEXT("No driver")),CX+220,RY+22,15,false,D.EmployeeId?Muted:Red,CW*.4f);
-    for(int J=0;J<3;++J){const int P=D.Priorities.IsValidIndex(J)?D.Priorities[J]+1:J+1;Button(FString::Printf(TEXT("Priority%d_%d"),D.Id,J),FString::Printf(TEXT("%d   %s"),P,Tasks[J]),CX+40+(CW-100)/3*J+J*10,RY+60,(CW-100)/3-10,46,EStyle::Secondary,!PC->bOperationsPending,TEXT("Click to cycle this job's priority: 1 (first), 2, 3."),P==1);}}
+    for(int J=0;J<3;++J){const int Rank=D.Priorities.IsValidIndex(J)?D.Priorities[J]:J;const float ColW=(CW-100)/3,AtX=CX+40+ColW*J+J*10;Text(Tasks[J],AtX,RY+53,13,true,Rank<0?Muted:Ink);for(int K=0;K<3;++K)Button(FString::Printf(TEXT("PrioritySet%d_%d_%d"),D.Id,J,K),FString::Printf(TEXT("%s %d"),Rank==K?TEXT("[x]"):TEXT("[ ]"),K+1),AtX+K*(ColW-10)/3,RY+75,(ColW-10)/3-4,34,EStyle::Secondary,!PC->bOperationsPending,TEXT("Choose priority 1, 2 or 3. Click the checked priority to disable this task. Changes apply after the current trip."),Rank==K);}}
    if(S.Drivers.IsEmpty())Text(TEXT("No forklifts owned."),CX+24,Top+90,18,true,Muted);
   }
  }
@@ -496,15 +502,6 @@ CX+CW*.2f,RY+18,15,false,Ink,CW*.2f);Text(FFoundrylineCommerceCatalog::Date(B.Ar
   }
  }
 
- // Confirmations. Factory actions (hire, assign, time) reply only on failure, so success is read from the replicated snapshot.
- const double Now=GetWorld()->GetRealTimeSeconds();
- if(PC->OperationsWatch){
-  if(Now-PC->OperationsWatchAt>10)PC->OperationsWatch=0;
-  else if(PC->OperationsWatch==1&&PC->OperationsHireRequest.IsValid()&&S.HireRequests.Contains(PC->OperationsHireRequest))PC->ConfirmOperations(TEXT("New team member hired. Give them a job in People & jobs."));
-  else if(PC->OperationsWatch==2){if(const auto* E=Roster.FindByPredicate([&](const auto& V){return V.Id==PC->OperationsWatchId;}))if(PC->OperationsWatchTarget?E->Assignment!=0:E->Assignment==0)PC->ConfirmOperations(PC->OperationsWatchTarget?FString::Printf(TEXT("%s has a new job: %s."),*E->Label,*E->CurrentJob):FString::Printf(TEXT("%s was released and is free for a new job."),*E->Label));}
-  else if(PC->OperationsWatch==3&&S.Running==(PC->OperationsWatchTarget!=0))PC->ConfirmOperations(S.Running?TEXT("Time is running. People, machines and trucks are working."):TEXT("Time paused. Nothing moves until you resume."));
-  else if(PC->OperationsWatch==4&&FMath::RoundToInt(S.Speed)==PC->OperationsWatchTarget)PC->ConfirmOperations(FString::Printf(TEXT("Speed set to %dx."),PC->OperationsWatchTarget));
- }
  PC->CurrentMouseCursor=bClickableHover?EMouseCursor::Hand:EMouseCursor::Default;
  // Hover help popup, drawn last so it sits above everything.
  if(const FString* Help=HelpTexts.Find(HoveredBox)){float MX=0,MY=0;PC->GetMousePosition(MX,MY);MX/=Scale;MY/=Scale;const float TW=380;

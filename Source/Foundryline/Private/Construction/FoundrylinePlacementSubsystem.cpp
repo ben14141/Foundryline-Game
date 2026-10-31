@@ -1,6 +1,7 @@
+#include "Construction/FoundrylinePlacementSubsystem.h"
 #include "Construction/FoundrylineLoadingBayLayout.h"
 #include "Construction/FoundrylinePavementGeometry.h"
-#include "Construction/FoundrylinePlacementSubsystem.h"
+#include "Buildings/FoundrylineOfficeStairLayout.h"
 #include "Construction/FoundrylineFacadeLayout.h"
 #include "Engine/World.h"
 #include "Pathing/FoundrylineDrivingLayout.h"
@@ -120,7 +121,9 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 		for(int32 J=0;J<I;++J) if(FMath::Abs(Y-Candidate.Crosswalks[J])<600) return EFoundrylinePlacementError::Occupied;
 	}
 	if((!Candidate.OfficeAreas.IsEmpty() || !Candidate.OfficeRooms.IsEmpty()) && (!Candidate.bOfficeAnnex || Def.FunctionId!=TEXT("BuildingShell"))) return EFoundrylinePlacementError::InvalidDefinition;
-	if(Candidate.OfficeAreas.Num()>32 || Candidate.OfficeRooms.Num()>64) return EFoundrylinePlacementError::TooManyActions;
+	if(Candidate.OfficeStairStyle>1||Candidate.OfficeStairQuarter>3||(!Candidate.bOfficeSecondFloor&&(Candidate.OfficeStairOrigin!=FIntPoint::ZeroValue||Candidate.OfficeStairQuarter||Candidate.OfficeStairStyle))||Candidate.bOfficeSecondFloor&&!Candidate.bOfficeAnnex)return EFoundrylinePlacementError::InvalidTransform;
+ if(Candidate.bOfficeSecondFloor){const auto B=FFoundrylineOfficeStairLayout::FullBounds(Candidate.OfficeStairOrigin,Candidate.OfficeStairQuarter,Candidate.OfficeStairStyle);if(Candidate.OfficeStairOrigin.X%25||Candidate.OfficeStairOrigin.Y%25||B.Min.X<30||B.Min.Y<30||B.Max.X>Def.Footprint.Max.X-30||B.Max.Y>Def.Footprint.Max.Y-30)return EFoundrylinePlacementError::InvalidTransform;}
+ if(Candidate.OfficeAreas.Num()>32 || Candidate.OfficeRooms.Num()>64) return EFoundrylinePlacementError::TooManyActions;
 	TSet<FGuid> SpaceIds;
 	auto Inside=[](const FFoundrylineOfficeSpace& A,const FFoundrylineOfficeSpace& B){return A.Min.X>=B.Min.X && A.Min.Y>=B.Min.Y && A.Max.X<=B.Max.X && A.Max.Y<=B.Max.Y;};
 	auto Overlap=[](const auto& A,const auto& B){return A.Min.X<B.Max.X && A.Max.X>B.Min.X && A.Min.Y<B.Max.Y && A.Max.Y>B.Min.Y;};
@@ -130,19 +133,20 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 		for(int32 I=0;I<Spaces.Num();++I)
 		{
 			const auto& A=Spaces[I];
-			if(!A.SpaceId.IsValid() || SpaceIds.Contains(A.SpaceId) || A.Min.X<0 || A.Min.Y<0 || A.Max.X>Def.Footprint.Max.X || A.Max.Y>Def.Footprint.Max.Y
+			if(A.OfficeLevel>1||A.OfficeLevel&&!Candidate.bOfficeSecondFloor||!A.SpaceId.IsValid() || SpaceIds.Contains(A.SpaceId) || A.Min.X<0 || A.Min.Y<0 || A.Max.X>Def.Footprint.Max.X || A.Max.Y>Def.Footprint.Max.Y
 				|| A.Max.X<=A.Min.X || A.Max.Y<=A.Min.Y || A.Max.X-A.Min.X<400 || A.Max.Y-A.Min.Y<400
 				|| A.Min.X%100 || A.Min.Y%100 || A.Max.X%100 || A.Max.Y%100) return EFoundrylinePlacementError::InvalidTransform;
 			SpaceIds.Add(A.SpaceId);
-			if(Kind && !Candidate.OfficeAreas.ContainsByPredicate([&](const auto& Zone){return Inside(A,Zone);})) return EFoundrylinePlacementError::InvalidTransform;
-			for(int32 J=0;J<I;++J) if(Overlap(A,Spaces[J])) return EFoundrylinePlacementError::Occupied;
+			if(Kind && Candidate.bOfficeSecondFloor&&FFoundrylineOfficeStairLayout::FullBounds(Candidate.OfficeStairOrigin,Candidate.OfficeStairQuarter,Candidate.OfficeStairStyle).Intersect(FBox2D(FVector2D(A.Min),FVector2D(A.Max))))return EFoundrylinePlacementError::Occupied;
+   if(Kind && !Candidate.OfficeAreas.ContainsByPredicate([&](const auto& Zone){return Inside(A,Zone);})) return EFoundrylinePlacementError::InvalidTransform;
+			for(int32 J=0;J<I;++J) if(A.OfficeLevel==Spaces[J].OfficeLevel&&Overlap(A,Spaces[J])) return EFoundrylinePlacementError::Occupied;
 			if((!Kind && !A.Openings.IsEmpty()) || A.Openings.Num()>16) return EFoundrylinePlacementError::InvalidTransform;
 			TSet<FGuid> Ids;
 			for(int32 J=0;J<A.Openings.Num();++J)
 			{
 				const auto& V=A.Openings[J];const int32 Length=V.Edge%2==0?A.Max.X-A.Min.X:A.Max.Y-A.Min.Y;
-				if(!V.OpeningId.IsValid() || Ids.Contains(V.OpeningId) || V.Edge>3 || (V.Kind!=EFoundrylineOpeningKind::OfficeDoor && V.Kind!=EFoundrylineOpeningKind::ShopWindow)
-					|| V.OffsetCm%100 || V.OffsetCm<100 || V.OffsetCm>Length-100 || V.OffsetCm+V.WidthCm()>Length-100 || V.BottomCm()<0 || V.BottomCm()+V.HeightCm()>280) return EFoundrylinePlacementError::InvalidTransform;
+				if(V.OfficeLevel!=A.OfficeLevel||!V.OpeningId.IsValid() || Ids.Contains(V.OpeningId) || V.Edge>3 || (V.Kind!=EFoundrylineOpeningKind::OfficeDoor && V.Kind!=EFoundrylineOpeningKind::ShopWindow)
+					|| V.OffsetCm%(V.Kind==EFoundrylineOpeningKind::OfficeDoor?25:100) || V.OffsetCm<100 || V.OffsetCm>Length-100 || V.OffsetCm+V.WidthCm()>Length-100 || V.BottomCm()<0 || V.BottomCm()+V.HeightCm()>280) return EFoundrylinePlacementError::InvalidTransform;
 				Ids.Add(V.OpeningId);
 				for(int32 K=0;K<J;++K) if(A.Openings[K].Edge==V.Edge && V.OffsetCm<A.Openings[K].OffsetCm+A.Openings[K].WidthCm()+30 && V.OffsetCm+V.WidthCm()+30>A.Openings[K].OffsetCm) return EFoundrylinePlacementError::Occupied;
 			}
@@ -154,8 +158,8 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 	{
 		const auto& O = Candidate.Openings[I];
 		const int32 Length = (O.Edge % 2 == 0 ? Def.Footprint.Max.X : Def.Footprint.Max.Y);
-		if (!O.OpeningId.IsValid() || OpeningIds.Contains(O.OpeningId) || O.Edge > 3
-			|| uint8(O.Kind) > uint8(EFoundrylineOpeningKind::OfficeGlassWall) || O.LoadingTier>3 || (O.Kind!=EFoundrylineOpeningKind::LoadingDock&&O.LoadingTier!=0) || (!(O.bAutomatic && O.Kind==EFoundrylineOpeningKind::ShopWindow) && O.OffsetCm % (O.Kind==EFoundrylineOpeningKind::OfficeGlassWall?25:100) != 0)
+		if(O.OfficeLevel>1||O.OfficeLevel&&(!Candidate.bOfficeSecondFloor||!O.IsGlazing())||!Candidate.bOfficeAnnex&&O.OfficeLevel||!O.OpeningId.IsValid() || OpeningIds.Contains(O.OpeningId) || O.Edge > 3
+			|| uint8(O.Kind) > uint8(EFoundrylineOpeningKind::OfficeGlassWall) || O.LoadingTier>3 || (O.Kind!=EFoundrylineOpeningKind::LoadingDock&&O.LoadingTier!=0) || (!(O.bAutomatic && O.Kind==EFoundrylineOpeningKind::ShopWindow) && O.OffsetCm % ((O.Kind==EFoundrylineOpeningKind::OfficeGlassWall||O.Kind==EFoundrylineOpeningKind::Personnel||O.Kind==EFoundrylineOpeningKind::OfficeDoor)?25:100) != 0)
 			|| (O.Kind==EFoundrylineOpeningKind::ShopWindow && (O.WindowSillCm<0 || O.WindowSillCm>Def.Footprint.Max.Z))
 			|| (O.Kind==EFoundrylineOpeningKind::OfficeGlassWall && (!Candidate.bOfficeAnnex || O.PanelWidthCm<100 || O.PanelWidthCm>20000 || O.PanelWidthCm%25 || O.bAutomatic))
 			|| O.OffsetCm < (O.Kind==EFoundrylineOpeningKind::OfficeGlassWall?25:100) || O.OffsetCm + O.WidthCm() > Length - (O.Kind==EFoundrylineOpeningKind::OfficeGlassWall?25:100)
@@ -164,7 +168,7 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 		for (int32 J=0; J<I; ++J)
 		{
 			const auto& B = Candidate.Openings[J];
-			if (O.Edge == B.Edge && O.OffsetCm < B.OffsetCm+B.WidthCm()+30 && O.OffsetCm+O.WidthCm()+30 > B.OffsetCm)
+			if (O.OfficeLevel==B.OfficeLevel && O.Edge == B.Edge && O.OffsetCm < B.OffsetCm+B.WidthCm()+30 && O.OffsetCm+O.WidthCm()+30 > B.OffsetCm)
 				return EFoundrylinePlacementError::Occupied;
 		}
 	}
@@ -211,10 +215,10 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 				const double Low=FMath::Max(0.,Edge%2==0?Min.X:Min.Y),High=FMath::Min(double(Edge%2==0?Def.Footprint.Max.X:Def.Footprint.Max.Y),Edge%2==0?Max.X:Max.Y);
 				if(!Touch || High-Low<400) continue;
 				Attached=true;SharedEdges.Add(Edge);
-				DoorToShop|=Candidate.Openings.ContainsByPredicate([&](const auto& V){return (V.Kind==EFoundrylineOpeningKind::OfficeDoor || V.Kind==EFoundrylineOpeningKind::Personnel) && V.Edge==Edge && V.OffsetCm>=Low && V.OffsetCm+V.WidthCm()<=High;});
+				DoorToShop|=Candidate.Openings.ContainsByPredicate([&](const auto& V){return V.OfficeLevel==0&&(V.Kind==EFoundrylineOpeningKind::OfficeDoor || V.Kind==EFoundrylineOpeningKind::Personnel) && V.Edge==Edge && V.OffsetCm>=Low && V.OffsetCm+V.WidthCm()<=High;});
 			}
 		}
-		const bool DoorOutside=Candidate.Openings.ContainsByPredicate([&](const auto& V){return (V.Kind==EFoundrylineOpeningKind::OfficeDoor || V.Kind==EFoundrylineOpeningKind::Personnel) && !SharedEdges.Contains(V.Edge);});
+		const bool DoorOutside=Candidate.Openings.ContainsByPredicate([&](const auto& V){return V.OfficeLevel==0&&(V.Kind==EFoundrylineOpeningKind::OfficeDoor || V.Kind==EFoundrylineOpeningKind::Personnel) && !SharedEdges.Contains(V.Edge);});
 		if((Attached && !DoorToShop) || !DoorOutside) return EFoundrylinePlacementError::InvalidTransform;
 	}
 	if (Def.CollisionClass == EFoundrylineCollisionClass::Cosmetic) return EFoundrylinePlacementError::None;

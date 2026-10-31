@@ -24,6 +24,7 @@ public:
  AFoundrylinePlasmaTable();
  UPROPERTY(Replicated) FGuid BusinessCompanyId=FGuid(0xF001,1,1,1);
  UPROPERTY(Replicated) FGuid BusinessPlantId=FGuid(0xF001,2,1,1);
+ UPROPERTY(Replicated) int32 MachineId=1;
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
  virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;

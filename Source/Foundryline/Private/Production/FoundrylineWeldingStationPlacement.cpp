@@ -16,11 +16,15 @@ bool FFoundrylineFactorySimulation::CanPlaceWeldingStation(FFoundrylineWeldingSt
  // The product is placed at 1:1 scale; a station that cannot hold it is never offered.
  if(!Layout::ProductFits(Layout::RackOnBenchCm(),FVector2D(Layout::RackSizeCm()),E))return false;
  const bool AuthoredStarter=State.bCutPartsStarter&&!State.Machines.IsEmpty();
- const auto B=Layout::Bounds(S);const FBox2D Floor=AuthoredStarter?FFoundrylineWorkshopLayout::CutShopInterior():FBox2D(State.FloorMin,State.FloorMax);const auto Approaches=Access(S);
+ // Live planner candidates have already checked real owned building coverage.
+ // The simulation envelope can grow with additions; never clamp it to the old starter wall.
+ const auto B=Layout::Bounds(S);const FBox2D Floor(State.FloorMin,State.FloorMax);const auto Approaches=Access(S);
  auto OnFloor=[&](const FBox2D& X){return Floor.IsInsideOrOn(X.Min)&&Floor.IsInsideOrOn(X.Max);};
  if(!OnFloor(B)){E=TEXT("The whole 19 ft 6 in x 13 ft station must fit on the shop floor");return false;}
  for(int I=0;I<Approaches.Num();++I)if(!OnFloor(Approaches[I])){E=I<2?TEXT("Leave 4 ft of forklift space inside the shop at both station ends"):TEXT("Leave 4 ft of walking space inside the shop along both welder sides");return false;}
- TArray<FBox2D> Fixed=Solids;if(AuthoredStarter)Fixed.Append(FFoundrylineWorkshopLayout::CutShopReserved());
+ // Keep the painted shipping staging clear. Machine and forklift reservations come
+ // from their current records below, rather than obsolete starter coordinates.
+ TArray<FBox2D> Fixed=Solids;if(AuthoredStarter&&State.Commerce.Enabled)Fixed.Add(State.bPresetPickup?ShippingPickupBounds():FFoundrylineWorkshopLayout::CutShopReserved()[0]);
  for(const auto& X:Fixed){if(Overlap(X,B)){E=TEXT("Station overlaps equipment, racks or a marked work area");return false;}for(const auto& A:Approaches)if(Overlap(X,A)){E=TEXT("Equipment or racks block the station's forklift or welder access");return false;}}
  for(const auto& L:State.Lanes)if(Overlap(FBox2D(L.Min,L.Max),B)){E=TEXT("Station crosses a painted lane; place it beside the lane");return false;}
  for(const auto& Z:State.Zones){const auto ZB=FFoundrylineWorkZoneLayout::Bounds(Z);if(Overlap(ZB,B)){E=TEXT("Another work zone already reserves that space");return false;}for(const auto& A:Approaches)if(Overlap(ZB,A)){E=TEXT("A work zone blocks the station's forklift or welder access");return false;}}
@@ -34,8 +38,11 @@ bool FFoundrylineFactorySimulation::CanPlaceWeldingStation(FFoundrylineWeldingSt
  for(const auto& D:State.Drivers)if(B.ExpandBy(80).IsInside(FVector2D(D.Position))||B.ExpandBy(80).IsInside(FVector2D(D.Parking))){E=TEXT("A forklift or its parking bay is inside the station footprint");return false;}
  FFoundrylineFactorySimulation Candidate;Candidate.State=State;Candidate.Solids=Solids;Candidate.State.WeldingStations.RemoveAll([&](const auto& O){return O.Id==S.Id;});Candidate.State.WeldingStations.Add(S);
  if(!Candidate.ConfigureSupplyBin(S.Id,4,E))return false;
- if(!Candidate.WeldingStationAccess(S,E))return false;
- return true;
+ // Connectivity is an operational requirement, not a purchase prerequisite.
+ // Select a reachable dock offset when one exists; unconnected stations may be
+ // placed first, then joined to painted forklift areas without bypassing Path.
+ FString ConnectionError;if(!Candidate.WeldingStationAccess(S,ConnectionError))S.InDockOffsetFt=S.OutDockOffsetFt=0;
+ E.Reset();return true;
 }
 bool FFoundrylineFactorySimulation::WeldingStationAccess(FFoundrylineWeldingStationRecord& S,FString& E)const{
  // Forklifts must reach both port docks along real lanes from where they park; they never drive through the station.

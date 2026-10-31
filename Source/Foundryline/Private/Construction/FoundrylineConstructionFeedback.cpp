@@ -39,6 +39,7 @@ FFoundrylinePlanResult AFoundrylineBuildSite::ExecuteConstructionBatch(const TAr
   return Result;
  }
  FFoundrylinePlacementContext Trusted=Context;if(auto* Registry=AFoundrylineBusinessRegistry::Find(GetWorld());Registry&&Registry->IsWorldBound()){Trusted={};for(TActorIterator<AFoundrylinePlayerController> It(GetWorld());It;++It)if(It->IsLocalController()){Registry->ConstructionContext(*It,Trusted);break;}}
+ FString StoreyError;if(!OfficeStoreyRequestsClear(Requests,StoreyError)){Status=StoreyError;FFoundrylinePlanResult Blocked;Blocked.Error=EFoundrylinePlacementError::Occupied;return Blocked;}
  auto Result=Placement->ExecuteBatch(Requests,Trusted,MAX_int64);RecordConstructionResult(Result.Error,true);return Result;
 }
 FFoundrylinePlacementResult AFoundrylineBuildSite::ExecuteConstruction(const FFoundrylinePlacementRequest& R)

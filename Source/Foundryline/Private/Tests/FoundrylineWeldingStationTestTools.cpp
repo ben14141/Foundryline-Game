@@ -17,7 +17,7 @@ namespace {
 // still take, and the plant running.
 bool FillWeldingKits(AFoundrylineFactoryPlant& Plant,int32 StationId){
  auto& M=Plant.Model;const auto* S=M.State.WeldingStations.FindByPredicate([&](const auto& V){return V.Id==StationId;});if(!S)return false;
- for(auto [P,Q,Lb]:{TTuple<EFoundrylinePart,int,float>{EFoundrylinePart::MountingPlate,4,2},{EFoundrylinePart::Bracket,8,5},{EFoundrylinePart::FrameSection,12,16},{EFoundrylinePart::LightKit,4,4.5f}}){
+ for(auto [P,Q,Lb]:{TTuple<EFoundrylinePart,int,float>{EFoundrylinePart::MountingPlate,4,2},{EFoundrylinePart::BentBracket,8,5},{EFoundrylinePart::FrameSection,12,16},{EFoundrylinePart::LightKit,4,4.5f}}){
   const int Room=FMath::Min(Q,FFoundrylineWeldingStationLayout::BinCapacity(P)-M.StationStock(*S,P));if(Room<=0)continue;
   FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Room;A.Place=EFoundrylinePalletPlace::Buffer;A.Owner=StationId;A.Position=FFoundrylineWeldingStationLayout::BinPoint(*S,P);A.UnitLb=Lb;M.State.Pallets.Add(A);}
  M.State.Running=true;++M.State.Revision;return true;
@@ -88,7 +88,7 @@ bool UFoundrylineNetworkTestTools::SetupWeldingSupplyReview(APlayerController* H
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Host);if(!PC||!PC->HasAuthority()||!PC->IsLocalController()||PC->GetWorld()->WorldType!=EWorldType::PIE)return false;auto* Plant=PC->FactoryPlant();if(!Plant)return false;
  auto& M=Plant->Model;auto Stock=[&](EFoundrylinePart P,int Slot,int Q,float Lb){auto* S=M.State.Slots.FindByPredicate([&](const auto& V){return V.Id==Slot;});if(!S)return;S->Part=P;FFoundrylineFactoryPallet A;A.Id=M.State.NextId++;A.Part=P;A.Quantity=Q;A.Place=EFoundrylinePalletPlace::Rack;A.Owner=Slot;A.Position=S->Position;A.UnitLb=Lb;M.State.Pallets.Add(A);};
- Stock(EFoundrylinePart::Bracket,107,20,5);Stock(EFoundrylinePart::MountingPlate,108,10,2);M.State.Running=true;++M.State.Revision;PC->FactoryStation=StationId;return true;
+ Stock(EFoundrylinePart::BentBracket,107,20,5);Stock(EFoundrylinePart::MountingPlate,108,10,2);M.State.Running=true;++M.State.Revision;PC->FactoryStation=StationId;return true;
 #else
  return false;
 #endif
