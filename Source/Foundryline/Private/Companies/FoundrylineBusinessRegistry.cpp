@@ -42,3 +42,5 @@ int64 AFoundrylineBusinessRegistry::InitialiseEconomy(FGuid Company,FGuid Plant,
 bool AFoundrylineBusinessRegistry::CommitPlantCash(FGuid Company,FGuid Plant,int64 Expected,int64 Cash){if(!HasAuthority()||Cash<0||Cash>1000000000000LL)return false;auto* C=Ledger.State.Companies.FindByPredicate([&](const auto& V){return V.Id==Company&&V.PlantId==Plant;});if(!C||C->BalanceCents!=Expected)return false;C->BalanceCents=Cash;C->EconomyInitialised=true;return true;}
 
 FString AFoundrylineBusinessRegistry::GetCompanyName(FGuid Company)const{if(const auto* C=Companies.FindByPredicate([&](const auto& V){return V.Id==Company;}))return C->Name;if(HasAuthority())if(const auto* C=Ledger.Company(Company))return C->Name;return {}; }
+
+FString AFoundrylineBusinessRegistry::OwnerDisplayName(FGuid Company)const{const auto* C=Ledger.Company(Company);if(C)for(const auto& P:Accounts)if(P.Key.IsValid()&&P.Value==C->OwnerAccount)return P.Key->GetPlayerName().Left(64);return TEXT("Business owner");}

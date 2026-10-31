@@ -23,7 +23,7 @@ bool FFoundrylineRackPalletsSeated::RunTest(const FString&){
  Check(Layout::Racks(),Layout::Slots(),TEXT("Workshop"));
  FFoundrylineFactorySimulation Cut;Cut.SeedCutPartsShop();
  const auto CutRacks=FFoundrylinePlannerItems::FixedRacks(Cut.State);
- for(const auto& Slot:Cut.State.Slots){const auto* Rack=CutRacks.FindByPredicate([&](const auto& R){return R.Slots.Contains(Slot.Id);});
+ for(const auto& Slot:Cut.State.Slots){if(Cut.State.StorageRacks.ContainsByPredicate([&](const auto& R){return R.Slots.Contains(Slot.Id);}))continue;const auto* Rack=CutRacks.FindByPredicate([&](const auto& R){return R.Slots.Contains(Slot.Id);});
   TestNotNull(TEXT("Every current starter slot has a visible rack"),Rack);if(!Rack)continue;
   TestTrue(TEXT("Starter input/output use the matching modular rack family"),Rack->CompactRack);
   TestTrue(TEXT("Pallet rests on floor or modular shelf"),FMath::IsNearlyEqual(Slot.Position.Z,20.,.01)||FMath::IsNearlyEqual(Slot.Position.Z,172.4,.01));

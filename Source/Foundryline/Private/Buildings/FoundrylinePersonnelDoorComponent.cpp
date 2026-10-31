@@ -2,6 +2,9 @@
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
+#include "Components/TextRenderComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
 UFoundrylinePersonnelDoorComponent::UFoundrylinePersonnelDoorComponent()
 {
  PrimaryComponentTick.bCanEverTick=true;PrimaryComponentTick.bStartWithTickEnabled=false;
@@ -38,4 +41,13 @@ void UFoundrylinePersonnelDoorComponent::GetLifetimeReplicatedProps(TArray<FLife
 void UFoundrylinePersonnelDoorComponent::ApplyNetworkOpen(bool Open)
 {
  if(bOpen==Open) return;bOpen=Open;StateChanged();
+}
+
+void UFoundrylinePersonnelDoorComponent::SetOfficeOccupant(const FString& Name,const FString& Title){
+ if(OfficeName==Name&&OfficeTitle==Title)return;
+ if(!OriginalOfficeLeaf)OriginalOfficeLeaf=GetStaticMesh();OfficeName=Name;OfficeTitle=Title;
+ for(auto C:Engraving)if(IsValid(C))C->DestroyComponent();Engraving.Reset();
+ if(Name.IsEmpty()){SetStaticMesh(OriginalOfficeLeaf);return;}
+ if(auto* Glass=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Office/Decor/SM_AssignedOfficeGlassDoor")))SetStaticMesh(Glass);
+ for(int Side:{-1,1})for(int Row=0;Row<2;++Row){auto* T=NewObject<UTextRenderComponent>(GetOwner());T->SetupAttachment(this);T->SetHorizontalAlignment(EHTA_Center);T->SetVerticalAlignment(EVRTA_TextCenter);T->SetText(FText::FromString(Row?Name:Title));T->SetWorldSize(Row?FMath::Min(5.f,140.f/FMath::Max(1,Name.Len())):5.5f);T->SetTextRenderColor(FColor(30,39,43));if(auto* Lettering=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Office/Decor/Materials/M_OfficeEngraving")))T->SetTextMaterial(Lettering);T->SetRelativeLocationAndRotation({45.72,Side*.68,Row?137.:150.},FRotator(0,Side*90,0));T->SetCollisionEnabled(ECollisionEnabled::NoCollision);T->SetCastShadow(false);T->ComponentTags.Add(TEXT("FoundrylineOfficeEngraving"));T->RegisterComponent();GetOwner()->AddInstanceComponent(T);Engraving.Add(T);}
 }

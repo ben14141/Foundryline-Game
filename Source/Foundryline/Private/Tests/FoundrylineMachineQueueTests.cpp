@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Logistics/FoundrylineRackAccess.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "JsonObjectConverter.h"
 
@@ -11,7 +12,7 @@ int Accept(FFoundrylineFactorySimulation& M,Part P,int Quantity,FString& E){
  O->Quantity=Quantity;O->Payment=EFoundrylinePayment::OnCompletion;const int Id=O->Id;FFoundrylineCommerceCommand C;C.Action=Action::AcceptOrder;C.Id=Id;return M.CommerceCommand(C,E)?Id:0;
 }
 bool Pump(FFoundrylineFactorySimulation& M,TFunctionRef<bool()> Done,int Limit=14000){M.State.Running=true;M.State.Speed=8;for(int I=0;I<Limit&&!Done();++I)M.Step(.1f);return Done();}
-int Pickup(const FFoundrylineFactorySimulation& M,int Order){int N=0;for(const auto& P:M.State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==Order)N+=P.Quantity;return N;}
+int Pickup(const FFoundrylineFactorySimulation& M,int Order){int N=0;for(const auto& P:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,P)&&P.OrderId==Order)N+=P.Quantity;return N;}
 int Stock(FFoundrylineFactorySimulation& M,int Slot,int Quantity){
  auto* S=M.State.Slots.FindByPredicate([&](const auto& V){return V.Id==Slot;});if(!S)return 0;S->Part=Part::Bracket;
  FFoundrylineFactoryPallet P;P.Id=M.State.NextId++;P.Part=Part::Bracket;P.Quantity=Quantity;P.UnitLb=FFoundrylineFactoryCatalog::Part(P.Part).UnitLb;P.Place=Place::Rack;P.Owner=Slot;P.Position=S->Position;M.State.Pallets.Add(P);M.State.ReceivedSteelLb+=P.Quantity*P.UnitLb;return P.Id;
@@ -62,10 +63,10 @@ bool FStagePartialStockPallet::RunTest(const FString&){
  auto Disabled=M;for(auto& D:Disabled.State.Drivers)D.Priorities[2]=-1;const FString DisabledBefore=Snapshot(Disabled);
  TestFalse(TEXT("Disabled Shipping cannot silently create a staging request"),Disabled.CommerceCommand(Stage(Contract,First),Error));TestEqual(TEXT("Disabled-driver failure is atomic"),Snapshot(Disabled),DisabledBefore);TestTrue(TEXT("Driver guidance mentions Shipping"),Error.Contains(TEXT("Shipping")));
  if(!TestTrue(TEXT("Stage unassigned half-capacity pallet for its contract"),M.CommerceCommand(Stage(Contract,First),Error))){AddError(Error);return false;}
- const auto* Job=M.State.Jobs.FindByPredicate([&](const auto& J){return J.SourcePallet==First&&J.DestinationPlace==Place::Pickup&&J.OrderId==Contract;});TestTrue(TEXT("Request creates an actual reserved forklift load of 25"),Job&&Job->Quantity==25);
+ const auto* Job=M.State.Jobs.FindByPredicate([&](const auto& J){return J.SourcePallet==First&&J.DestinationPlace==Place::Rack&&FFoundrylineRackAccess::FinishedSlot(M.State,J.Destination)&&J.OrderId==Contract;});TestTrue(TEXT("Request creates an actual reserved forklift load of 25"),Job&&Job->Quantity==25);
  const FString Reserved=Snapshot(M);TestFalse(TEXT("Duplicate stage click rejected"),M.CommerceCommand(Stage(Contract,First),Error));TestEqual(TEXT("Duplicate click cannot reserve stock twice"),Snapshot(M),Reserved);
- TestFalse(TEXT("Other contract cannot take over an occupied bay"),M.CommerceCommand(Stage(Other,Second),Error));TestEqual(TEXT("Conflicting contract rejection is atomic"),Snapshot(M),Reserved);
- TestTrue(TEXT("Forklift physically carries the half pallet to pickup"),Pump(M,[&](){return Pickup(M,Contract)==25;}));TestEqual(TEXT("Bay quantity equals contract rather than full pallet capacity"),Pickup(M,Contract),25);const auto* Unrelated=M.State.Pallets.FindByPredicate([&](const auto& P){return P.Id==Second;});TestTrue(TEXT("The unrelated stock remains unassigned"),Unrelated&&Unrelated->OrderId==0);
+ TestTrue(TEXT("A second contract can reserve a separate rack slot"),M.CommerceCommand(Stage(Other,Second),Error));
+ TestTrue(TEXT("Forklift physically stores the half pallet in finished-goods racking"),Pump(M,[&](){return Pickup(M,Contract)==25;}));TestEqual(TEXT("Bay quantity equals contract rather than full pallet capacity"),Pickup(M,Contract),25);const auto* Unrelated=M.State.Pallets.FindByPredicate([&](const auto& P){return P.Id==Second;});TestTrue(TEXT("The unrelated stock remains unassigned"),Unrelated&&(Unrelated->OrderId==0||Unrelated->OrderId==Other));
  if(!TestTrue(TEXT("Partial staging preserves valid quantities and reservations"),M.Valid(Error)))AddError(Error);
  FFoundrylineFactorySimulation Tail;Tail.SeedCutPartsShop();const int Ten=Accept(Tail,Part::Bracket,10,Error),Thirty=Stock(Tail,107,30);
  if(!TestTrue(TEXT("Stage only remaining ten from a larger pallet"),Tail.CommerceCommand(Stage(Ten,Thirty),Error))){AddError(Error);return false;}

@@ -13,7 +13,7 @@ const FFoundrylineOpening* AFoundrylineBuildSite::GetSelectedOpening() const
 FString AFoundrylineBuildSite::GetSelectedItemLabel() const
 {
  const auto* V=GetSelectedOpening();if(!V)return FString();
- switch(V->Kind){case EFoundrylineOpeningKind::OfficeGlassWall:return TEXT("OFFICE GLASS WALL");case EFoundrylineOpeningKind::Personnel:return TEXT("PERSONNEL DOOR");case EFoundrylineOpeningKind::OfficeDoor:return TEXT("OFFICE DOOR");case EFoundrylineOpeningKind::Garage:return TEXT("GARAGE OPENING");case EFoundrylineOpeningKind::TruckGarage:return TEXT("TRUCK DOOR");case EFoundrylineOpeningKind::LoadingDock:return FFoundrylineLoadingBayLayout::Spec(V->LoadingTier).Name;default:return TEXT("WINDOW");}
+ switch(V->Kind){case EFoundrylineOpeningKind::OfficeInteriorGlass:return TEXT("INTERIOR GLASS WALL");case EFoundrylineOpeningKind::OfficeGlassWall:return TEXT("OFFICE GLASS WALL");case EFoundrylineOpeningKind::Personnel:return TEXT("PERSONNEL DOOR");case EFoundrylineOpeningKind::OfficeDoor:return TEXT("OFFICE DOOR");case EFoundrylineOpeningKind::Garage:return TEXT("GARAGE OPENING");case EFoundrylineOpeningKind::TruckGarage:return TEXT("TRUCK DOOR");case EFoundrylineOpeningKind::LoadingDock:return FFoundrylineLoadingBayLayout::Spec(V->LoadingTier).Name;default:return TEXT("WINDOW");}
 }
 
 const FFoundrylinePlacedObject* AFoundrylineBuildSite::PickOpening(FIntVector Cursor,FFoundrylineOpening& Opening,FGuid& RoomId) const
@@ -63,14 +63,26 @@ bool AFoundrylineBuildSite::OpeningEditRequest(FIntVector Cursor,bool Remove,FFo
  R.Action=EFoundrylinePlacementAction::ReplaceObject;R.ObjectId=O->ObjectId;R.ExpectedRevision=Placement->GetRevision();R.Replacement=*O;
  auto* Room=R.Replacement.OfficeRooms.FindByPredicate([&](const auto& V){return V.SpaceId==SelectedRoom;});
  auto& Values=Room?Room->Openings:R.Replacement.Openings;
- if(Remove){Values.RemoveAll([&](const auto& V){return V.OpeningId==Original->OpeningId;});return true;}
+ // Both sides of an interior glass partition are the same opening.
+ auto SyncGlass=[&](const FFoundrylineOpening* Updated){
+  if(!Room||Original->Kind!=EFoundrylineOpeningKind::OfficeInteriorGlass)return;
+  const int OriginalAlong=(Original->Edge%2?Room->Min.Y:Room->Min.X)+Original->OffsetCm;
+  for(auto& Other:R.Replacement.OfficeRooms)if(Other.SpaceId!=Room->SpaceId&&Other.OfficeLevel==Room->OfficeLevel){
+   const bool OldTouch=Original->Edge==0?Room->Min.Y==Other.Max.Y:Original->Edge==1?Room->Max.X==Other.Min.X:Original->Edge==2?Room->Max.Y==Other.Min.Y:Room->Min.X==Other.Max.X;
+   if(OldTouch)Other.Openings.RemoveAll([&](const auto& G){return G.Kind==Original->Kind&&G.Edge==(Original->Edge+2)%4&&(G.Edge%2?Other.Min.Y:Other.Min.X)+G.OffsetCm==OriginalAlong&&G.WidthCm()==Original->WidthCm();});
+   if(!Updated)continue;const auto& G=*Updated;const bool NewTouch=G.Edge==0?Room->Min.Y==Other.Max.Y:G.Edge==1?Room->Max.X==Other.Min.X:G.Edge==2?Room->Max.Y==Other.Min.Y:Room->Min.X==Other.Max.X;
+   const int Along=(G.Edge%2?Room->Min.Y:Room->Min.X)+G.OffsetCm,Low=G.Edge%2?Other.Min.Y:Other.Min.X,High=G.Edge%2?Other.Max.Y:Other.Max.X;
+   if(NewTouch&&Along>=Low&&Along+G.WidthCm()<=High){auto Mirror=G;Mirror.OpeningId=FGuid::NewGuid();Mirror.Edge=(G.Edge+2)%4;Mirror.OffsetCm=Along-Low;Mirror.bAutomatic=true;Other.Openings.Add(Mirror);}
+  }
+ };
+ if(Remove){SyncGlass(nullptr);Values.RemoveAll([&](const auto& V){return V.OpeningId==Original->OpeningId;});return true;}
  const auto* D=Placement->FindDefinition(O->DefinitionId);const FVector2D Min=Room?FVector2D(Room->Min):FVector2D::ZeroVector,Max=Room?FVector2D(Room->Max):FVector2D(D->Footprint.Max.X,D->Footprint.Max.Y);
  const FVector P=FRotator(0,O->QuarterTurns*90,0).UnrotateVector(FVector(Cursor-O->Anchor))-FVector(Min,0);
  const FVector2D Size=Max-Min;const double Distances[]={FMath::Abs(P.Y),FMath::Abs(P.X-Size.X),FMath::Abs(P.Y-Size.Y),FMath::Abs(P.X)};
  uint8 Edge=0;for(uint8 E=1;E<4;++E)if(Distances[E]<Distances[Edge])Edge=E;
  if(Distances[Edge]>200)return false;
  auto* V=Values.FindByPredicate([&](const auto& Item){return Item.OpeningId==Original->OpeningId;});if(!V)return false;
- const int Snap=(V->Kind==EFoundrylineOpeningKind::OfficeGlassWall||V->Kind==EFoundrylineOpeningKind::Personnel||V->Kind==EFoundrylineOpeningKind::OfficeDoor)?25:100;V->Edge=Edge;V->OffsetCm=FMath::RoundToInt(((Edge%2==0?P.X:P.Y)-V->WidthCm()*.5)/Snap)*Snap;V->bAutomatic=false;
+ const int Snap=(V->Kind==EFoundrylineOpeningKind::OfficeGlassWall||V->Kind==EFoundrylineOpeningKind::Personnel||V->Kind==EFoundrylineOpeningKind::OfficeDoor)?25:100;V->Edge=Edge;V->OffsetCm=FMath::RoundToInt(((Edge%2==0?P.X:P.Y)-V->WidthCm()*.5)/Snap)*Snap;V->bAutomatic=false;SyncGlass(V);
  if(!Room&&Original->Kind!=EFoundrylineOpeningKind::ShopWindow)FFoundrylineFacadeLayout::Reflow(R.Replacement,D->Footprint.Max.X,D->Footprint.Max.Y,D->Footprint.Max.Z);
  return true;
 }

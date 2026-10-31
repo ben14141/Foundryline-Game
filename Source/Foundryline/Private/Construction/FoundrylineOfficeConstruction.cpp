@@ -54,7 +54,7 @@ bool AFoundrylineBuildSite::OfficeOpening(FName Tool,FIntVector Cursor,bool bPre
 	const auto* Host=PickOffice(Cursor);if(!Host) {if(bPreview) HidePreview();DraftBlocked(Status,!bPreview);return false;}
 	const FVector P=FRotator(0,Host->QuarterTurns*90,0).UnrotateVector(FVector(Cursor-Host->Anchor));
 	int32 RoomIndex=INDEX_NONE;FFoundrylineOpening Opening;double Best=151;
-	Opening.OpeningId=FGuid::NewGuid();Opening.OfficeLevel=Cursor.Z>=320?1:0;Opening.Kind=Tool==TEXT("RoomDoor")?EFoundrylineOpeningKind::OfficeDoor:EFoundrylineOpeningKind::ShopWindow;
+	Opening.OpeningId=FGuid::NewGuid();Opening.OfficeLevel=Cursor.Z>=320?1:0;Opening.Kind=Tool==TEXT("OfficeInteriorGlass")?EFoundrylineOpeningKind::OfficeInteriorGlass:Tool==TEXT("RoomDoor")?EFoundrylineOpeningKind::OfficeDoor:EFoundrylineOpeningKind::ShopWindow;
 	for(int32 I=0;I<Host->OfficeRooms.Num();++I)
 	{
 		const auto& Room=Host->OfficeRooms[I];if(Room.OfficeLevel!=Opening.OfficeLevel)continue;
@@ -62,6 +62,8 @@ bool AFoundrylineBuildSite::OfficeOpening(FName Tool,FIntVector Cursor,bool bPre
 		const double Dist[]={FMath::Abs(P.Y-Room.Min.Y),FMath::Abs(P.X-Room.Max.X),FMath::Abs(P.Y-Room.Max.Y),FMath::Abs(P.X-Room.Min.X)};
 		for(uint8 Edge=0;Edge<4;++Edge) if(Dist[Edge]<Best)
 		{
+			const double Along=Edge%2==0?P.X:P.Y;
+			if(Along<(Edge%2==0?Room.Min.X:Room.Min.Y)||Along>(Edge%2==0?Room.Max.X:Room.Max.Y))continue;
 			Best=Dist[Edge];RoomIndex=I;Opening.Edge=Edge;
 			Opening.OffsetCm=FMath::RoundToInt32(((Edge%2==0?P.X-Room.Min.X:P.Y-Room.Min.Y)-Opening.WidthCm()/2.)/100)*100;
 		}
@@ -73,7 +75,18 @@ bool AFoundrylineBuildSite::OfficeOpening(FName Tool,FIntVector Cursor,bool bPre
   for(uint8 E=0;E<4;++E) if(Dist[E]<Best) {Best=Dist[E];Opening.Edge=E;Opening.OffsetCm=FMath::RoundToInt32(((E%2==0?P.X:P.Y)-100)/100)*100;}
  }
  if(RoomIndex==INDEX_NONE && Best>=151) {Status=TEXT("Point at an office wall to add a manual window");if(bPreview) HidePreview();DraftBlocked(Status,!bPreview);return false;}
-	FFoundrylinePlacementRequest R;R.Action=EFoundrylinePlacementAction::ReplaceObject;R.ObjectId=Host->ObjectId;R.ExpectedRevision=Placement->GetRevision();R.Replacement=*Host;if(RoomIndex!=INDEX_NONE) R.Replacement.OfficeRooms[RoomIndex].Openings.Add(Opening);
+ if(Tool==TEXT("OfficeInteriorGlass")){
+  if(RoomIndex==INDEX_NONE){Status=TEXT("Place interior glass on a room partition");if(bPreview)HidePreview();return false;}
+  const auto& Room=Host->OfficeRooms[RoomIndex];const auto* D=Placement->FindDefinition(Host->DefinitionId);
+  const bool Outside=Opening.Edge==0?Room.Min.Y==0:Opening.Edge==1?Room.Max.X==D->Footprint.Max.X:Opening.Edge==2?Room.Max.Y==D->Footprint.Max.Y:Room.Min.X==0;
+  if(Outside){Status=TEXT("Use exterior glass for outside walls; this tool is for interior partitions");if(bPreview)HidePreview();return false;}
+  const double Along=Opening.Edge%2?P.Y-Room.Min.Y:P.X-Room.Min.X;int Low=0,High=Opening.Edge%2?Room.Max.Y-Room.Min.Y:Room.Max.X-Room.Min.X;
+  for(const auto& V:Room.Openings)if(V.Edge==Opening.Edge){if(Along>=V.OffsetCm&&Along<=V.OffsetCm+V.WidthCm()){Status=TEXT("Choose a solid partition section");if(bPreview)HidePreview();return false;}if(V.OffsetCm+V.WidthCm()<Along)Low=FMath::Max(Low,V.OffsetCm+V.WidthCm());else High=FMath::Min(High,V.OffsetCm);}
+  Opening.PanelWidthCm=FMath::Min(200,(High-Low)/100*100);if(Opening.PanelWidthCm<100){Status=TEXT("Glass needs at least 3 ft 3 in of clear wall");if(bPreview)HidePreview();return false;}
+  const int First=FMath::CeilToInt(Low/100.)*100,Last=FMath::FloorToInt((High-Opening.PanelWidthCm)/100.)*100;if(Last<First){if(bPreview)HidePreview();Status=TEXT("No grid-aligned glass panel fits this wall section");return false;}
+  Opening.OffsetCm=FMath::Clamp(FMath::RoundToInt((Along-Opening.PanelWidthCm/2.)/100)*100,First,Last);
+ }
+ FFoundrylinePlacementRequest R;R.Action=EFoundrylinePlacementAction::ReplaceObject;R.ObjectId=Host->ObjectId;R.ExpectedRevision=Placement->GetRevision();R.Replacement=*Host;if(RoomIndex!=INDEX_NONE) R.Replacement.OfficeRooms[RoomIndex].Openings.Add(Opening);
 	FFoundrylineOfficeSpace Source;if(RoomIndex!=INDEX_NONE) Source=Host->OfficeRooms[RoomIndex];else {Source.Min={0,0};const auto* D=Placement->FindDefinition(Host->DefinitionId);Source.Max={D->Footprint.Max.X,D->Footprint.Max.Y};}
 	const auto* Def=Placement->FindDefinition(Host->DefinitionId);
 	const bool Exterior=Opening.Edge==0?Source.Min.Y==0:Opening.Edge==1?Source.Max.X==Def->Footprint.Max.X:Opening.Edge==2?Source.Max.Y==Def->Footprint.Max.Y:Source.Min.X==0;
@@ -91,7 +104,7 @@ bool AFoundrylineBuildSite::OfficeOpening(FName Tool,FIntVector Cursor,bool bPre
   const bool Touch=Opening.Edge==0?Source.Min.Y==Neighbour.Max.Y:Opening.Edge==1?Source.Max.X==Neighbour.Min.X:Opening.Edge==2?Source.Max.Y==Neighbour.Min.Y:Source.Min.X==Neighbour.Max.X;
 		const int32 Along=(Opening.Edge%2==0?Source.Min.X:Source.Min.Y)+Opening.OffsetCm;
 		const int32 Low=Opening.Edge%2==0?Neighbour.Min.X:Neighbour.Min.Y,High=Opening.Edge%2==0?Neighbour.Max.X:Neighbour.Max.Y;
-		if(Touch && Along<High && Along+Opening.WidthCm()>Low)
+		if(Touch && Along>=Low && Along+Opening.WidthCm()<=High)
 		{
 			auto Mirror=Opening;Mirror.OpeningId=FGuid::NewGuid();Mirror.Edge=(Opening.Edge+2)%4;Mirror.OffsetCm=Along-Low;Mirror.bAutomatic=true;Neighbour.Openings.Add(Mirror);
 		}

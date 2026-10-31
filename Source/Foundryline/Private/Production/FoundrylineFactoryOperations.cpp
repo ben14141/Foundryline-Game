@@ -1,4 +1,5 @@
 #include "Production/FoundrylineFactorySimulation.h"
+#include "Logistics/FoundrylineRackAccess.h"
 #include "Economy/FoundrylineEconomyTuning.h"
 #include "Production/FoundrylineWorkZoneLayout.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
@@ -74,7 +75,7 @@ void FFoundrylineFactorySimulation::Assembly(float Dt){
 }
 bool FFoundrylineFactorySimulation::MakeJob(int Source,int Destination,Place Where,int Count,FVector Dock,FVector Store,int Priority){
  if(Count<=0||State.Jobs.Num()>=32||State.Pallets.Num()>=63)return false;
- auto* A=State.Pallets.FindByPredicate([&](const auto& P){return P.Id==Source;});if(!A||A->Quantity-A->Reserved<Count||A->BookingId&&Where!=Place::Outbound&&A->Place!=Place::Inbound)return false;
+ auto* A=State.Pallets.FindByPredicate([&](const auto& P){return P.Id==Source;});if(!A||A->Quantity-A->Reserved<Count||A->BookingId&&Where!=Place::Outbound&&A->Place!=Place::Inbound&&!(A->Place==Place::Pickup&&Where==Place::Rack&&FFoundrylineRackAccess::FinishedSlot(State,Destination)))return false;
  if(Where==Place::Rack&&State.Machines.ContainsByPredicate([&](const auto& M){return M.Remaining>0&&M.OutputSlot==Destination;}))return false;
  if(!FFoundrylineFactoryCatalog::FitsPalletWeight(A->Part,Count,A->UnitLb))return false;
  int Physical=0;for(const auto& P:State.Pallets)if(P.Place==Where&&P.Owner==Destination&&(Where!=Place::Buffer||P.Part==A->Part)){if(P.Part!=A->Part||!FMath::IsNearlyEqual(P.UnitLb,A->UnitLb,.01f))return false;Physical+=P.Quantity;}
@@ -161,12 +162,12 @@ void FFoundrylineFactorySimulation::Dispatch(){
  bool CorridorBusy=false;for(const auto& D:State.Drivers)if(D.Job||FVector::Dist2D(D.Position,D.Parking)>20)CorridorBusy=true;
  TArray<int> DriverOrder;for(int I=0;I<State.Drivers.Num();++I)DriverOrder.Add(I);DriverOrder.Sort([&](int A,int B){const int IA=State.Drivers[A].Id>State.LastDriver?State.Drivers[A].Id:State.Drivers[A].Id+1000000;const int IB=State.Drivers[B].Id>State.LastDriver?State.Drivers[B].Id:State.Drivers[B].Id+1000000;return IA<IB;});
  for(int DriverIndex:DriverOrder){auto& D=State.Drivers[DriverIndex];if(CorridorBusy&&!State.Commerce.Enabled)break;if(D.Job||!D.EmployeeId||State.Commerce.ForkliftInstallDriver==D.Id&&State.Commerce.ForkliftInstallMinutes>0)continue;const auto* R=State.Routes.FindByPredicate([&](const auto& A){return A.Id==D.Route&&A.Enabled;});if(!R)continue;
-  FFoundrylineFactoryJob* Best=nullptr;TArray<FVector> BestPath;
+  FFoundrylineFactoryJob* Best=nullptr;TArray<FVector> BestPath;FVector BestPickup,BestDrop;
   for(auto& J:State.Jobs)if(!J.Driver){const auto* Source=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J.SourcePallet;});if(!Source||!R->Sources.Contains(Source->Owner)||!(R->Destinations.Contains(J.Destination)||J.DestinationPlace==Place::Outbound&&R->Destinations.Contains(12)))continue;
    if(D.Priorities.Num()==3&&D.Priorities[ForkPriorityGroup(J)]<0)continue;
-   auto Score=[&](const auto& V){return (State.Commerce.Enabled&&D.Priorities.Num()==3?(3-D.Priorities[ForkPriorityGroup(V)])*1000:0)+V.Priority;};if(Best&&Score(*Best)>=Score(J))continue;auto P=Path(D.Position,J.Pickup);auto Delivery=Path(J.Pickup,J.Drop);if(P.IsEmpty()||Delivery.IsEmpty()){State.Status=TEXT("A transport request needs connected forklift lanes");continue;}Best=&J;BestPath=MoveTemp(P);
+   auto Score=[&](const auto& V){return (State.Commerce.Enabled&&D.Priorities.Num()==3?(3-D.Priorities[ForkPriorityGroup(V)])*1000:0)+V.Priority;};if(Best&&Score(*Best)>=Score(J))continue;auto Candidate=J;TArray<FVector> P;if(!FFoundrylineRackAccess::Route(*this,Candidate,D.Position,P)){State.Status=TEXT("A transport request needs connected forklift lanes");continue;}Best=&J;BestPath=MoveTemp(P);BestPickup=Candidate.Pickup;BestDrop=Candidate.Drop;
   }
-  if(Best){Best->Driver=D.Id;Best->Phase=1;D.Job=Best->Id;D.Path=MoveTemp(BestPath);D.Distance=0;D.Waiting=false;State.LastDriver=D.Id;CorridorBusy=true;}
+  if(Best){Best->Pickup=BestPickup;Best->Drop=BestDrop;Best->Driver=D.Id;Best->Phase=1;D.Job=Best->Id;D.Path=MoveTemp(BestPath);D.Distance=0;D.Waiting=false;State.LastDriver=D.Id;CorridorBusy=true;}
  }
  for(auto& W:State.Walkers){const auto* Z=State.Zones.FindByPredicate([&](const auto& A){return A.Id==W.Zone;});
   // A station welder stays at Welder A's work point while the station has a unit or a batch to make.
@@ -204,6 +205,7 @@ void FFoundrylineFactorySimulation::Travel(float Dt){
   if(D.Waiting){D.WaitFor+=Dt;if(D.WaitFor>3)ReplanYield(D,D.Parking);continue;}
   D.WaitFor=0;D.Distance=Next;D.Position=P;D.Yaw=FMath::FixedTurn(D.Yaw,Yaw,120*Dt);if(Next>=Length(D.Path)-.1){D.Path.Reset();D.Distance=0;}continue;
  }auto* J=State.Jobs.FindByPredicate([&](const auto& A){return A.Id==D.Job;});if(!J){D.Job=0;continue;}
+  if(J->DestinationPlace==Place::Pickup){D.Waiting=true;State.Status=TEXT("Legacy delivery is waiting for a free finished-goods rack position");continue;}
   if(J->Phase==1||J->Phase==3){if(D.Path.IsEmpty()){D.WaitFor+=Dt;D.Waiting=true;if(D.WaitFor>3)ReplanYield(D,J->Phase==1?J->Pickup:J->Drop);continue;}
    const float Next=FMath::Min(Length(D.Path),D.Distance+DrivingSpeed(D)*Dt);float Yaw=D.Yaw;FVector P=Along(D.Path,Next,&Yaw);
    // Forklifts have crossing priority. Only immediate physical separation can stop one.
@@ -215,8 +217,8 @@ void FFoundrylineFactorySimulation::Travel(float Dt){
    FVector Target=J->StoredAt;if(J->Phase==2)if(const auto* Source=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J->SourcePallet;}))Target=Source->Position;D.Yaw=FMath::FixedTurn(D.Yaw,(Target-D.Position).Rotation().Yaw,120*Dt);
    J->Handling-=Dt;if(J->Handling>0)continue;
    if(J->Phase==2){auto* A=State.Pallets.FindByPredicate([&](const auto& X){return X.Id==J->SourcePallet;});if(!A||A->Quantity<J->Quantity||A->Reserved<J->Quantity){State.Status=TEXT("Invalid pickup reservation");D.Waiting=true;continue;}float Lb=A->UnitLb;const int Booking=A->Place==Place::Inbound?0:A->BookingId;A->Reserved-=J->Quantity;if(A->Quantity==J->Quantity){J->CarryPallet=A->Id;A->BookingId=Booking;A->Place=Place::Forks;A->Owner=D.Id;A->Position=D.Position;if(J->OrderId)A->OrderId=J->OrderId;}else{A->Quantity-=J->Quantity;J->CarryPallet=AddPallet(J->Part,J->Quantity,Place::Forks,D.Id,D.Position,Lb);auto* New=State.Pallets.FindByPredicate([&](const auto& V){return V.Id==J->CarryPallet;});New->BookingId=Booking;New->OrderId=J->OrderId;}State.Pallets.RemoveAll([](const auto& X){return !X.Quantity&&!X.Reserved;});J->Phase=3;D.Path=Path(D.Position,J->Drop);D.Distance=0;
-   }else {auto* Cargo=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J->CarryPallet;});if(Cargo){auto* Existing=State.Pallets.FindByPredicate([&](const auto& A){return J->DestinationPlace!=Place::Outbound&&J->DestinationPlace!=Place::Pickup&&!A.BookingId&&A.Id!=Cargo->Id&&A.Part==Cargo->Part&&A.Place==J->DestinationPlace&&A.Owner==J->Destination&&FMath::IsNearlyEqual(A.UnitLb,Cargo->UnitLb,.01f);});if(Existing){Existing->Quantity+=Cargo->Quantity;int Id=Cargo->Id;State.Pallets.RemoveAll([&](const auto& A){return A.Id==Id;});}else {Cargo->Place=J->DestinationPlace;Cargo->Owner=J->Destination;Cargo->Position=J->StoredAt;if(J->DestinationPlace==Place::Rack||J->DestinationPlace==Place::MachineInput||J->DestinationPlace==Place::StationIn){Cargo->BookingId=0;Cargo->OrderId=0;}
-else{Cargo->OrderId=J->OrderId;Cargo->BookingId=J->BookingId;}}}Done.Add(J->Id);D.Job=0;}
+   }else {const int StoredBooking=State.Commerce.Bookings.ContainsByPredicate([&](const auto& B){return B.Id==J->BookingId&&B.Inbound;})?0:J->BookingId;auto* Cargo=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J->CarryPallet;});if(Cargo){auto* Existing=State.Pallets.FindByPredicate([&](const auto& A){return J->DestinationPlace!=Place::Outbound&&J->DestinationPlace!=Place::Pickup&&A.BookingId==StoredBooking&&A.OrderId==J->OrderId&&A.Id!=Cargo->Id&&A.Part==Cargo->Part&&A.Place==J->DestinationPlace&&A.Owner==J->Destination&&FMath::IsNearlyEqual(A.UnitLb,Cargo->UnitLb,.01f);});if(Existing){Existing->Quantity+=Cargo->Quantity;int Id=Cargo->Id;State.Pallets.RemoveAll([&](const auto& A){return A.Id==Id;});}else {Cargo->Place=J->DestinationPlace;Cargo->Owner=J->Destination;Cargo->Position=J->StoredAt;if(J->DestinationPlace==Place::Rack||J->DestinationPlace==Place::MachineInput||J->DestinationPlace==Place::StationIn){Cargo->BookingId=StoredBooking;Cargo->OrderId=J->OrderId;}
+else{Cargo->OrderId=J->OrderId;Cargo->BookingId=StoredBooking;}}}Done.Add(J->Id);D.Job=0;}
   }
  }
  State.Jobs.RemoveAll([&](const auto& J){return Done.Contains(J.Id);});

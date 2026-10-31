@@ -56,6 +56,7 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
   if(P.Place==EFoundrylinePalletPlace::Rack)if(const auto* Slot=Snapshot.Slots.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))if(const auto* M=Snapshot.Machines.FindByPredicate([&](const auto& V){return V.Id==Slot->MachineId;}))Rot.Yaw=M->QuarterTurns*90;
   // Long stock is authored along Y, matching the machine rack shelves.
   if(P.Place==EFoundrylinePalletPlace::Rack&&(P.Owner==105||P.Owner==106))Rot.Yaw=90;
+  if(P.Place==EFoundrylinePalletPlace::Rack)if(const auto* R=Snapshot.StorageRacks.FindByPredicate([&](const auto& V){return V.Slots.Contains(P.Owner);}))Rot.Yaw=R->QuarterTurns*90;
   if(P.Place==EFoundrylinePalletPlace::Buffer)if(const auto* Z=Snapshot.Zones.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))Rot=FFoundrylineWorkZoneLayout::Rotation(*Z);
   // Finished headache racks: one pallet with a flat stack, its far end running past the pallet away from the side the
   // forklift serves it from (rack slots face their dock; pickup pallets face the dock 136 cm in -X).

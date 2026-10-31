@@ -20,6 +20,7 @@ class FOUNDRYLINE_API UFoundrylineEmployeeVisualComponent : public USceneCompone
 public:
  UPROPERTY(EditAnywhere,BlueprintReadWrite) TObjectPtr<UFoundrylineEmployeeAppearance> Appearance;
  void InitializeVisual();
+ void SetOfficeAppearance(bool Office){bOfficeWear=Office;}
  void Present(const FFoundrylineEmployeeRecord& Record,float DeltaSeconds);
  // Call after the zone gun has moved, using its real grip and barrel-support points.
  void PresentWeldingGrip(FVector WorldGrip,FVector WorldSupport);
@@ -53,6 +54,8 @@ private:
  UPROPERTY() TObjectPtr<UPoseableMeshComponent> HandymanBody;
  UPROPERTY() TObjectPtr<UFoundrylineWeldingHoodComponent> WeldingHood;
  bool bWeldingHoodBody=false;
+ bool bOfficeWear=false;
+ UPROPERTY() TObjectPtr<UStaticMeshComponent> OfficeTie;
  TArray<FTransform> HandymanPose,HandymanRest;
  TArray<int32> HandymanParents,HandymanSamplerBones;
  TMap<FName,int32> HandymanBones;

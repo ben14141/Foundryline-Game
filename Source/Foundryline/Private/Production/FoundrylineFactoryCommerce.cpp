@@ -23,6 +23,7 @@ bool AFoundrylineFactoryPlant::ExecuteCommerce(APlayerController* P,const FFound
 void AFoundrylineFactoryPlant::EndPlay(const EEndPlayReason::Type Reason){for(auto& Pair:OfficeDeskActors)if(IsValid(Pair.Value))Pair.Value->Destroy();OfficeDeskActors.Reset();Super::EndPlay(Reason);}
 void AFoundrylineFactoryPlant::EnsureCommerceEquipment(){
  EnsureMachineActors();
+ UpdateOfficeDecorations();
  if(!HasAuthority())Model.Solids=FFoundrylineWorkshopLayout::PlantSolids(Snapshot);
  if(!HasAuthority()||!Model.State.Commerce.Enabled)return;
  for(auto It=OfficeDeskActors.CreateIterator();It;++It)if(!Model.State.OfficeDesks.ContainsByPredicate([&](const auto& D){return D.Id==It.Key();})){if(IsValid(It.Value()))It.Value()->Destroy();It.RemoveCurrent();}

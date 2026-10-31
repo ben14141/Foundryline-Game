@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Logistics/FoundrylineRackAccess.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "Inventory/FoundrylineSheetStock.h"
@@ -27,10 +28,10 @@ struct FFlow {
   FString E;if(Idle&&PlatesQueued<PlatesWanted){const int N=PlatesWanted-PlatesQueued;if(M.Program(1,Part::MountingPlate,N,false,E))PlatesQueued+=N;else Log.Add(TEXT("Program plates: ")+E);}
   else if(Idle&&BracketsQueued<BracketsWanted){const int N=BracketsWanted-BracketsQueued;if(M.Program(1,Part::Bracket,N,false,E))BracketsQueued+=N;else Log.Add(TEXT("Program brackets: ")+E);}
   const auto* Brake=M.State.Machines.FindByPredicate([](const auto& V){return V.Id==2;});if(Brake&&Brake->BatchRemaining<=0&&Brake->Remaining<=0&&FormedQueued<BracketsWanted){const int N=BracketsWanted-FormedQueued;if(M.Program(2,Part::BentBracket,N,false,E))FormedQueued+=N;else Log.Add(TEXT("Form brackets: ")+E);}
-  const auto* O=Order(OrderId);if(!O||O->Status!=EFoundrylineOrderState::Accepted)return;int Staged=0;for(const auto& A:M.State.Pallets)if(A.Place==Place::Pickup&&A.OrderId==OrderId&&!A.BookingId)Staged+=A.Quantity;
+  const auto* O=Order(OrderId);if(!O||O->Status!=EFoundrylineOrderState::Accepted)return;int Staged=0;for(const auto& A:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,A)&&A.OrderId==OrderId&&!A.BookingId)Staged+=A.Quantity;
   int Booked=0;for(const auto& B:M.State.Commerce.Bookings)if(!B.Inbound&&B.OrderId==OrderId)for(const auto& I:B.Manifest)Booked+=I.Quantity;
-  int Bays=0;for(const auto& A:M.State.Pallets)Bays+=A.Place==Place::Pickup&&!A.BookingId;
-  if(Staged&&(Staged+Booked+O->Delivered>=O->Quantity||Bays>=2)){auto C=Cmd(Act::BookPickup);C.Choice=2;C.Arrival=M.State.Commerce.Clock+60;for(const auto& A:M.State.Pallets)if(A.Place==Place::Pickup&&A.OrderId==OrderId&&!A.BookingId){C.Pallets.Add(A.Id);C.Quantities.Add(A.Quantity);}Do(C,TEXT("Book the rigid truck"));}
+  int Bays=0;for(const auto& A:M.State.Pallets)Bays+=FFoundrylineRackAccess::Ready(M.State,A)&&!A.BookingId;
+  if(Staged&&(Staged+Booked+O->Delivered>=O->Quantity||Bays>=2)){auto C=Cmd(Act::BookPickup);C.Choice=2;C.Arrival=M.State.Commerce.Clock+60;for(const auto& A:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,A)&&A.OrderId==OrderId&&!A.BookingId){C.Pallets.Add(A.Id);C.Quantities.Add(A.Quantity);}Do(C,TEXT("Book the rigid truck"));}
  }
  // Accept the rack offer, send it to the loading bay, set the station and work out the plates, brackets and steel it needs.
  int TakeOrder(){const auto* Offer=M.State.Commerce.Orders.FindByPredicate([](const auto& O){return O.Status==EFoundrylineOrderState::Offered&&O.Part==uint8(Part::HeadacheRack);});if(!Offer)return 0;const int Id=Offer->Id;
@@ -52,11 +53,11 @@ bool FWeldingStationPlayerFlow::RunTest(const FString&){using namespace WeldingP
  if(!TestTrue(TEXT("Assign brake operator"),M.AssignEmployee(M.State.UnassignedEmployees.Last().Id,Role::Operator,2,E)))return false;
  TestTrue(TEXT("Paint the west fork lane: ")+E,M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,3800,20},304.8f,0,E));
  TestTrue(TEXT("Paint the walkway: ")+E,M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E));
- TestTrue(TEXT("Walkway to assembly expansion"),M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1000,1200,20},{-1000,3500,20},100,0,E));
- TestTrue(TEXT("Cross the main forklift aisle"),M.PaintLane(EFoundrylineFloorLane::Crossing,{-1000,1600,20},{-1000,1600,20},450,0,E));
- TestTrue(TEXT("Cross the assembly forklift branch"),M.PaintLane(EFoundrylineFloorLane::Crossing,{-1000,3000,20},{-1000,3000,20},400,0,E));
- TestTrue(TEXT("Walkway to Welder A"),M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1900,2700,20},{-1000,2700,20},100,0,E));
- TestTrue(TEXT("Walkway to Welder B"),M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1900,3300,20},{-1000,3300,20},100,0,E));
+ TestTrue(TEXT("Walkway to assembly expansion"),M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1150,1200,20},{-1150,3500,20},100,0,E));
+ TestTrue(TEXT("Cross the main forklift aisle"),M.PaintLane(EFoundrylineFloorLane::Crossing,{-1150,1600,20},{-1150,1600,20},450,0,E));
+ TestTrue(TEXT("Cross the assembly forklift branch"),M.PaintLane(EFoundrylineFloorLane::Crossing,{-1150,3000,20},{-1150,3000,20},400,0,E));
+ TestTrue(TEXT("Walkway to Welder A"),M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1900,2700,20},{-1150,2700,20},100,0,E));
+ TestTrue(TEXT("Walkway to Welder B"),M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1900,3300,20},{-1150,3300,20},100,0,E));
  if(!TestTrue(TEXT("Place the welding station: ")+E,M.PaintLane(EFoundrylineFloorLane::Forklift,{-300,1800,20},{-300,3800,20},304.8f,0,E)&&M.PaintLane(EFoundrylineFloorLane::Forklift,{-1300,3000,20},{-300,3000,20},304.8f,0,E)&&M.AddWeldingStation({-1768.02,3000,20},0,false,E)))return false;F.Station=M.State.WeldingStations[0].Id;
  if(!TestTrue(TEXT("Hire parts collector"),M.HireEmployee(Role::Unassigned,FGuid::NewGuid(),E)))return false;
  if(!TestTrue(TEXT("Assign collector to assembly area: ")+E,M.AssignEmployee(M.State.UnassignedEmployees.Last().Id,Role::PartsCollector,F.Station,E)))return false;

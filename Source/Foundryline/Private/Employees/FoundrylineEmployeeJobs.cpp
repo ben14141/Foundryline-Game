@@ -1,6 +1,7 @@
 #include "Production/FoundrylineFactorySimulation.h"
 using Role=EFoundrylineEmployeeRole;
 bool FFoundrylineFactorySimulation::AssignEmployee(int32 Id,Role Type,int32 Target,FString& E,int32 Slot){
+ if(State.OfficeEmployees.ContainsByPredicate([&](const auto& P){return P.Id==Id;})){E=TEXT("Assign engineering staff through Team > Offices");return false;}
  if(Type==Role::PartsCollector||State.Collectors.ContainsByPredicate([&](const auto& C){return C.Id==Id;})){if(Slot){E=TEXT("Collector assignments do not take welder slots");return false;}return AssignCollector(Id,Target,E);}
  const auto Roster=FFoundrylineEmployeeRoster::Build(State);const auto* Person=Roster.FindByPredicate([&](const auto& P){return P.Id==Id;});if(!Person||Target<0||int(Type)>3){E=TEXT("Choose an employee and valid job in this business");return false;}
  if(!Target){if(!Person->Assignment){E=TEXT("This employee has no assigned job");return false;}if(Person->Role==Role::Operator){const auto* M=State.Machines.FindByPredicate([&](const auto& V){return V.Id==Person->Assignment;});if(M&&M->Enabled&&M->Remaining>0){E=TEXT("Pause the machine before releasing its operator");return false;}}if(Person->Role==Role::Welder){const auto* Z=State.Zones.FindByPredicate([&](const auto& V){return V.Id==Person->Assignment;});if(State.Running&&Z&&Z->ActiveStep>=0){E=TEXT("Pause production before releasing the welding job");return false;}}return AssignEmployeeInternal(Id,Person->Role,0,E);}

@@ -29,7 +29,7 @@ FString Snapshot(const FFoundrylineFactorySimulation& M){FString S;FJsonObjectCo
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLanePausedActiveJob,"Foundryline.Construction.PlannerRevision.PausedLaneActiveDelivery",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FLanePausedActiveJob::RunTest(const FString&){
- using namespace LaneActiveJobTest;Fixture F;FString Error;
+ using namespace LaneActiveJobTest;LaneActiveJobTest::Fixture F;FString Error;
  if(!TestTrue(TEXT("Public pallet move creates a real reserved job"),F.Job>0&&F.M.Valid(Error))){AddError(Error);return false;}
  const float Steel=F.M.SteelMass();
  if(!TestTrue(TEXT("Driver begins real pickup travel"),F.Phase(1)))return false;
@@ -61,7 +61,7 @@ bool FLanePausedActiveJob::RunTest(const FString&){
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLanePausedPendingJob,"Foundryline.Construction.PlannerRevision.PausedLaneQueuedReservation",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FLanePausedPendingJob::RunTest(const FString&){
- using namespace LaneActiveJobTest;Fixture F;FString Error;if(!TestTrue(TEXT("Queued fixture valid"),F.Job>0&&F.M.Valid(Error)))return false;
+ using namespace LaneActiveJobTest;LaneActiveJobTest::Fixture F;FString Error;if(!TestTrue(TEXT("Queued fixture valid"),F.Job>0&&F.M.Valid(Error)))return false;
  TestTrue(TEXT("Queued unassigned reservation permits a connected edit"),F.Widen(F.Bridge,{5800,5000,20},Error));
  TestTrue(TEXT("Pending job remains queued without assigning or cancelling it"),F.Current()&&F.Current()->Phase==0&&!F.Current()->Driver);
  const FString Before=Snapshot(F.M);TestFalse(TEXT("Deleting required lane with queued job rejected"),F.M.EditPlanningItem(int(EFoundrylinePlannerItem::Lane),F.Bridge,{5800,5000,20},true,Error));TestEqual(TEXT("Queued reservation disconnection rejection is atomic"),Snapshot(F.M),Before);return true;

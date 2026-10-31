@@ -5,6 +5,7 @@
 #include "Production/FoundrylineWorkshopLayout.h"
 #include "Grid/FoundrylineFloorPlacement.h"
 #include "FoundrylineWeldingStationInternal.h"
+#include "Logistics/FoundrylineRackAccess.h"
 namespace {using Layout=FFoundrylineWeldingStationLayout;using Place=EFoundrylinePalletPlace;using Part=EFoundrylinePart;using Catalog=FFoundrylineFactoryCatalog;
 using FoundrylineWeldingStationInternal::Overlap;using FoundrylineWeldingStationInternal::Access;}
 bool FFoundrylineFactorySimulation::IsStationStock(const FFoundrylineFactoryPallet& P)const{
@@ -43,7 +44,7 @@ bool FFoundrylineFactorySimulation::OutPalletReady(const FFoundrylineWeldingStat
  // For an order, wait until this pallet (with what is stored) covers everything it still needs, so one trip carries it.
  for(const auto& O:State.Commerce.Orders)if(O.Status==EFoundrylineOrderState::Accepted&&O.Part==uint8(A.Part)){
   int Need=O.Quantity-O.Delivered;for(const auto& B:State.Commerce.Bookings)if(!B.Inbound&&B.OrderId==O.Id&&B.Status!=EFoundrylineBookingState::Delivered)for(const auto& I:B.Manifest)Need-=I.Quantity;
-  for(const auto& P:State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==O.Id&&!P.BookingId)Need-=P.Quantity;for(const auto& J:State.Jobs)if(J.DestinationPlace==Place::Pickup&&J.OrderId==O.Id)Need-=J.Quantity;
+  for(const auto& P:State.Pallets)if(FFoundrylineRackAccess::Ready(State,P)&&P.OrderId==O.Id&&!P.BookingId)Need-=P.Quantity;for(const auto& J:State.Jobs)if(J.DestinationPlace==Place::Rack&&J.OrderId==O.Id)Need-=J.Quantity;
   if(Need>Stored&&A.Quantity+Stored>=Need)return true;}
  return false;
 }
@@ -52,6 +53,7 @@ bool FFoundrylineFactorySimulation::OutCollected(const FFoundrylineWeldingStatio
 // Where a finished product on OUT goes when no accepted order is collecting it: a finished-goods rack slot already holding
 // that product with room, else an empty slot that is not a machine's supply rack.
 int32 FFoundrylineFactorySimulation::FinishedGoodsSlot(Part P,int32 Count)const{
+ if(State.StorageRacks.ContainsByPredicate([](const auto& R){return R.FinishedGoods;}))return FinishedGoodsSlotForOrder(P,Count,0);
  // A stack of finished racks needs the headroom up to the next shelf in the same rack bay (a 130 cm shelf pitch takes 4 racks,
  // the top level any number); racks only, other products have no stack height here.
  auto Headroom=[&](const FFoundrylineFactorySlot& S){double Room=TNumericLimits<double>::Max();for(const auto& O:State.Slots)if(O.Id!=S.Id&&FVector::Dist2D(O.Position,S.Position)<60&&O.Position.Z>S.Position.Z+1)Room=FMath::Min(Room,O.Position.Z-S.Position.Z-10);return Room;};

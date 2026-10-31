@@ -1,4 +1,5 @@
 #include "Construction/FoundrylineBuildSite.h"
+#include "Management/FoundrylineOfficeAssignments.h"
 #include "Buildings/FoundrylineOfficeStairLayout.h"
 #include "UI/FoundrylineOperationsTerminal.h"
 #include "Production/FoundrylineFactoryPlant.h"
@@ -12,7 +13,9 @@ bool AFoundrylineBuildSite::OfficeStoreyRequestsClear(const TArray<FFoundrylineP
   if(R.Action==EFoundrylinePlacementAction::ReplaceObject){if(!OfficeStoreyWorldClear(R.Replacement,Error))return false;continue;}
   if(R.Action!=EFoundrylinePlacementAction::Remove&&R.Action!=EFoundrylinePlacementAction::Move&&R.Action!=EFoundrylinePlacementAction::Rotate)continue;
   const auto* Old=Placement->GetObjects().FindByPredicate([&](const auto& O){return O.ObjectId==R.ObjectId;});
-  if(!Old||!Old->bOfficeSecondFloor)continue;
+  if(!Old)continue;
+  auto OfficeCheck=*Old;if(R.Action==EFoundrylinePlacementAction::Remove)OfficeCheck.DefinitionId=NAME_None;else if(R.Action==EFoundrylinePlacementAction::Move)OfficeCheck.Anchor=R.Anchor;else OfficeCheck.QuarterTurns=R.QuarterTurns;if(!FFoundrylineOffices::ProtectConstruction(GetWorld(),OfficeCheck,Error))return false;
+  if(!Old->bOfficeSecondFloor)continue;
   auto Candidate=*Old;
   if(R.Action==EFoundrylinePlacementAction::Remove)Candidate.bOfficeSecondFloor=false;
   else if(R.Action==EFoundrylinePlacementAction::Move)Candidate.Anchor=R.Anchor;
@@ -23,6 +26,7 @@ bool AFoundrylineBuildSite::OfficeStoreyRequestsClear(const TArray<FFoundrylineP
 }
 
 bool AFoundrylineBuildSite::OfficeStoreyWorldClear(const FFoundrylinePlacedObject& O,FString& Error)const{
+ if(!FFoundrylineOffices::ProtectConstruction(GetWorld(),O,Error))return false;
  if(!O.bOfficeAnnex)return true;
  const auto* Old=Placement->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==O.ObjectId;});
  if(Old&&Old->bOfficeSecondFloor&&(Old->Anchor!=O.Anchor||Old->QuarterTurns!=O.QuarterTurns||Old->DefinitionId!=O.DefinitionId)){auto Before=*Old;Before.bOfficeSecondFloor=false;if(!OfficeStoreyWorldClear(Before,Error))return false;}

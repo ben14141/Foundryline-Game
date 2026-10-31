@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Logistics/FoundrylineRackAccess.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Economy/FoundrylineEconomyTuning.h"
 #include "Inventory/FoundrylineSheetStock.h"
@@ -31,8 +32,8 @@ struct Runner {
   // Stage actual available stock; a partial final pallet remains valid.
   TArray<int> Pallets;for(const auto& A:M.State.Pallets)if(A.Part==P&&!A.Reserved&&!A.BookingId&&A.Place==Place::Rack)Pallets.Add(A.Id);
   int ToStage=Quantity;for(int Pallet:Pallets){if(ToStage<=0)break;const auto* Stock=M.State.Pallets.FindByPredicate([&](const auto& A){return A.Id==Pallet;});if(!Stock)continue;const int Take=FMath::Min(ToStage,Stock->Quantity);FFoundrylineCommerceCommand C;C.Action=Act::StagePallet;C.Id=Id;C.Pallets={Pallet};if(!Command(C))return false;ToStage-=Take;}
-  if(!TickUntil([&](){int N=0;for(const auto& A:M.State.Pallets)if(A.Place==Place::Pickup&&A.OrderId==Id)N+=A.Quantity;return N==Quantity;},TEXT("Forklift physically stages order")))return false;
-  FFoundrylineCommerceCommand C;C.Action=Act::BookPickup;int Spaces=0;double Weight=0;for(const auto& A:M.State.Pallets)if(A.Place==Place::Pickup&&A.OrderId==Id){C.Pallets.Add(A.Id);C.Quantities.Add(A.Quantity);Spaces+=FFoundrylineCommerceCatalog::PalletSpaces(uint8(A.Part));Weight+=FFoundrylineCommerceCatalog::PalletWeight(uint8(A.Part),A.Quantity,A.UnitLb);}
+  if(!TickUntil([&](){int N=0;for(const auto& A:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,A)&&A.OrderId==Id)N+=A.Quantity;return N==Quantity;},TEXT("Forklift physically stages order")))return false;
+  FFoundrylineCommerceCommand C;C.Action=Act::BookPickup;int Spaces=0;double Weight=0;for(const auto& A:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,A)&&A.OrderId==Id){C.Pallets.Add(A.Id);C.Quantities.Add(A.Quantity);Spaces+=FFoundrylineCommerceCatalog::PalletSpaces(uint8(A.Part));Weight+=FFoundrylineCommerceCatalog::PalletWeight(uint8(A.Part),A.Quantity,A.UnitLb);}
   int Carrier=0;for(;Carrier<5;++Carrier){const auto S=FFoundrylineCommerceCatalog::Carrier(Carrier);if(S.Spaces>=Spaces&&S.PayloadLb>=Weight&&FFoundrylineCommerceCatalog::CarrierFits(Carrier,uint8(P)))break;}if(!Good(Carrier<5,TEXT("A real carrier fits")))return false;
   C.Choice=Carrier;C.Arrival=M.State.Commerce.Clock+FFoundrylineCommerceCatalog::Carrier(Carrier).LeadMinutes+10;if(!Command(C))return false;
   if(!TickUntil([&](){const auto* A=Order(Id);return A&&A->Status==EFoundrylineOrderState::Completed;},TEXT("Customer delivery/payment")))return false;
@@ -63,10 +64,10 @@ bool FEconomyProgressionBenchmark::RunTest(const FString&){
  Root->SetArrayField(TEXT("serial_jobs"),Jobs);Root->SetObjectField(TEXT("serial_eight_total"),Serial.Report(Start));Root->SetNumberField(TEXT("first_job_count_affording_brake_plus_1000_reserve"),FirstAffordable);
  TestTrue(TEXT("Real starter progression starts with default $4000"),Start.Cash==400000);
  // Assert the agreed tuning targets against real purchases, freight and payroll.
- if(Jobs.Num()>=3){const auto Three=Root->GetObjectField(TEXT("serial_first_three"));const double Average=Three->GetNumberField(TEXT("cash_gain_cents"))/3;Root->SetNumberField(TEXT("ordinary_first_three_average_net_cents"),Average);Root->SetBoolField(TEXT("target_200_to_300_average_met"),Average>=20000&&Average<=30000);TestTrue(TEXT("Ordinary first three jobs average $200-$300 net cash"),Average>=20000&&Average<=30000);}
- Root->SetBoolField(TEXT("target_brake_after_5_to_8_jobs_with_1000_reserve_met"),FirstAffordable>=5&&FirstAffordable<=8);
+ if(Jobs.Num()>=3){const auto Three=Root->GetObjectField(TEXT("serial_first_three"));const double Average=Three->GetNumberField(TEXT("cash_gain_cents"))/3;Root->SetNumberField(TEXT("ordinary_first_three_average_net_cents"),Average);Root->SetBoolField(TEXT("target_450_to_500_average_net_met"),Average>=45000&&Average<=50000);TestTrue(TEXT("Ordinary first three jobs average $450-$500 net cash"),Average>=45000&&Average<=50000);}
+ Root->SetBoolField(TEXT("target_brake_after_4_to_6_jobs_with_1000_reserve_met"),FirstAffordable>=4&&FirstAffordable<=6);
  TestTrue(TEXT("Eight genuine ordinary basic orders remain playable"),Jobs.Num()==8);
- TestTrue(TEXT("Brake becomes affordable after 5-8 jobs with $1000 reserve"),FirstAffordable>=5&&FirstAffordable<=8);
+ TestTrue(TEXT("Brake becomes affordable after 4-6 jobs with $1000 reserve"),FirstAffordable>=4&&FirstAffordable<=6);
  Runner Queued(*this);const Mark QStart=At(Queued.M);TArray<int> QIds;double TotalSteel=0;
  for(int I=0;I<3;++I){const int Id=Queued.Accept(I==0?Part::Bracket:Part::MountingPlate,I==0?40:60);if(!Id){Ok=false;break;}QIds.Add(Id);const auto* O=Queued.Order(Id);TotalSteel+=O->Quantity*(O->Part==uint8(Part::MountingPlate)?2:5);}
  if(QIds.Num()==3&&Queued.Steel(TotalSteel)){for(int Id:QIds)if(!Queued.Queue(Id))Ok=false;for(int Id:QIds)if(!Queued.Ship(Id)){Ok=false;break;}}else Ok=false;

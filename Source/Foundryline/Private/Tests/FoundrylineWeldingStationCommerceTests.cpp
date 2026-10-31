@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Logistics/FoundrylineRackAccess.h"
 #include "FoundrylineWeldingStationTestHelpers.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
@@ -48,10 +49,10 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  // Build exactly the order. Each finished rack is wanted by the order, so its OUT pallet goes whole to the pickup zone.
  TestTrue(TEXT("Batch for the order: ")+E,M.ConfigureWeldingStation(Id,1,Guide.PartsToMake,E));TopUpBins(M);Guide=FFoundrylineERPViewModel::Guide(M.State);
  TestTrue(TEXT("With the batch set, the Overview follows the welding: ")+Guide.Title,Guide.Step==WeldingGuideG::BookFreight&&Guide.PartsToMake==0&&Guide.PartsCutting==Quantity&&Guide.Title.Contains(TEXT("Welding racks")));
- bool SawOutReserved=false;auto Staged=[&](){for(const auto& P:M.State.Pallets)SawOutReserved|=P.Place==Place::StationOut&&P.Reserved>0;int N=0;for(const auto& P:M.State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==OrderId)N+=P.Quantity;return N==Quantity;};
- if(!TestTrue(TEXT("Racks are built and staged at the pickup zone"),Pump(M,Staged)))return false;
- TestTrue(TEXT("A forklift collected from OUT"),SawOutReserved);TestEqual(TEXT("OUT is clear"),Racks(M,Place::StationOut),0);TestEqual(TEXT("Nothing went to storage on the way"),Racks(M,Place::Rack),0);
- TestTrue(TEXT("Each staged pallet carries whole kits' mass"),!M.State.Pallets.ContainsByPredicate([&](const auto& P){return P.Place==Place::Pickup&&!FMath::IsNearlyEqual(P.UnitLb,KitLb,.01f);}));
+ bool SawOutReserved=false;auto Staged=[&](){for(const auto& P:M.State.Pallets)SawOutReserved|=P.Place==Place::StationOut&&P.Reserved>0;int N=0;for(const auto& P:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,P)&&P.OrderId==OrderId)N+=P.Quantity;return N==Quantity;};
+ if(!TestTrue(TEXT("Racks are built and prepared in finished-goods racking"),Pump(M,Staged)))return false;
+ TestTrue(TEXT("A forklift collected from OUT"),SawOutReserved);TestEqual(TEXT("OUT is clear"),Racks(M,Place::StationOut),0);TestEqual(TEXT("Finished products wait in actual rack slots"),Racks(M,Place::Rack),Quantity);
+ TestTrue(TEXT("Each staged pallet carries whole kits' mass"),!M.State.Pallets.ContainsByPredicate([&](const auto& P){return FFoundrylineRackAccess::Ready(M.State,P)&&!FMath::IsNearlyEqual(P.UnitLb,KitLb,.01f);}));
  TestTrue(TEXT("Status after collection: ")+M.WeldingStationStatus(M.State.WeldingStations[0]),M.WeldingStationStatus(M.State.WeldingStations[0]).Contains(TEXT("Choose a product")));
  TestTrue(TEXT("Staged racks validate: ")+E,M.Valid(E));
  Guide=FFoundrylineERPViewModel::Guide(M.State);TestTrue(TEXT("Overview says book a truck, and that a van won't do: ")+Guide.Detail,Guide.Title==TEXT("Book a pickup truck")&&Guide.Detail.Contains(TEXT("flatbed or larger")));
@@ -59,7 +60,7 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  TestEqual(TEXT("Racks are not counted as finished cut parts at the bay"),Guide.FinishedAtBay,0);
 
  // Carrier footprint and weight: a 6 ft 6 in rack does not fit a pallet van; a pallet of racks takes two deck spaces.
- A={};A.Action=Act::BookPickup;A.Arrival=M.State.Commerce.Clock+60;for(const auto& P:M.State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==OrderId){A.Pallets.Add(P.Id);A.Quantities.Add(P.Quantity);}
+ A={};A.Action=Act::BookPickup;A.Arrival=M.State.Commerce.Clock+60;for(const auto& P:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,P)&&P.OrderId==OrderId){A.Pallets.Add(P.Id);A.Quantities.Add(P.Quantity);}
  A.Choice=0;TestFalse(TEXT("The pallet van is refused"),M.CommerceCommand(A,E));TestTrue(TEXT("Refusal says it won't fit: ")+E,E.Contains(TEXT("won't fit")));
  A.Choice=1;A.Arrival=M.State.Commerce.Clock+60;TestEqual(TEXT("Each rack pallet needs two deck spaces"),FFoundrylineCommerceCatalog::PalletSpaces(uint8(Part::HeadacheRack)),2);
  if(A.Pallets.Num()>1)TestFalse(TEXT("Two rack pallets exceed the two-pallet flatbed"),M.CommerceCommand(A,E));

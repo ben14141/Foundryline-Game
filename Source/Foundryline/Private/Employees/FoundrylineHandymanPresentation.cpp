@@ -9,6 +9,10 @@
 #include "Components/PoseableMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Misc/Crc.h"
+#include "UObject/StrongObjectPtr.h"
+#include "Materials/MaterialInterface.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "GameFramework/Actor.h"
 bool UFoundrylineEmployeeVisualComponent::InitializeHandyman(){
  if(!Appearance||!Appearance->Mesh||!Appearance->Idle||!Appearance->Walk)return false;
@@ -31,6 +35,8 @@ void UFoundrylineEmployeeVisualComponent::HandymanPalm(int32 I,FVector Palm,bool
 }
 void UFoundrylineEmployeeVisualComponent::CommitHandymanPose(){
  if(!HandymanBody||HandymanPose.Num()!=HandymanParents.Num())return;HandymanBody->BoneSpaceTransforms.SetNum(HandymanPose.Num());for(int I=0;I<HandymanPose.Num();++I)HandymanBody->BoneSpaceTransforms[I]=HandymanParents[I]>=0?HandymanPose[I].GetRelativeTransform(HandymanPose[HandymanParents[I]]):HandymanPose[I];HandymanBody->MarkRefreshTransformDirty();HandymanBody->RefreshBoneTransforms();HandymanBody->UpdateBounds();
+ if(bOfficeWear){if(!OfficeTie){OfficeTie=NewObject<UStaticMeshComponent>(GetOwner());OfficeTie->SetupAttachment(HandymanBody);OfficeTie->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Foundryline/Employees/Office/SM_OfficeEngineerTie")));OfficeTie->SetCollisionEnabled(ECollisionEnabled::NoCollision);OfficeTie->SetCanEverAffectNavigation(false);OfficeTie->RegisterComponent();GetOwner()->AddInstanceComponent(OfficeTie);}const int Spine=HandymanBones.FindRef(TEXT("spine_03"));if(HandymanRest.IsValidIndex(Spine)&&HandymanPose.IsValidIndex(Spine))OfficeTie->SetRelativeTransform(HandymanRest[Spine].Inverse()*HandymanPose[Spine]);if(auto* M=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Employees/Office/M_OfficeEngineer")))OfficeTie->SetMaterial(0,M);}
+
 }
 void UFoundrylineEmployeeVisualComponent::PresentCollectorGrip(FVector Left,FVector Right){
  if(!HandymanBody||HandymanPose.IsEmpty())return;
@@ -47,12 +53,18 @@ void UFoundrylineEmployeeVisualComponent::PresentHandyman(const FFoundrylineEmpl
  const auto& Variants=Appearance->RuntimeVariants.IsEmpty()?Appearance->Variants:Appearance->RuntimeVariants;
  if(HandymanVariant<0)HandymanVariant=Variants.IsEmpty()?0:int(FCrc::StrCrc32(*R.Key)%Variants.Num());
  USkeletalMesh* DesiredMesh=Variants.IsValidIndex(HandymanVariant)?Variants[HandymanVariant].Get():Appearance->Mesh.Get();
+ if(bOfficeWear){
+  static TArray<TStrongObjectPtr<USkeletalMesh>> OfficeMeshes;if(OfficeMeshes.Num()!=3)OfficeMeshes.SetNum(3);const int Variant=HandymanVariant%3;auto& OfficeMesh=OfficeMeshes[Variant];
+  if(!OfficeMesh.IsValid()){TArray<USkeletalMesh*> Parts;for(const FString Name:TArray<FString>{TEXT("SK_Torso_2_SE"),TEXT("SK_Legs_2_SE"),FString::Printf(TEXT("SK_Head_%d_SE"),Variant+1),TEXT("SK_Hair_1_SE"),TEXT("SK_Boots_1_SE")})if(auto* M=LoadObject<USkeletalMesh>(nullptr,*(TEXT("/Game/Handyman/Mesh/Handyman_SE/Parts/")+Name)))Parts.Add(M);OfficeMesh.Reset(UFoundrylineHandymanAssetTools::BuildRuntimeVariant(9000+Variant,Parts));}
+  if(OfficeMesh.IsValid())DesiredMesh=OfficeMesh.Get();
+ }
  bWeldingHoodBody=false;
  if(UFoundrylineWeldingHoodComponent::WantsHood(R)&&GetOwner()->GetNetMode()!=NM_DedicatedServer){
   if(!WeldingHood){WeldingHood=NewObject<UFoundrylineWeldingHoodComponent>(GetOwner());WeldingHood->SetupAttachment(this);WeldingHood->RegisterComponent();GetOwner()->AddInstanceComponent(WeldingHood);}
   if(WeldingHood->HasModelAssets())if(auto* NoHat=UFoundrylineWeldingHoodComponent::NoHatOutfit(Appearance,HandymanVariant)){DesiredMesh=NoHat;bWeldingHoodBody=true;}
  }
  if(HandymanBody->GetSkinnedAsset()!=DesiredMesh){auto* Mesh=DesiredMesh;HandymanBody->SetSkinnedAssetAndUpdate(Mesh);HandymanRest.Reset();HandymanParents.Reset();HandymanBones.Reset();HandymanSamplerBones.Reset();const auto& Ref=Mesh->GetRefSkeleton();for(int I=0;I<Ref.GetNum();++I){const int P=Ref.GetParentIndex(I);FTransform T=Ref.GetRefBonePose()[I];if(P>=0)T*=HandymanRest[P];HandymanRest.Add(T);HandymanParents.Add(P);HandymanBones.Add(Ref.GetBoneName(I),I);HandymanSamplerBones.Add(SkeletalBody->GetBoneIndex(Ref.GetBoneName(I)));}for(int I=0;I<2;++I){const int H=HandymanBones.FindRef(I?TEXT("hand_r"):TEXT("hand_l")),M=HandymanBones.FindRef(I?TEXT("middle_01_r"):TEXT("middle_01_l"));HandymanPalmOffsets[I]=HandymanRest[H].InverseTransformPosition(FMath::Lerp(HandymanRest[H].GetLocation(),HandymanRest[M].GetLocation(),.55));}}
+ if(bOfficeWear)if(auto* M=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Employees/Office/M_OfficeEngineer")))for(int I=0;I<HandymanBody->GetNumMaterials();++I)HandymanBody->SetMaterial(I,M);
  if(R.Activity!=EFoundrylineEmployeeActivity::Paused)HandymanClock+=FMath::Min(Dt,.1f);auto* Clip=R.bMoving&&!R.bSeated?Appearance->Walk.Get():Appearance->Idle.Get();HandymanAnimation=Clip->GetPathName();if(!SkeletalBody->GetSingleNodeInstance()||SkeletalBody->GetSingleNodeInstance()->GetCurrentAsset()!=Clip)SkeletalBody->SetAnimation(Clip);SkeletalBody->SetPlayRate(0);const float Time=R.bMoving&&!R.bSeated?Phase*Clip->GetPlayLength():FMath::Fmod(HandymanClock,Clip->GetPlayLength());SkeletalBody->SetPosition(Time,false);SkeletalBody->TickAnimation(0,false);SkeletalBody->RefreshBoneTransforms();const auto& Evaluated=SkeletalBody->GetComponentSpaceTransforms();HandymanPose.SetNum(HandymanParents.Num());for(int I=0;I<HandymanPose.Num();++I){const int Source=HandymanSamplerBones.IsValidIndex(I)?HandymanSamplerBones[I]:INDEX_NONE;HandymanPose[I]=Evaluated.IsValidIndex(Source)?Evaluated[Source]:HandymanRest[I];}
  const FTransform T=HandymanBody->GetRelativeTransform();
  if(bSeated||R.bMoving){const int Pel=HandymanBones.FindRef(TEXT("pelvis"));const FVector Shift=T.InverseTransformVectorNoScale(FVector(0,0,bSeated?147:86))-HandymanPose[Pel].GetLocation();for(int I=Pel;I<HandymanPose.Num();++I){int P=I;while(P>Pel)P=HandymanParents[P];if(P==Pel)HandymanPose[I].AddToTranslation(Shift);}if(bSeated){const int Spine=HandymanBones.FindRef(TEXT("spine_02"));HandymanRotate(Spine,FQuat(T.InverseTransformVectorNoScale(FVector::RightVector),FMath::DegreesToRadians(9.f)));}}
