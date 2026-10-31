@@ -1,3 +1,4 @@
+#include "Logistics/FoundrylineRackAccess.h"
 #include "FoundrylineOperationFeedback.h"
 #include "FoundrylineUISurface.h"
 #include "UI/FoundrylineBuildHUD.h"
@@ -17,8 +18,11 @@ struct FLocalFeedback {FString Message,SeenError,SeenConfirm;double At=-100,Seen
 TMap<TWeakObjectPtr<AFoundrylinePlayerController>,FLocalFeedback> LocalFeedback;
 const TCHAR* Equipment(int Kind){return Kind==1?TEXT("plasma cutter"):Kind==2?TEXT("press brake"):Kind==3?TEXT("sheet roller"):TEXT("forklift");}
 }
-bool FactoryHasReceipt(const FFoundrylineFactoryCommand& C){return C.Action==FactoryAction::BuyStoredMachine||C.Action==FactoryAction::BuyPlanningEquipment||C.Action==FactoryAction::AddWeldingStation||C.Action==FactoryAction::EditPlanningItem||C.Action==FactoryAction::HireEmployee||C.Action==FactoryAction::AssignEmployee;}
+bool FactoryHasReceipt(const FFoundrylineFactoryCommand& C){return C.Action==FactoryAction::AssignOffice||C.Action==FactoryAction::ReleaseOffice||C.Action==FactoryAction::BuyStoredMachine||C.Action==FactoryAction::BuyPlanningEquipment||C.Action==FactoryAction::AddWeldingStation||C.Action==FactoryAction::EditPlanningItem||C.Action==FactoryAction::HireEmployee||C.Action==FactoryAction::AssignEmployee;}
 FString FactoryReceipt(const FFoundrylineFactoryCommand& C,const FFoundrylineFactoryState& S){
+ if(C.Action==FactoryAction::AssignOffice)return TEXT("Office assigned. Computer, chair and role decorations are ready / free while testing.");
+ if(C.Action==FactoryAction::ReleaseOffice)return TEXT("Office released. Role decorations removed; the computer remains available.");
+ if(C.Action==FactoryAction::HireEmployee&&C.Count==5)return TEXT("Engineer hired. Assign an office in Team > Offices. Engineering duties will be added later.");
  if(C.Action==FactoryAction::BuyStoredMachine){const int Kind=C.Id;const int Stored=Kind==4?S.UnplacedForklifts:S.Machines.FilterByPredicate([&](const auto& M){return M.Kind()==Kind&&M.bStored;}).Num();return FString::Printf(TEXT("Purchased %s for %s. %d owned and waiting to be placed. Open Planning and choose it from the catalogue."),Equipment(Kind),*FFoundrylineCommerceCatalog::Money(FFoundrylinePlanningEquipment::Price(Kind==4?3:Kind+3,1)),Stored);}
  if(C.Action==FactoryAction::HireEmployee){const FString Name=S.UnassignedEmployees.IsEmpty()?FString(TEXT("New team member")):S.UnassignedEmployees.Last().DisplayName;return Name+TEXT(" hired. Open Team / People & jobs to assign a machine or forklift.");}
  if(C.Action==FactoryAction::AssignEmployee){const auto People=FFoundrylineEmployeeRoster::Build(S);const auto* E=People.FindByPredicate([&](const auto& V){return V.Id==C.Id;});return E?E->Assignment?FString::Printf(TEXT("%s assigned: %s."),*E->Label,*E->CurrentJob):E->Label+TEXT(" is now unassigned and available for another job."):FString(TEXT("Employee assignment updated."));}
@@ -33,8 +37,8 @@ FString CommerceReceipt(const FFoundrylineCommerceCommand& C,const FFoundrylineF
  if(C.Action==CommerceAction::BookPickup&&Booking)return FString::Printf(TEXT("Pickup booked with %s: %d pallet%s, fee %s. Arrival: %s. View the booking in Trucks."),FFoundrylineCommerceCatalog::Carrier(Booking->Carrier).Name,Booking->Manifest.Num(),Booking->Manifest.Num()==1?TEXT(""):TEXT("s"),*FFoundrylineCommerceCatalog::Money(Booking->OriginalFeeCents),*FFoundrylineCommerceCatalog::Date(Booking->ArrivalAt));
  if(C.Action==CommerceAction::Reschedule){const auto* B=Finance.Bookings.FindByPredicate([&](const auto& V){return V.Id==C.Id;});if(B)return FString::Printf(TEXT("Truck rescheduled to %s. Rebooking fee: %s. Check the calendar in Trucks."),*FFoundrylineCommerceCatalog::Date(B->ArrivalAt),*FFoundrylineCommerceCatalog::Money(B->OriginalFeeCents/2));}
  if(C.Action==CommerceAction::AcceptOrder&&Order)return FString::Printf(TEXT("Contract %s accepted: %d x %s. %s"),*Order->Reference,Order->Quantity,FFoundrylineFactoryCatalog::Part(EFoundrylinePart(Order->Part)).Name,*(Order->Deadline>0?TEXT("Due ")+FFoundrylineCommerceCatalog::Date(Order->Deadline):FString(TEXT("No delivery deadline."))));
- if(C.Action==CommerceAction::StagePallet){const auto* J=S.Jobs.FindByPredicate([&](const auto& V){return V.OrderId==C.Id&&V.DestinationPlace==EFoundrylinePalletPlace::Pickup&&C.Pallets.Contains(V.SourcePallet);});return J?FString::Printf(TEXT("Forklift requested: %d matching parts to the loading bay for %s. Book the carrier once staged."),J->Quantity,Order?*Order->Reference:TEXT("this contract")):FString(TEXT("Pallet movement requested for the selected contract."));}
- if(C.Action==CommerceAction::AssignPickup)return TEXT("Contract assigned to this loading bay. This assignment does not create parts or book a truck.");
+ if(C.Action==CommerceAction::StagePallet){const auto* J=S.Jobs.FindByPredicate([&](const auto& V){return V.OrderId==C.Id&&V.DestinationPlace==EFoundrylinePalletPlace::Rack&&FFoundrylineRackAccess::FinishedSlot(S,V.Destination)&&C.Pallets.Contains(V.SourcePallet);});return J?FString::Printf(TEXT("Forklift requested: %d matching parts to the finished-goods rack for %s. Book the carrier once stored."),J->Quantity,Order?*Order->Reference:TEXT("this contract")):FString(TEXT("Pallet assigned to this contract in finished-goods racking."));}
+ if(C.Action==CommerceAction::AssignPickup)return TEXT("Contract selected for shipping. Prepare actual stock in finished-goods racking, then book a truck.");
  if(C.Action==CommerceAction::BuyParts&&Booking)return FString::Printf(TEXT("Ordered %s. Arrival: %s. Track the delivery in Trucks."),*FFoundrylineCommerceCatalog::InboundLabel(*Booking),*FFoundrylineCommerceCatalog::Date(Booking->ArrivalAt));
  if(C.Action==CommerceAction::DriverPriority)return TEXT("Forklift task preferences saved. They apply after the current trip.");
  return TEXT("Business request confirmed.");
@@ -49,7 +53,13 @@ void Draw(AFoundrylineBuildHUD* HUD,AFoundrylinePlayerController* P,UCanvas* Can
  if(P->OperationsWatch&&Now-P->OperationsWatchAt>10)P->OperationsWatch=0;
  if(!P->OperationsConfirm.IsEmpty()&&(P->OperationsConfirmAt!=F.SeenConfirmAt||P->OperationsConfirm!=F.SeenConfirm)){F.SeenConfirm=P->OperationsConfirm;F.SeenConfirmAt=P->OperationsConfirmAt;F.Message=P->OperationsConfirm;F.At=Now;F.Failed=false;F.Pending=false;}
  if(!P->OperationsStatus.IsEmpty()&&(P->OperationsStatus!=F.SeenError||P->OperationsStatusAt>F.SeenErrorAt)){F.SeenError=P->OperationsStatus;F.SeenErrorAt=P->OperationsStatusAt;F.Message=P->OperationsStatus;F.At=Now;F.Failed=true;F.Pending=false;}else if(P->OperationsStatus.IsEmpty())F.SeenError.Reset();
- const bool Pending=(F.Pending&&Now-F.PendingAt<12)||P->bOperationsPending;const double Age=Now-F.At;if(!Pending&&(F.Message.IsEmpty()||Age>12))return;
+ const bool Pending=(F.Pending&&Now-F.PendingAt<12)||P->bOperationsPending;const double Age=Now-F.At;
+ // Successful operations already update the computer/tablet footer and their
+ // actual rows. Keep receipts there instead of covering the player's controls.
+ // Allow a short network round trip before showing any waiting indicator.
+ if(!F.Failed&&!Pending)return;
+ if(Pending&&Now-F.PendingAt<1)return;
+ if(!Pending&&(F.Message.IsEmpty()||Age>8))return;
  const float Scale=FMath::Clamp(FMath::Min(Canvas->ClipX/1920.f,Canvas->ClipY/1080.f),.75f,1.25f),W=FMath::Min(610.f*Scale,Canvas->ClipX-32*Scale),High=126*Scale,X=Canvas->ClipX-W-24*Scale,Y=Canvas->ClipY-High-22*Scale,Fade=Pending?1.f:FMath::Clamp(float(12-Age)/2,0.f,1.f);
  auto Color=[&](const TCHAR* Hex){auto C=FLinearColor(FColor::FromHex(Hex));C.A*=Fade;return C;};const auto Ink=Color(TEXT("1F2327")),Paper=Color(TEXT("F7F5F1")),Accent=Color(F.Failed&&!Pending?TEXT("B23B36"):TEXT("F07A2F"));
  FoundrylineUISurface::Panel(Canvas,X,Y,W,High,Scale,F.Failed&&!Pending?Paper:Ink,F.Failed&&!Pending?Paper:Color(TEXT("2D3237")),Accent,3,9);Draw->DrawRect(Accent,X+1*Scale,Y+13*Scale,3*Scale,High-26*Scale);

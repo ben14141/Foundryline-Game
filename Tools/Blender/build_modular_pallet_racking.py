@@ -98,23 +98,21 @@ for levels in [1,2,3]:
  for level in range(1,levels):
   c=shared.copy();c.data=shared.data.copy();scene.collection.objects.link(c);c.hide_render=False;c.hide_set(False);c.location.z=1.524*level;apply(c);parts.append(c)
  pieces=[]
- rod('Rear top crossrail',(-1.41,.66,h-.06),(1.41,.66,h-.06),.025,graphite)
- for z in [i*1.524 for i in range(levels)]:
-  rod('Rear diagonal',(-1.41,.69,z+.1),(1.41,.69,z+1.42),.012,graphite)
-  rod('Rear diagonal',(1.41,.69,z+.1),(-1.41,.69,z+1.42),.012,graphite)
+ # Both long faces are open; bracing remains in the two upright end frames.
  box('Level identification plate',(-1.45,-.731,.75),(.12,.014,.19),orange)
  text('Level count',str(levels),(-1.495,-.74,.70),.095)
  parts+=pieces
+ both_faces_open=not any('Rear diagonal' in o.name or 'Rear top crossrail' in o.name for o in parts)
  name='PalletRack_'+('1Level' if levels==1 else str(levels)+'Levels');rack=combine(name,parts);export(rack,name);racks.append(rack)
  bpy.context.view_layer.update();dims=[round(v*100,4) for v in rack.dimensions];qa['dimensions_cm'][name]=dims
  heights=[round(i*152.4,3) for i in range(levels)];slots=[{'id':i*2+j+1,'position_cm':[x,0,z]} for i,z in enumerate(heights) for j,x in enumerate([-70,70])]
- manifest['variants'].append({'name':name,'levels':levels,'usable_pallet_slots':2*levels,'dimensions_cm':dims,'shelf_top_cm':heights,'slot_bottoms':slots,'minimum_clear_ceiling_cm':round(h*100+30,3),'maximum_pallet_payload_height_cm':100,'fork_access':'Open front; floor is level1; no front floor crossbeam','floor_level_included':True})
+ manifest['variants'].append({'name':name,'levels':levels,'usable_pallet_slots':2*levels,'dimensions_cm':dims,'shelf_top_cm':heights,'slot_bottoms':slots,'minimum_clear_ceiling_cm':round(h*100+30,3),'maximum_pallet_payload_height_cm':100,'fork_access':'Open front and rear; floor is level1; end-frame bracing only','floor_level_included':True})
  manifest['assets'].append({'name':name,'file':name+'.fbx','destination':'/Game/Foundryline/Inventory/Storage/ModularPalletRacking/SM_'+name})
  qa['checks'][name+'_expected_height']=abs(dims[2]-h*100)<.2
  qa['checks'][name+'_two_positions_per_level']=len(slots)==2*levels
  qa['checks'][name+'_pallets_clear_uprights']=70+117.974/2<141
  qa['checks'][name+'_pallets_do_not_overlap']=140-117.974>0
- qa['checks'][name+'_rear_brace_clear']=115.706/2<66-2.5
+ qa['checks'][name+'_both_faces_open']=both_faces_open
  qa['checks'][name+'_fork_envelope_clear']=101.702+11.677<140
  qa['checks'][name+'_fork_top_deck_accessible']=heights[-1]+8<=330
  qa['checks'][name+'_loaded_pallet_has_lift_clearance']=152.4-12-(17.557+100+8)>0

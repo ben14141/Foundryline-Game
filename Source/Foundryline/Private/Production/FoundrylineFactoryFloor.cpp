@@ -96,7 +96,6 @@ void AFoundrylineFactoryPlant::RebuildFloor(){
 
   const FBox2D Receiving({1050,1480},{1350,1900}),Shipping({-1100,1850},{-600,2170});
   if(!PresetLoading){Outline(3,Receiving.Min,Receiving.Max,6);Text(TEXT("RAW STEEL ARRIVAL"),FVector(Receiving.Min+FVector2D(-30,-35),23),18);}
-  if(!PresetLoading){Outline(3,Shipping.Min,Shipping.Max,6);Hatch(3,Shipping.Min,Shipping.Max,90,3);Text(TEXT("OUTBOUND / CUT-PART PALLETS"),FVector(Shipping.Min+FVector2D(20,30),23),22);}
   for(int I=0;I<Snapshot.Drivers.Num();++I){const auto& D=Snapshot.Drivers[I];const auto Bay=FFoundrylinePlanningEquipment::Bounds(D.Parking+FRotator(0,D.ParkingYaw,0).RotateVector({-95,0,0}),FMath::RoundToInt(D.ParkingYaw/90),{350,180,0});Outline(2,Bay.Min,Bay.Max,4);Text(FString::Printf(TEXT("FORK %02d"),I+1),FVector(Bay.Min+FVector2D(10,20),23),18);}
 
   if(!PresetLoading){const FBox2D Apron({500,1250},{2700,2050});Outline(3,Apron.Min,Apron.Max,6);Text(TEXT("BOX TRAILER / PALLET LOADING"),FVector(600,1300,23),28);}

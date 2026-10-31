@@ -6,7 +6,7 @@
 #include "FoundrylinePlacementTypes.generated.h"
 
 UENUM()
-enum class EFoundrylineOpeningKind : uint8 { Personnel, Garage, ShopWindow, TruckGarage, OfficeDoor, LoadingDock, OfficeGlassWall };
+enum class EFoundrylineOpeningKind : uint8 { Personnel, Garage, ShopWindow, TruckGarage, OfficeDoor, LoadingDock, OfficeGlassWall, OfficeInteriorGlass };
 
 USTRUCT()
 struct FOUNDRYLINE_API FFoundrylineOpening
@@ -24,9 +24,9 @@ struct FOUNDRYLINE_API FFoundrylineOpening
 	// Height above the finished floor; older records keep the Tier 1 default.
 	UPROPERTY(SaveGame) int32 WindowSillCm = 100;
 	UPROPERTY(SaveGame) int32 PanelWidthCm = 200;
-	bool IsGlazing() const { return Kind==EFoundrylineOpeningKind::ShopWindow || Kind==EFoundrylineOpeningKind::OfficeGlassWall; }
-	int32 WidthCm() const { return Kind==EFoundrylineOpeningKind::OfficeGlassWall ? PanelWidthCm : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?400:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 400 : Kind == EFoundrylineOpeningKind::ShopWindow ? 200 : Kind == EFoundrylineOpeningKind::Personnel ? 100 : 100; }
-	int32 HeightCm() const { return Kind==EFoundrylineOpeningKind::OfficeGlassWall ? 270 : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?420:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 420 : Kind == EFoundrylineOpeningKind::ShopWindow ? 180 : 220; }
+	bool IsGlazing() const { return Kind==EFoundrylineOpeningKind::ShopWindow || Kind==EFoundrylineOpeningKind::OfficeGlassWall || Kind==EFoundrylineOpeningKind::OfficeInteriorGlass; }
+	int32 WidthCm() const { return (Kind==EFoundrylineOpeningKind::OfficeGlassWall || Kind==EFoundrylineOpeningKind::OfficeInteriorGlass) ? PanelWidthCm : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?400:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 400 : Kind == EFoundrylineOpeningKind::ShopWindow ? 200 : Kind == EFoundrylineOpeningKind::Personnel ? 100 : 100; }
+	int32 HeightCm() const { return Kind==EFoundrylineOpeningKind::OfficeInteriorGlass ? 300 : Kind==EFoundrylineOpeningKind::OfficeGlassWall ? 270 : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?420:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 420 : Kind == EFoundrylineOpeningKind::ShopWindow ? 180 : 220; }
 	int32 BottomCm() const { return Kind == EFoundrylineOpeningKind::ShopWindow ? WindowSillCm : 0; }
 };
 

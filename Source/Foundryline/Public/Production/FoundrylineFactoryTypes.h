@@ -4,6 +4,7 @@
 #include "Employees/FoundrylineEmployeeTypes.h"
 #include "Inventory/FoundrylineAssemblySupply.h"
 #include "Construction/FoundrylinePlanningEquipment.h"
+#include "Management/FoundrylineOfficeTypes.h"
 #include "FoundrylineFactoryTypes.generated.h"
 
 UENUM(BlueprintType)
@@ -269,6 +270,8 @@ struct FFoundrylineFactoryState {
  UPROPERTY(SaveGame) TArray<FFoundrylinePartsCollector> Collectors;
  UPROPERTY(SaveGame) TArray<FFoundrylinePlacedStorageRack> StorageRacks;
  UPROPERTY(SaveGame) TArray<FFoundrylinePlacedOfficeDesk> OfficeDesks;
+ UPROPERTY(SaveGame) TArray<FFoundrylineOfficeEmployee> OfficeEmployees;
+ UPROPERTY(SaveGame) TArray<FFoundrylineOfficeAssignment> OfficeAssignments;
  UPROPERTY(SaveGame) FString Status;
 };
 

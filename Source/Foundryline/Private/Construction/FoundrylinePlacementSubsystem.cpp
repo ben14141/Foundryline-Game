@@ -145,10 +145,11 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 			for(int32 J=0;J<A.Openings.Num();++J)
 			{
 				const auto& V=A.Openings[J];const int32 Length=V.Edge%2==0?A.Max.X-A.Min.X:A.Max.Y-A.Min.Y;
-				if(V.OfficeLevel!=A.OfficeLevel||!V.OpeningId.IsValid() || Ids.Contains(V.OpeningId) || V.Edge>3 || (V.Kind!=EFoundrylineOpeningKind::OfficeDoor && V.Kind!=EFoundrylineOpeningKind::ShopWindow)
-					|| V.OffsetCm%(V.Kind==EFoundrylineOpeningKind::OfficeDoor?25:100) || V.OffsetCm<100 || V.OffsetCm>Length-100 || V.OffsetCm+V.WidthCm()>Length-100 || V.BottomCm()<0 || V.BottomCm()+V.HeightCm()>280) return EFoundrylinePlacementError::InvalidTransform;
+				if(V.OfficeLevel!=A.OfficeLevel||!V.OpeningId.IsValid() || Ids.Contains(V.OpeningId) || V.Edge>3 || (V.Kind!=EFoundrylineOpeningKind::OfficeDoor && V.Kind!=EFoundrylineOpeningKind::ShopWindow && V.Kind!=EFoundrylineOpeningKind::OfficeInteriorGlass)
+					|| V.OffsetCm%(V.Kind==EFoundrylineOpeningKind::OfficeDoor?25:100) || V.OffsetCm<(V.Kind==EFoundrylineOpeningKind::OfficeInteriorGlass?0:100) || V.OffsetCm+V.WidthCm()>Length-(V.Kind==EFoundrylineOpeningKind::OfficeInteriorGlass?0:100) || V.BottomCm()<0 || V.BottomCm()+V.HeightCm()>(V.Kind==EFoundrylineOpeningKind::OfficeInteriorGlass?300:280) || (V.Kind==EFoundrylineOpeningKind::OfficeInteriorGlass&&(V.PanelWidthCm<100||V.PanelWidthCm>400||V.PanelWidthCm%100))) return EFoundrylinePlacementError::InvalidTransform;
+				if(V.Kind==EFoundrylineOpeningKind::OfficeInteriorGlass&&(V.Edge==0?A.Min.Y==0:V.Edge==1?A.Max.X==Def.Footprint.Max.X:V.Edge==2?A.Max.Y==Def.Footprint.Max.Y:A.Min.X==0))return EFoundrylinePlacementError::InvalidTransform;
 				Ids.Add(V.OpeningId);
-				for(int32 K=0;K<J;++K) if(A.Openings[K].Edge==V.Edge && V.OffsetCm<A.Openings[K].OffsetCm+A.Openings[K].WidthCm()+30 && V.OffsetCm+V.WidthCm()+30>A.Openings[K].OffsetCm) return EFoundrylinePlacementError::Occupied;
+				for(int32 K=0;K<J;++K) {const auto& Other=A.Openings[K];const int Gap=V.Kind==EFoundrylineOpeningKind::OfficeInteriorGlass||Other.Kind==EFoundrylineOpeningKind::OfficeInteriorGlass?0:30;if(Other.Edge==V.Edge && V.OffsetCm<Other.OffsetCm+Other.WidthCm()+Gap && V.OffsetCm+V.WidthCm()+Gap>Other.OffsetCm) return EFoundrylinePlacementError::Occupied;}
 			}
 		}
 	}

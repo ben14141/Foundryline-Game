@@ -6,7 +6,7 @@
 #include "FoundrylineFactoryPlant.generated.h"
 
 UENUM()
-enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,ConfigureSupplyBin,BuyPlanningEquipment,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation,EditPlanningItem,QueueMachineJob,CancelMachineBatch,UndoPlanner,RedoPlanner,BuyStoredMachine};
+enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,ConfigureSupplyBin,BuyPlanningEquipment,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation,EditPlanningItem,QueueMachineJob,CancelMachineBatch,UndoPlanner,RedoPlanner,BuyStoredMachine,AssignOffice,ReleaseOffice};
 
 USTRUCT()
 struct FFoundrylineFactoryCommand {
@@ -14,6 +14,8 @@ struct FFoundrylineFactoryCommand {
  UPROPERTY() EFoundrylineFactoryAction Action=EFoundrylineFactoryAction::Run;
  UPROPERTY() FGuid TargetPlantId;
  UPROPERTY() FGuid RequestId;
+ UPROPERTY() FGuid OfficeBuilding;
+ UPROPERTY() FGuid OfficeRoom;
  UPROPERTY() int32 Id=0;
  UPROPERTY() int32 Other=0;
  UPROPERTY() int32 Count=1;
@@ -39,6 +41,13 @@ public:
  virtual void EndPlay(const EEndPlayReason::Type Reason)override;
  UPROPERTY() TMap<int32,TObjectPtr<class AFoundrylineOperationsTerminal>> OfficeDeskActors;
  void EnsureMachineActors();
+ void UpdateOfficeDecorations();
+ void UpdateOfficeDoors();
+ int64 OfficeDoorPropertyRevision=-1;
+ int64 OfficeDecorPropertyRevision=-1;
+ FString OfficeDoorSignature;
+ void SetOfficeDecorationFloor(int32 Floor,bool Walking);
+ UPROPERTY() TMap<int32,TObjectPtr<class UFoundrylineOfficeDecorationComponent>> OfficeDecorationVisuals;
  TArray<FFoundrylineFactoryState> PlannerUndoStates,PlannerRedoStates;
  int32 PlannerHistoryRevision=-1,PlannerHistoryPlayer=INDEX_NONE;
  UPROPERTY() TMap<int32,TObjectPtr<AActor>> MachineActors;

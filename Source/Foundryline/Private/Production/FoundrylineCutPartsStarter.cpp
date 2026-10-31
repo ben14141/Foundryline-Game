@@ -16,7 +16,13 @@ void FFoundrylineFactorySimulation::SeedCutPartsShop(bool Commerce){
  // The west-side input rack needs a legal connected area, not a long unreachable spur.
  if(Commerce)Lane(EFoundrylineFloorLane::Forklift,{-2370,400},{-2010,1450});
  Lane(EFoundrylineFloorLane::Pedestrian,{-2350,80},{200,200});
- FString E;AddDriver(1,E);if(Commerce){State.Machines[0].BatchRemaining=0;SeedCommerce();}AddMachineOperator(1,!Commerce);State.Status=TEXT("Cut-parts starter: run the plant, choose a plasma batch, store finished pallets for box-trailer shipping.");
+ FString E;AddDriver(1,E);if(Commerce){State.Machines[0].BatchRemaining=0;SeedCommerce();}if(Commerce){
+  // One standard rack replaces the old floor-staging pad in a new starter shop.
+  FFoundrylinePlacedStorageRack Rack;Rack.Id=State.NextId++;Rack.Center={-850,2050,20};Rack.Levels=2;Rack.FinishedGoods=true;
+  for(int L=0;L<2;++L)for(int Side:{-1,1}){FFoundrylineFactorySlot Slot;Slot.Id=State.NextId++;Slot.Part=EFoundrylinePart::Bracket;Slot.Position=Rack.Center+FVector(Side*110,0,L*152.4);Slot.Dock=Rack.Center+FVector(Side*110,-211,0);State.Slots.Add(Slot);Rack.Slots.Add(Slot.Id);for(auto& Route:State.Routes){Route.Sources.AddUnique(Slot.Id);Route.Destinations.AddUnique(Slot.Id);}}
+  State.StorageRacks.Add(Rack);Solids=FFoundrylineWorkshopLayout::PlantSolids(State);
+ }
+ AddMachineOperator(1,!Commerce);State.Status=TEXT("Cut-parts starter: run the plant, choose a plasma batch, store finished pallets for box-trailer shipping.");
 }
 void FFoundrylineFactorySimulation::MigrateCurrentParts(){
  if(!State.bCutPartsStarter||!State.Commerce.Enabled)return;

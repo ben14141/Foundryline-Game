@@ -11,7 +11,7 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void SeedCutPartsShop(bool Commerce=true);
  // Driver preferences are Receiving / Production / Shipping, independent of the part's type.
  static int32 ForkPriorityGroup(const FFoundrylineFactoryJob& Job){
-  if(Job.DestinationPlace==EFoundrylinePalletPlace::Pickup||Job.DestinationPlace==EFoundrylinePalletPlace::Outbound)return 2;
+  if(Job.OrderId||Job.DestinationPlace==EFoundrylinePalletPlace::Pickup||Job.DestinationPlace==EFoundrylinePalletPlace::Outbound)return 2;
   if(Job.Task==EFoundrylineForkTask::Truck||Job.SourcePlace==EFoundrylinePalletPlace::Receiving||Job.SourcePlace==EFoundrylinePalletPlace::Inbound)return 0;
   return 1;
  }
@@ -63,6 +63,9 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void SeedCommerce();
  void TickCommerce(float Dt);
  void PlanCommerce();
+ int32 FinishedGoodsSlotForOrder(EFoundrylinePart Part,int32 Count,int32 Order,int32 IgnoreSlot=0)const;
+ bool PrepareOrderStock(int32 Pallet,int32 Order,FString& Error);
+ void PlanFinishedGoods();
  bool CommerceValid(FString& Error)const;
  bool InstallBrake(FString& Error);
  void CommerceExpense(int64 Cents,const FString& Label);

@@ -47,6 +47,7 @@ public:
  bool AdjustBalance(FGuid Company,int64 Cents,FString& Error);
  int64 InitialiseEconomy(FGuid Company,FGuid Plant,int64 InitialCash);
  bool CommitPlantCash(FGuid Company,FGuid Plant,int64 Expected,int64 Cash);
+ FString OwnerDisplayName(FGuid Company)const;
  bool HasMultipleBusinesses()const{return Ledger.State.Companies.Num()>1;}
  const FFoundrylineBusinessLedger& GetLedger()const{return Ledger;}
  UFoundrylineBusinessSave* CreateSnapshot()const;

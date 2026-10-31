@@ -1,5 +1,6 @@
 #include "Construction/FoundrylinePlannerItems.h"
 #include "Construction/FoundrylinePlanningEquipment.h"
+#include "Logistics/FoundrylineRackAccess.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWorkshopLayout.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
@@ -8,9 +9,8 @@
 namespace {
 using Kind=EFoundrylinePlannerItem;using Place=EFoundrylinePalletPlace;
 bool Overlap(const FBox& A,const FBox& B){return A.Min.Z<B.Max.Z-.1&&A.Max.Z>B.Min.Z+.1&&A.Min.X<B.Max.X-.1&&A.Max.X>B.Min.X+.1&&A.Min.Y<B.Max.Y-.1&&A.Max.Y>B.Min.Y+.1;}
-FBox RackAccess(const FFoundrylinePlannerItem& I){
- if(I.Kind==Kind::StorageRack||I.Kind==Kind::FixedRack&&I.CompactRack){const auto B=FFoundrylinePlanningEquipment::Service(I.Center,I.Quarter,FMath::Max(I.Bounds.GetSize().X,I.Bounds.GetSize().Y));return FBox(FVector(B.Min,20),FVector(B.Max,300));}
- if(I.Kind==Kind::FixedRack){const auto B=FFoundrylinePlanningEquipment::Bounds(I.Center+FRotator(0,I.Quarter*90,0).RotateVector({242.88,0,0}),I.Quarter,{365.76,416,0});return FBox(FVector(B.Min,20),FVector(B.Max,300));}
+FBox RackAccess(const FFoundrylinePlannerItem& I,int Side=-1){
+ if(I.Kind==Kind::StorageRack||I.Kind==Kind::FixedRack){const auto B=FFoundrylineRackAccess::Service(I,Side);return FBox(FVector(B.Min,20),FVector(B.Max,300));}
  return FBox(ForceInit);
 }
 // Validate the candidate lane graph before changing any live reservation or load.
@@ -18,7 +18,8 @@ FBox RackAccess(const FFoundrylinePlannerItem& I){
 bool ReplanPausedLaneJobs(FFoundrylineFactorySimulation& M,FString& E){
  auto& S=M.State;
  auto Reach=[&](FVector A,FVector B){return !M.Path(A,B).IsEmpty();};
- for(const auto& J:S.Jobs){
+ for(auto& J:S.Jobs){
+  if(!J.Driver){for(const auto& D:S.Drivers){auto Candidate=J;TArray<FVector> P;if(FFoundrylineRackAccess::Route(M,Candidate,D.Position,P)&&Reach(Candidate.Drop,D.Parking)){J.Pickup=Candidate.Pickup;J.Drop=Candidate.Drop;break;}}}
   if(J.Phase<3&&!Reach(J.Pickup,J.Drop)){E=TEXT("This lane change disconnects a reserved pallet from its destination; keep a connected forklift route");return false;}
   if(!J.Driver){
    bool Access=false;
@@ -129,12 +130,12 @@ bool Apply(FFoundrylineFactorySimulation& M,Kind K,int Id,FVector At,bool Remove
  }
  else {E=TEXT("This item is not editable");return false;}
  if(!Remove){
-  const auto After=FFoundrylinePlannerItems::List(S);
+  const auto After=FFoundrylinePlannerItems::List(S);auto AccessCheck=M;AccessCheck.Solids=FFoundrylineWorkshopLayout::PlantSolids(S);auto ChosenAccess=[&](const auto& I){auto A=RackAccess(I);if(A.IsValid&&!FFoundrylineRackAccess::Clear(AccessCheck,FBox2D(FVector2D(A.Min),FVector2D(A.Max))))A=RackAccess(I,1);return A;};
   for(const auto& A:After){const bool IsSelf=A.Kind==K&&A.Id==Id;const bool Attached=A.Kind==Kind::FixedRack&&A.Slots.ContainsByPredicate([&](int Slot){return MovedSlots.Contains(Slot);});if((!IsSelf&&!Attached)||A.Stored)continue;
-   const FBox2D Floor(S.FloorMin,S.FloorMax);const FBox Access=RackAccess(A);if(!Floor.IsInsideOrOn(FVector2D(A.Bounds.Min))||!Floor.IsInsideOrOn(FVector2D(A.Bounds.Max))||(Access.IsValid&&(!Floor.IsInsideOrOn(FVector2D(Access.Min))||!Floor.IsInsideOrOn(FVector2D(Access.Max))))){E=TEXT("Keep the complete item and its loading aisle inside the usable shop floor");return false;}
+   const FBox2D Floor(S.FloorMin,S.FloorMax);const FBox Access=ChosenAccess(A);if(Access.IsValid&&!FFoundrylineRackAccess::Clear(AccessCheck,FBox2D(FVector2D(Access.Min),FVector2D(Access.Max)))){E=TEXT("Keep at least one rack face accessible to forklifts");return false;}if(!Floor.IsInsideOrOn(FVector2D(A.Bounds.Min))||!Floor.IsInsideOrOn(FVector2D(A.Bounds.Max))||(Access.IsValid&&(!Floor.IsInsideOrOn(FVector2D(Access.Min))||!Floor.IsInsideOrOn(FVector2D(Access.Max))))){E=TEXT("Keep the complete item and its loading aisle inside the usable shop floor");return false;}
    for(const auto& B:After){if(B.Stored||(B.Kind==K&&B.Id==Id)||(B.Kind==Kind::FixedRack&&B.Slots.ContainsByPredicate([&](int Slot){return MovedSlots.Contains(Slot);})))continue;
     if(A.Kind==Kind::Lane&&(B.Kind==Kind::Lane||B.Kind==Kind::Forklift))continue;
-    if(A.Kind!=Kind::Lane&&B.Kind!=Kind::Lane&&B.Kind!=Kind::Pallet&&((Access.IsValid&&Overlap(Access,B.Bounds))||(RackAccess(B).IsValid&&Overlap(A.Bounds,RackAccess(B))))){E=TEXT("Keep the rack loading aisle clear; shared aisles may overlap");return false;}
+    if(A.Kind!=Kind::Lane&&B.Kind!=Kind::Lane&&B.Kind!=Kind::Pallet&&((Access.IsValid&&Overlap(Access,B.Bounds))||(ChosenAccess(B).IsValid&&Overlap(A.Bounds,ChosenAccess(B))))){E=TEXT("Keep the rack loading aisle clear; shared aisles may overlap");return false;}
     if((A.Kind==Kind::Machine&&B.Kind==Kind::Lane)||(A.Kind==Kind::FixedRack&&B.Kind==Kind::Lane))continue;
     if(Overlap(A.Bounds,B.Bounds)){E=TEXT("That position overlaps another item or a reserved work area");return false;}
    }

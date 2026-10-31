@@ -57,7 +57,6 @@ bool FFoundrylineFactorySimulation::Consume(Part P,int Q,Place Where,int Owner,f
 FVector FFoundrylineFactorySimulation::BufferPosition(const FFoundrylineFactoryZone& Z,Part P)const{return FFoundrylineWorkZoneLayout::Buffer(Z,P);}
 bool FFoundrylineFactorySimulation::CanPlaceZone(const FFoundrylineFactoryZone& Z,FString& E)const{
  const auto Bounds=FFoundrylineWorkZoneLayout::Bounds(Z);
- if(State.bPresetPickup&&Bounds.Intersect(ShippingPickupBounds())){E=TEXT("Keep the active loading bay clear");return false;}
  if(State.Zones.Num()>=8||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()){E=TEXT("Invalid zone or zone limit reached");return false;}
  if(Bounds.Min.X<State.FloorMin.X||Bounds.Min.Y<State.FloorMin.Y||Bounds.Max.X>State.FloorMax.X||Bounds.Max.Y>State.FloorMax.Y){E=TEXT("Entire zone, including supplies, must fit on the shop floor");return false;}
  for(const auto& S:Solids)if(FFoundrylineFloorPlacement::Overlap(S,Bounds)){E=TEXT("Zone overlaps equipment or racks");return false;}

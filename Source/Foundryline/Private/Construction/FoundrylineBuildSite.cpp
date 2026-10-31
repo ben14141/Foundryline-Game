@@ -61,6 +61,7 @@ void AFoundrylineBuildSite::BeginPlay()
 	}
 	const TCHAR* SurfaceNames[]={TEXT("Asphalt"),TEXT("White"),TEXT("Yellow")};const TCHAR* SurfaceAssets[]={TEXT("M_PavementAsphalt"),TEXT("M_RoadPaintWhite"),TEXT("M_RoadPaintYellow")};for(int I=0;I<3;++I){const FString Path=FString::Printf(TEXT("/Game/Foundryline/Construction/Materials/%s.%s"),SurfaceAssets[I],SurfaceAssets[I]);if(auto* M=LoadObject<UMaterialInterface>(nullptr,*Path))Materials.Add(FName(SurfaceNames[I]),M);}
 	Materials.Add(TEXT("Glass"),LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Construction/Materials/M_WindowGlass.M_WindowGlass")));
+ if(auto* M=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Office/Decor/Materials/M_Office_Glass.M_Office_Glass")))Materials.Add(TEXT("OfficePartitionGlass"),M);else Materials.Add(TEXT("OfficePartitionGlass"),Materials.FindRef(TEXT("Glass")));
 	Materials.Add(TEXT("OfficeFloor"),LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Construction/Materials/M_OfficeFloor.M_OfficeFloor")));
 	Materials.Add(TEXT("Landscape"),LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/World/Materials/M_FlatForestGround.M_FlatForestGround")));
 	ChangeHandle=Placement->OnPlacementChanged.AddUObject(this,&AFoundrylineBuildSite::Changed);
@@ -527,8 +528,8 @@ AActor* AFoundrylineBuildSite::Render(const FFoundrylinePlacedObject& Original,b
 			Comp->SetupAttachment(Root); Comp->SetStaticMesh(Cube);
 			Comp->SetMaterial(0,bPreview?static_cast<UMaterialInterface*>(GhostMat):(Painted.Contains(Material)?Painted[Material]:Materials.FindRef(Material).Get()));
 			Comp->SetCollisionEnabled(!bPreview && Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
-			Comp->SetCollisionResponseToAllChannels(ECR_Block); Comp->SetCastShadow(!bPreview && Collision && Material!=TEXT("Glass"));
-   if(Material==TEXT("Glass")) Comp->SetAffectDistanceFieldLighting(false);
+			Comp->SetCollisionResponseToAllChannels(ECR_Block); Comp->SetCastShadow(!bPreview && Collision && Material!=TEXT("Glass") && Material!=TEXT("OfficePartitionGlass"));
+   if(Material==TEXT("Glass")||Material==TEXT("OfficePartitionGlass")) Comp->SetAffectDistanceFieldLighting(false);
 			Comp->RegisterComponent();
 		}
 		Comp->AddInstance(FTransform(FRotator(0,Yaw,0).Quaternion(),Center,Size/100.f));
@@ -877,11 +878,17 @@ auto Grass=[&](FVector Position)
 			{
 				const float A=V.OffsetCm,B=A+V.WidthCm(),Bottom=V.BottomCm(),Top=Bottom+V.HeightCm();
 				Partition(Edge,Cursor,A,0,300);Partition(Edge,A,B,0,Bottom);Partition(Edge,A,B,Top,300);Cursor=B;
-				if(V.IsGlazing()){Partition(Edge,A-6,A,Bottom,Top,TEXT("Metal"),20);Partition(Edge,B,B+6,Bottom,Top,TEXT("Metal"),20);Partition(Edge,A-6,B+6,Top,Top+6,TEXT("Metal"),20);}
+				if(V.IsGlazing()&&V.Kind!=EFoundrylineOpeningKind::OfficeInteriorGlass){Partition(Edge,A-6,A,Bottom,Top,TEXT("Metal"),20);Partition(Edge,B,B+6,Bottom,Top,TEXT("Metal"),20);Partition(Edge,A-6,B+6,Top,Top+6,TEXT("Metal"),20);}
 				if(V.Kind==EFoundrylineOpeningKind::ShopWindow)
 				{
 					Partition(Edge,A,B,Bottom,Bottom+6,TEXT("Metal"),20);Partition(Edge,A,B,Bottom+6,Top-6,TEXT("Glass"),2,false);Partition(Edge,(A+B)/2-2,(A+B)/2+2,Bottom,Top,TEXT("Metal"),18);
 				}
+    else if(V.Kind==EFoundrylineOpeningKind::OfficeInteriorGlass){
+     Partition(Edge,A,A+3,0,300,TEXT("Metal"),8);Partition(Edge,B-3,B,0,300,TEXT("Metal"),8);
+     Partition(Edge,A+3,B-3,0,3,TEXT("Metal"),8);Partition(Edge,A+3,B-3,297,300,TEXT("Metal"),8);
+     Partition(Edge,A+3,B-3,3,297,TEXT("OfficePartitionGlass"),1.2,true);
+     for(float U=A+100;U<B-10;U+=100)Partition(Edge,U-1.5,U+1.5,3,297,TEXT("Metal"),5);
+    }
 				else if(Spans[Edge].ContainsByPredicate([&](const auto& Span){return A>=Span.X && B<=Span.Y;})) DoorLeaf(Edge,A,B,FVector2D(Room.Min),FVector2D(Room.Max),true,V.OpeningId,true);
 			}
 			Partition(Edge,Cursor,Length,0,300);

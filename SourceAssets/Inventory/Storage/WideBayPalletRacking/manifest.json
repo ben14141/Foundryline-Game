@@ -98,7 +98,7 @@
       ],
       "minimum_clear_ceiling_cm": 182.4,
       "maximum_pallet_payload_height_cm": 100,
-      "fork_access": "Open front; floor is level1; no front floor crossbeam",
+      "fork_access": "Open front and rear; floor is level1; end-frame bracing only",
       "floor_level_included": true
     },
     {
@@ -150,7 +150,7 @@
       ],
       "minimum_clear_ceiling_cm": 334.8,
       "maximum_pallet_payload_height_cm": 100,
-      "fork_access": "Open front; floor is level1; no front floor crossbeam",
+      "fork_access": "Open front and rear; floor is level1; end-frame bracing only",
       "floor_level_included": true
     },
     {
@@ -219,7 +219,7 @@
       ],
       "minimum_clear_ceiling_cm": 487.2,
       "maximum_pallet_payload_height_cm": 100,
-      "fork_access": "Open front; floor is level1; no front floor crossbeam",
+      "fork_access": "Open front and rear; floor is level1; end-frame bracing only",
       "floor_level_included": true
     }
   ]

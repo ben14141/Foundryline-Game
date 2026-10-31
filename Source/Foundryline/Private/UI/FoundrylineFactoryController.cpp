@@ -1,3 +1,4 @@
+#include "Logistics/FoundrylineRackAccess.h"
 #include "Construction/FoundrylinePlannerItems.h"
 #include "Production/FoundrylineWorkshopLayout.h"
 #include "FoundrylineBuildCatalog.h"
@@ -70,7 +71,7 @@ bool AFoundrylinePlayerController::HandleFactoryInput(const FInputKeyEventArgs& 
  }return false;
 }
 void AFoundrylinePlayerController::TickFactory(float Dt){
- if(!IsLocalController())return;auto* Plant=FactoryPlant();if(!Plant)return;Plant->bLocalOverlay=bFactoryOverlay;
+ if(!IsLocalController())return;auto* Plant=FactoryPlant();if(!Plant)return;Plant->bLocalOverlay=bFactoryOverlay;Plant->SetOfficeDecorationFloor(OfficePlanningLevel,IsWalking());
  for(TActorIterator<AFoundrylineOperationsTerminal> It(GetWorld());It;++It)if(It->Terminal==1){const bool Show=IsWalking()||int(It->GetActorLocation().Z>300)==OfficePlanningLevel;if(auto* Mesh=It->FindComponentByClass<UStaticMeshComponent>())Mesh->SetVisibility(Show,true);}
  FVector Cursor;const bool Active=bFactoryMenu&&!IsWalking()&&!FactoryMachine&&!FactoryTool.IsNone()&&FactoryTool!=TEXT("Erase")&&!FactoryOverHUD()&&FactoryFloorCursor(Cursor);
  if(Active&&!FactoryFloorGuide){FActorSpawnParameters P;P.Owner=this;FactoryFloorGuide=GetWorld()->SpawnActor<AFoundrylineFloorGuide>(FVector::ZeroVector,FRotator::ZeroRotator,P);}
@@ -94,7 +95,16 @@ void AFoundrylinePlayerController::TickFactory(float Dt){
  }
  }const FRotator EquipmentRotation(0,FactoryStationQuarter*90+(FactoryEquipmentChoice==7?180:0),0);FactoryEquipmentPreview->SetActorLocationAndRotation(Plant->GetActorTransform().TransformPosition(FactoryPreviewA+(FactoryEquipmentChoice==3?EquipmentRotation.RotateVector(FVector(65,0,0)):FVector::ZeroVector)),(Plant->GetActorQuat()*EquipmentRotation.Quaternion()).Rotator());const auto Colour=bFactoryPresetValid?FLinearColor(.025,.48,1):FLinearColor(2.4,.1,.04);for(int Slot=0;Slot<Mesh->GetNumMaterials();++Slot)if(auto* Material=Cast<UMaterialInstanceDynamic>(Mesh->GetMaterial(Slot)))Material->SetVectorParameterValue(TEXT("GlowColor"),Colour);
  TArray<UStaticMeshComponent*> GhostParts;FactoryEquipmentPreview->GetComponents(GhostParts);for(auto* Part:GhostParts)for(int Slot=0;Slot<Part->GetNumMaterials();++Slot)if(auto* Material=Cast<UMaterialInstanceDynamic>(Part->GetMaterial(Slot)))Material->SetVectorParameterValue(TEXT("GlowColor"),Colour);
- auto* Access=FactoryEquipmentAccessPreview->GetStaticMeshComponent();if(!Access->GetStaticMesh()){Access->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube")));Access->SetMaterial(0,UMaterialInstanceDynamic::Create(Base,this));}const auto Area=FactoryEquipmentChoice>=4&&FactoryEquipmentChoice<=6?FFoundrylineFactorySimulation::MachineWorkspaceBounds(FactoryEquipmentChoice-3,FactoryPreviewA,FactoryStationQuarter):FFoundrylinePlanningEquipment::Service(FactoryPreviewA,FactoryStationQuarter,FFoundrylinePlanningEquipment::Size(FactoryEquipmentChoice,FactoryRackLevels).X);FactoryEquipmentAccessPreview->SetActorTransform(FTransform(Plant->GetActorQuat(),Plant->GetActorTransform().TransformPosition(FVector(Area.GetCenter(),23)),FVector(Area.GetSize().X/100,Area.GetSize().Y/100,.015)));if(auto* Material=Cast<UMaterialInstanceDynamic>(Access->GetMaterial(0)))Material->SetVectorParameterValue(TEXT("GlowColor"),Colour*.35f);}}
+ auto* Access=FactoryEquipmentAccessPreview->GetStaticMeshComponent();if(!Access->GetStaticMesh()){Access->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube")));Access->SetMaterial(0,UMaterialInstanceDynamic::Create(Base,this));}const auto Area=FactoryEquipmentChoice>=4&&FactoryEquipmentChoice<=6?FFoundrylineFactorySimulation::MachineWorkspaceBounds(FactoryEquipmentChoice-3,FactoryPreviewA,FactoryStationQuarter):FFoundrylinePlanningEquipment::Service(FactoryPreviewA,FactoryStationQuarter,FFoundrylinePlanningEquipment::Size(FactoryEquipmentChoice,FactoryRackLevels).X);FactoryEquipmentAccessPreview->SetActorTransform(FTransform(Plant->GetActorQuat(),Plant->GetActorTransform().TransformPosition(FVector(Area.GetCenter(),23)),FVector(Area.GetSize().X/100,Area.GetSize().Y/100,.015)));if(auto* Material=Cast<UMaterialInstanceDynamic>(Access->GetMaterial(0)))Material->SetVectorParameterValue(TEXT("GlowColor"),Colour*.35f);
+ UStaticMeshComponent* Rear=nullptr;TInlineComponentArray<UStaticMeshComponent*> AccessParts(FactoryEquipmentAccessPreview);for(auto* C:AccessParts)if(C->ComponentHasTag(TEXT("RackRearAccess")))Rear=C;
+ const bool Rack=FactoryEquipmentChoice==1||FactoryEquipmentChoice==2;
+ if(Rack&&!Rear){Rear=NewObject<UStaticMeshComponent>(FactoryEquipmentAccessPreview);Rear->ComponentTags.Add(TEXT("RackRearAccess"));Rear->SetupAttachment(Access);Rear->SetAbsolute(true,true,true);Rear->SetStaticMesh(Access->GetStaticMesh());Rear->SetMaterial(0,UMaterialInstanceDynamic::Create(Base,this));Rear->SetCollisionEnabled(ECollisionEnabled::NoCollision);Rear->SetCanEverAffectNavigation(false);Rear->SetCastShadow(false);Rear->RegisterComponent();FactoryEquipmentAccessPreview->AddInstanceComponent(Rear);}
+ if(Rear)Rear->SetVisibility(Rack);
+ if(Rack){auto Check=Plant->Model;Check.State=Plant->Snapshot;Check.Solids=FFoundrylineWorkshopLayout::PlantSolids(Check.State);const auto Back=FFoundrylinePlanningEquipment::Service(FactoryPreviewA,(FactoryStationQuarter+2)%4,FFoundrylinePlanningEquipment::Size(FactoryEquipmentChoice,FactoryRackLevels).X);
+  Rear->SetWorldTransform(FTransform(Plant->GetActorQuat(),Plant->GetActorTransform().TransformPosition(FVector(Back.GetCenter(),23)),FVector(Back.GetSize().X/100,Back.GetSize().Y/100,.015)));
+  auto Tint=[&](UStaticMeshComponent* C,const FBox2D& A){if(auto* Material=Cast<UMaterialInstanceDynamic>(C->GetMaterial(0)))Material->SetVectorParameterValue(TEXT("GlowColor"),(FFoundrylineRackAccess::Clear(Check,A)?FLinearColor(.025,.48,1):FLinearColor(2.4,.1,.04))*.35f);};Tint(Access,Area);Tint(Rear,Back);
+ }
+ }}
  const bool ShowStation=Active&&FactoryTool==TEXT("Station");
  if(ShowStation&&FactoryStationPreview.IsEmpty()){auto* Glow=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Production/Materials/M_FactoryPreview.M_FactoryPreview"));
   const TCHAR* Machine=TEXT("/Game/Foundryline/Production/Equipment/Welder/SM_Welder_Machine.SM_Welder_Machine");

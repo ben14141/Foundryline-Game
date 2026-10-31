@@ -1,4 +1,5 @@
 #include "Inventory/FoundrylineAssemblySupply.h"
+#include "Management/FoundrylineOfficeAssignments.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 
@@ -137,6 +138,7 @@ FString FFoundrylineFactorySimulation::SupplyReport(int32 Area)const{
 }
 
 bool FFoundrylineFactorySimulation::SupplyValid(FString& E)const{
+ if(!FFoundrylineOffices::Valid(State,E))return false;
  auto Fail=[&](){E=TEXT("Invalid assembly supply, cart capacity or stock reservation");return false;};
  if(State.SupplyBins.Num()>8||State.Collectors.Num()>12)return Fail();
  if(State.OfficeDesks.Num()>32)return Fail();TSet<int32> DeskIds;for(const auto& D:State.OfficeDesks){if(D.Id<=0||D.Id>=State.NextId||DeskIds.Contains(D.Id)||D.Center.ContainsNaN()||(FMath::Abs(D.Center.Z-20)>1&&FMath::Abs(D.Center.Z-340)>1)||D.QuarterTurns<0||D.QuarterTurns>3)return Fail();DeskIds.Add(D.Id);}

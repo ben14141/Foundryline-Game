@@ -10,11 +10,11 @@ void AFoundrylineFactoryPlant::UpdateEmployees(float Dt){
  }
  for(const auto& E:CachedEmployees){
   if(E.CompanyId!=BusinessCompanyId||E.PlantId!=BusinessPlantId)continue;
-  auto& Entry=EmployeeVisuals.FindOrAdd(E.Key);if(!Entry){Entry=NewObject<UFoundrylineEmployeeVisualComponent>(this);Entry->SetupAttachment(RootComponent);Entry->RegisterComponent();AddInstanceComponent(Entry);Entry->Appearance=EmployeeAppearance;Entry->InitializeVisual();}
-  auto* V=Entry.Get();auto Display=E;USceneComponent* Parent=RootComponent;FVector Position=E.Position;float Yaw=E.Yaw;
-  if(E.bSeated){int DriverIndex=Snapshot.Drivers.IndexOfByPredicate([&](const auto& D){return D.Id==E.VehicleId;});if(Forks.IsValidIndex(DriverIndex)){Parent=Forks[DriverIndex];Position=UFoundrylineEmployeeVisualComponent::ForkliftSeatOffset();Yaw=0;}else Position+=FRotator(0,Yaw,0).RotateVector(UFoundrylineEmployeeVisualComponent::ForkliftSeatOffset());}
-  else{auto& P=EmployeeDisplayPositions.FindOrAdd(E.Key,E.Position);const FVector Previous=P;P=FMath::VInterpTo(P,E.Position,Dt,10);const float Travel=FVector::Dist2D(P,Previous);auto& Distance=EmployeeDisplayDistance.FindOrAdd(E.Key,0);Distance+=Travel;Display.Distance=Distance;Display.bMoving=E.bMoving&&Travel>.01f;Display.Speed=Dt>0?Travel/Dt:0;Position=P;auto& A=EmployeeDisplayYaw.FindOrAdd(E.Key,E.Yaw);A+=FMath::FindDeltaAngleDegrees(A,E.Yaw)*FMath::Min(1.f,Dt*10);Yaw=A;}
-  if(V->GetAttachParent()!=Parent)V->AttachToComponent(Parent,FAttachmentTransformRules::KeepRelativeTransform);V->SetRelativeLocationAndRotation(Position,FRotator(0,Yaw,0));V->Present(Display,Dt);
+  auto& Entry=EmployeeVisuals.FindOrAdd(E.Key);if(!Entry){Entry=NewObject<UFoundrylineEmployeeVisualComponent>(this);Entry->SetupAttachment(RootComponent);Entry->RegisterComponent();AddInstanceComponent(Entry);Entry->Appearance=EmployeeAppearance;Entry->SetOfficeAppearance(E.Role==EFoundrylineEmployeeRole::Engineer);Entry->InitializeVisual();}
+  auto* V=Entry.Get();V->ComponentTags.AddUnique(FName(*E.Key));auto Display=E;USceneComponent* Parent=RootComponent;FVector Position=E.Position;float Yaw=E.Yaw;
+  if(E.bSeated&&E.Role!=EFoundrylineEmployeeRole::Engineer){int DriverIndex=Snapshot.Drivers.IndexOfByPredicate([&](const auto& D){return D.Id==E.VehicleId;});if(Forks.IsValidIndex(DriverIndex)){Parent=Forks[DriverIndex];Position=UFoundrylineEmployeeVisualComponent::ForkliftSeatOffset();Yaw=0;}else Position+=FRotator(0,Yaw,0).RotateVector(UFoundrylineEmployeeVisualComponent::ForkliftSeatOffset());}
+  else if(!E.bSeated){auto& P=EmployeeDisplayPositions.FindOrAdd(E.Key,E.Position);const FVector Previous=P;P=FMath::VInterpTo(P,E.Position,Dt,10);const float Travel=FVector::Dist2D(P,Previous);auto& Distance=EmployeeDisplayDistance.FindOrAdd(E.Key,0);Distance+=Travel;Display.Distance=Distance;Display.bMoving=E.bMoving&&Travel>.01f;Display.Speed=Dt>0?Travel/Dt:0;Position=P;auto& A=EmployeeDisplayYaw.FindOrAdd(E.Key,E.Yaw);A+=FMath::FindDeltaAngleDegrees(A,E.Yaw)*FMath::Min(1.f,Dt*10);Yaw=A;}
+  if(V->GetAttachParent()!=Parent)V->AttachToComponent(Parent,FAttachmentTransformRules::KeepRelativeTransform);V->SetRelativeLocationAndRotation(Position,FRotator(0,Yaw,0));if(E.Role==EFoundrylineEmployeeRole::Engineer&&E.bSeated)V->PresentOfficeComputer(Snapshot.Running?Dt:0,E.Id);else V->Present(Display,Dt);
  }
  UpdateSupplyVisuals(Dt);
 }

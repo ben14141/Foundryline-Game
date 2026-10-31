@@ -9,8 +9,8 @@
 namespace {
 // Employee roots are presentation foot roots, including the actual forklift attachment.
 // Sample torso/head positions rather than the floor or the forklift's simulation origin.
-bool EmployeeAim(FVector Eye,FVector Forward,const UFoundrylineEmployeeVisualComponent* Visual,bool Seated,FVector& Target,double& Score){
- bool Found=false;const double Bottom=Seated?155.:85.,Top=Seated?235.:178.;
+bool EmployeeAim(FVector Eye,FVector Forward,const UFoundrylineEmployeeVisualComponent* Visual,bool Seated,bool Office,FVector& Target,double& Score){
+ bool Found=false;const double Bottom=Office?78.:Seated?155.:85.,Top=Office?152.:Seated?235.:178.;
  for(int Sample=0;Sample<7;++Sample){
   const FVector Point=Visual->GetComponentTransform().TransformPosition(FVector(0,0,FMath::Lerp(Bottom,Top,Sample/6.)));
   const FVector Delta=Point-Eye;const double Distance=Delta.Size();if(Distance<1||Distance>250)continue;
@@ -38,7 +38,7 @@ int32 AFoundrylinePlayerController::FocusedEmployeeId() const {
   const FName Identity(*Employee.Key);
   const auto* Entry=Visuals.FindByPredicate([&](const auto* V){return IsValid(V)&&V->IsRegistered()&&V->IsVisible()&&V->ComponentTags.Contains(Identity);});
   if(!Entry)continue;const auto* Visual=*Entry;FVector Target;double Candidate=Best;
-  if(!EmployeeAim(Eye,Forward,Visual,Employee.bSeated,Target,Candidate))continue;
+  if(!EmployeeAim(Eye,Forward,Visual,Employee.bSeated,Employee.Role==EFoundrylineEmployeeRole::Engineer,Target,Candidate))continue;
   FHitResult Hit;FCollisionQueryParams Query(SCENE_QUERY_STAT(FoundrylineEmployeeUse),false,GetPawn());
   // Do not ignore the whole plant: its racks and machinery must still block sight.
   if(GetWorld()->LineTraceSingleByChannel(Hit,Eye,Target,ECC_Visibility,Query)&&Hit.Distance+5<FVector::Distance(Eye,Target)&&!BelongsToEmployee(Hit.GetComponent(),Visual))continue;

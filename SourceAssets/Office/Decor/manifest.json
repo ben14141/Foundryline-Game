@@ -1,0 +1,197 @@
+{
+  "assets": [
+    {
+      "name": "SM_ExecutiveCredenza",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Brass",
+        "Office_Blueprint",
+        "Office_Walnut",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_EngineeringCabinet",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Steel",
+        "Office_Oak",
+        "Office_Orange",
+        "Office_Paper",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_OfficePlant",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Paint",
+        "Office_Leaf",
+        "Office_Walnut"
+      ]
+    },
+    {
+      "name": "SM_GuestChair",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Walnut",
+        "Office_Upholstery",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_OfficeRug",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Orange",
+        "Office_Upholstery"
+      ]
+    },
+    {
+      "name": "SM_PresidentDeskSet",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Brass",
+        "Office_Walnut",
+        "Office_Paper",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_EngineerDeskSet",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Steel",
+        "Office_Blueprint",
+        "Office_Orange",
+        "Office_Paper",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_PresidentArtwork",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Brass",
+        "Office_Walnut",
+        "Office_Paper",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_BlueprintBoard",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_PlanInk",
+        "Office_Blueprint",
+        "Office_Orange",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_DraftingTable",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_PlanInk",
+        "Office_Oak",
+        "Office_Graphite",
+        "Office_Paper",
+        "Office_Blueprint"
+      ]
+    },
+    {
+      "name": "SM_OfficeBookshelf",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Blueprint",
+        "Office_Walnut",
+        "Office_Paper",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_WallClock",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Brass",
+        "Office_Orange",
+        "Office_Paper",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_FramedCertificate",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Brass",
+        "Office_Walnut",
+        "Office_Paper",
+        "Office_Graphite"
+      ]
+    },
+    {
+      "name": "SM_IndustrialWallArt",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_PlanInk",
+        "Office_Graphite",
+        "Office_Brass",
+        "Office_Orange",
+        "Office_Paper",
+        "Office_Blueprint"
+      ]
+    },
+    {
+      "name": "SM_EngineeringWhiteboard",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Paint",
+        "Office_Steel",
+        "Office_Graphite",
+        "Office_Orange",
+        "Office_Blueprint"
+      ]
+    },
+    {
+      "name": "SM_OfficeNoticeboard",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Paint",
+        "Office_Walnut",
+        "Office_Oak",
+        "Office_Orange",
+        "Office_Paper",
+        "Office_Blueprint"
+      ]
+    },
+    {
+      "name": "SM_AssignedOfficeGlassDoor",
+      "original": true,
+      "units": "cm",
+      "materials": [
+        "Office_Steel",
+        "Office_Glass",
+        "Office_FrostedGlass",
+        "Office_Graphite"
+      ]
+    }
+  ],
+  "original": true,
+  "unit_scale": 1
+}

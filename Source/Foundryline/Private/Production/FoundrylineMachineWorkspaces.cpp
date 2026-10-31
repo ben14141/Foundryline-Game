@@ -20,7 +20,6 @@ bool FFoundrylineFactorySimulation::CanBuyMachine(int Kind,FVector At,int Quarte
  if(State.Running){E=TEXT("Pause production before placing equipment");return false;}
  if(!State.Commerce.Enabled||State.Commerce.UnpaidCents||State.Commerce.CashCents<MachineWorkspace::Price(Kind)){E=TEXT("Not enough available business cash for this machine");return false;}
  if(State.Machines.Num()>=12||State.Slots.Num()+(Kind==1?6:5)>64){E=TEXT("Machine or pallet-position capacity reached");return false;}
- if(State.bPresetPickup&&MachineWorkspace::Bounds(Kind,At,Quarter).Intersect(ShippingPickupBounds())){E=TEXT("Keep the active loading bay clear");return false;}
  const auto B=MachineWorkspace::Bounds(Kind,At,Quarter);const FBox2D Floor(State.FloorMin,State.FloorMax);
  if(!Floor.IsInsideOrOn(B.Min)||!Floor.IsInsideOrOn(B.Max)){E=TEXT("Keep the complete machine, racks and access inside the usable floor");return false;}
  for(const auto& Item:FFoundrylinePlannerItems::List(State))if(!Item.Stored&&Item.Kind!=EFoundrylinePlannerItem::Lane&&Item.Kind!=EFoundrylinePlannerItem::Pallet&&B.Intersect(FBox2D(FVector2D(Item.Bounds.Min),FVector2D(Item.Bounds.Max)))){E=TEXT("Machine workspace overlaps existing equipment or storage");return false;}

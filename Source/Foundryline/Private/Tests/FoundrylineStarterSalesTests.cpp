@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Logistics/FoundrylineRackAccess.h"
 #include "Economy/FoundrylineEconomyTuning.h"
 #include "Production/FoundrylineFactorySimulation.h"
 namespace {using Part=EFoundrylinePart;using Act=EFoundrylineCommerceAction;using Place=EFoundrylinePalletPlace;}
@@ -21,8 +22,8 @@ bool FStarterRepeatSales::RunTest(const FString&){
   const auto* Offer=M.State.Commerce.Orders.FindByPredicate([&](const auto& O){return O.Part==uint8(P)&&O.Status==EFoundrylineOrderState::Offered;});if(!TestNotNull(TEXT("Next recipe has a real offer"),Offer))return false;const int Id=Offer->Id;
   FFoundrylineCommerceCommand A;A.Action=Act::AcceptOrder;A.Id=Id;if(!TestTrue(TEXT("Accept real order"),M.CommerceCommand(A,E)))return false;A.Action=Act::AssignPickup;if(!TestTrue(TEXT("Assign next shipment"),M.CommerceCommand(A,E)))return false;
   A={};A.Action=Act::BuySteel;A.Quantity=1;if(!TestTrue(TEXT("Buy paid material"),M.CommerceCommand(A,E)))return false;TestTrue(TEXT("Set exact recipe and quantity"),M.Program(1,P,Q,false,E));
-  auto Staged=[&](){int N=0;for(const auto& X:M.State.Pallets)if(X.Place==Place::Pickup&&X.OrderId==Id)N+=X.Quantity;return N==Q;};if(!TestTrue(TEXT("Employees cut and automatically rack/stage full order"),Pump(Staged)))return false;
-  A={};A.Action=Act::BookPickup;A.Choice=1;A.Arrival=M.State.Commerce.Clock+60;for(const auto& X:M.State.Pallets)if(X.Place==Place::Pickup&&X.OrderId==Id){A.Pallets.Add(X.Id);A.Quantities.Add(X.Quantity);}if(!TestTrue(TEXT("Book staged real pallets"),M.CommerceCommand(A,E)))return false;
+  auto Staged=[&](){int N=0;for(const auto& X:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,X)&&X.OrderId==Id)N+=X.Quantity;return N==Q;};if(!TestTrue(TEXT("Employees cut and automatically rack/stage full order"),Pump(Staged)))return false;
+  A={};A.Action=Act::BookPickup;A.Choice=1;A.Arrival=M.State.Commerce.Clock+60;for(const auto& X:M.State.Pallets)if(FFoundrylineRackAccess::Ready(M.State,X)&&X.OrderId==Id){A.Pallets.Add(X.Id);A.Quantities.Add(X.Quantity);}if(!TestTrue(TEXT("Book staged real pallets"),M.CommerceCommand(A,E)))return false;
   if(!TestTrue(TEXT("Carrier delivers and completes order"),Pump([&](){return M.State.Commerce.Orders.ContainsByPredicate([&](const auto& O){return O.Id==Id&&O.Status==EFoundrylineOrderState::Completed;});})))return false;
   const auto* Done=M.State.Commerce.Orders.FindByPredicate([&](const auto& O){return O.Id==Id;});ExpectedRevenue+=Done->Quantity*Done->UnitPriceCents;TestEqual(TEXT("Exact invoice payment"),Done->PaidCents,int64(Done->Quantity)*Done->UnitPriceCents);TestTrue(TEXT("Ledger remains valid across recipe transition: ")+E,M.Valid(E));
  }

@@ -24,7 +24,7 @@ bool FFoundrylineFactorySimulation::CanPlaceWeldingStation(FFoundrylineWeldingSt
  for(int I=0;I<Approaches.Num();++I)if(!OnFloor(Approaches[I])){E=I<2?TEXT("Leave 4 ft of forklift space inside the shop at both station ends"):TEXT("Leave 4 ft of walking space inside the shop along both welder sides");return false;}
  // Keep the painted shipping staging clear. Machine and forklift reservations come
  // from their current records below, rather than obsolete starter coordinates.
- TArray<FBox2D> Fixed=Solids;if(AuthoredStarter&&State.Commerce.Enabled)Fixed.Add(State.bPresetPickup?ShippingPickupBounds():FFoundrylineWorkshopLayout::CutShopReserved()[0]);
+ TArray<FBox2D> Fixed=Solids;
  for(const auto& X:Fixed){if(Overlap(X,B)){E=TEXT("Station overlaps equipment, racks or a marked work area");return false;}for(const auto& A:Approaches)if(Overlap(X,A)){E=TEXT("Equipment or racks block the station's forklift or welder access");return false;}}
  for(const auto& L:State.Lanes)if(Overlap(FBox2D(L.Min,L.Max),B)){E=TEXT("Station crosses a painted lane; place it beside the lane");return false;}
  for(const auto& Z:State.Zones){const auto ZB=FFoundrylineWorkZoneLayout::Bounds(Z);if(Overlap(ZB,B)){E=TEXT("Another work zone already reserves that space");return false;}for(const auto& A:Approaches)if(Overlap(ZB,A)){E=TEXT("A work zone blocks the station's forklift or welder access");return false;}}
