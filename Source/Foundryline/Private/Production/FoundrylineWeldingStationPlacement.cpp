@@ -15,11 +15,12 @@ bool FFoundrylineFactorySimulation::CanPlaceWeldingStation(FFoundrylineWeldingSt
  if(State.WeldingStations.Num()>=Layout::MaxStations&&!State.WeldingStations.ContainsByPredicate([&](const auto& O){return O.Id==S.Id;})){E=TEXT("Station limit reached: four welding stations per plant");return false;}
  // The product is placed at 1:1 scale; a station that cannot hold it is never offered.
  if(!Layout::ProductFits(Layout::RackOnBenchCm(),FVector2D(Layout::RackSizeCm()),E))return false;
- const auto B=Layout::Bounds(S);const FBox2D Floor=State.bCutPartsStarter?FFoundrylineWorkshopLayout::CutShopInterior():FBox2D(State.FloorMin,State.FloorMax);const auto Approaches=Access(S);
+ const bool AuthoredStarter=State.bCutPartsStarter&&!State.Machines.IsEmpty();
+ const auto B=Layout::Bounds(S);const FBox2D Floor=AuthoredStarter?FFoundrylineWorkshopLayout::CutShopInterior():FBox2D(State.FloorMin,State.FloorMax);const auto Approaches=Access(S);
  auto OnFloor=[&](const FBox2D& X){return Floor.IsInsideOrOn(X.Min)&&Floor.IsInsideOrOn(X.Max);};
  if(!OnFloor(B)){E=TEXT("The whole 19 ft 6 in x 13 ft station must fit on the shop floor");return false;}
  for(int I=0;I<Approaches.Num();++I)if(!OnFloor(Approaches[I])){E=I<2?TEXT("Leave 4 ft of forklift space inside the shop at both station ends"):TEXT("Leave 4 ft of walking space inside the shop along both welder sides");return false;}
- TArray<FBox2D> Fixed=Solids;if(State.bCutPartsStarter)Fixed.Append(FFoundrylineWorkshopLayout::CutShopReserved());
+ TArray<FBox2D> Fixed=Solids;if(AuthoredStarter)Fixed.Append(FFoundrylineWorkshopLayout::CutShopReserved());
  for(const auto& X:Fixed){if(Overlap(X,B)){E=TEXT("Station overlaps equipment, racks or a marked work area");return false;}for(const auto& A:Approaches)if(Overlap(X,A)){E=TEXT("Equipment or racks block the station's forklift or welder access");return false;}}
  for(const auto& L:State.Lanes)if(Overlap(FBox2D(L.Min,L.Max),B)){E=TEXT("Station crosses a painted lane; place it beside the lane");return false;}
  for(const auto& Z:State.Zones){const auto ZB=FFoundrylineWorkZoneLayout::Bounds(Z);if(Overlap(ZB,B)){E=TEXT("Another work zone already reserves that space");return false;}for(const auto& A:Approaches)if(Overlap(ZB,A)){E=TEXT("A work zone blocks the station's forklift or welder access");return false;}}
@@ -41,7 +42,7 @@ bool FFoundrylineFactorySimulation::WeldingStationAccess(FFoundrylineWeldingStat
  FVector Fork=FVector::ZeroVector;bool HasFork=false;
  if(State.Drivers.Num()){Fork=State.Drivers[0].Parking;HasFork=true;}
  else if(const auto* L=State.Lanes.FindByPredicate([](const auto& V){return V.Kind==EFoundrylineFloorLane::Forklift;})){Fork=FVector((L->Min+L->Max)/2,20);HasFork=true;}
- if(!HasFork){E=TEXT("Paint a forklift lane that reaches the IN and OUT ends");return false;}
+ if(!HasFork){if(State.bCutPartsStarter&&State.Machines.IsEmpty()&&State.Programs.IsEmpty()){S.InDockOffsetFt=S.OutDockOffsetFt=0;return true;}E=TEXT("Paint a forklift lane that reaches the IN and OUT ends");return false;}
  // Prefer the centred stop; shift up to 2 ft along the port toward a reachable aisle.
  for(bool Out:{false,true}){int32& Offset=Out?S.OutDockOffsetFt:S.InDockOffsetFt;bool Found=false;
   for(int32 Try:{0,1,-1,2,-2}){Offset=Try;if(!Path(Fork,Layout::Dock(S,Out)).IsEmpty()){Found=true;break;}}

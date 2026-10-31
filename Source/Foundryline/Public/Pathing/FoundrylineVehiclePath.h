@@ -1,12 +1,14 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Pathing/FoundrylineDrivingLayout.h"
+#include "Construction/FoundrylinePavementTypes.h"
 
 struct FFoundrylineVehicleProfile {
  bool Semi=false,Freight=false;float Front=350,Rear=100,Width=180,Clearance=15,TurnRadius=400;
  float MaxArticulationDegrees=70;
  float Hitch=100,TrailerAxle=1100,TrailerFront=200,TrailerRear=1420,TrailerWidth=255;
  static FFoundrylineVehicleProfile Car(){return {};}
+ static FFoundrylineVehicleProfile SmallFlatbed(){auto P=BoxTruck();P.Front=850;P.Rear=203;P.Width=276;return P;}
  bool IsFreight() const {return Semi || Freight;}
  static FFoundrylineVehicleProfile BoxTruck(){FFoundrylineVehicleProfile P;P.Freight=true;P.Front=650;P.Rear=150;P.Width=240;P.Clearance=20;P.TurnRadius=700;return P;}
  static FFoundrylineVehicleProfile Truck(){FFoundrylineVehicleProfile P;P.Semi=P.Freight=true;P.Front=450;P.Rear=150;P.Width=255;P.Clearance=20;P.TurnRadius=1000;return P;}
@@ -14,12 +16,13 @@ struct FFoundrylineVehicleProfile {
 struct FFoundrylineVehiclePose {FVector2D Position=FVector2D::ZeroVector;float Yaw=0,TrailerYaw=0;bool Reverse=false;};
 struct FFoundrylineDriveSurface {
  FGuid Id;FName Function;FTransform Transform;FVector2D Size;bool Public=false;
+ FFoundrylinePavementData Pavement;TArray<FVector2D> Centerline;
  TArray<FFoundrylineDriveRect> Entrances,Aisles,Islands,TruckZones;
  FVector2D Local(FVector2D P) const {const auto L=Transform.InverseTransformPosition(FVector(P,0));return {L.X,L.Y};}
  FVector2D World(FVector2D P) const {const auto W=Transform.TransformPosition(FVector(P,0));return {W.X,W.Y};}
 };
 struct FFoundrylineVehicleTarget {
- FGuid Id,SurfaceId;bool Semi=false,Loading=false,LayoutClear=true,SmallTruckClear=true;FFoundrylineVehiclePose Pose;FFoundrylineDriveRect Bay;
+ FGuid Id,SurfaceId;uint8 LoadingTier=0;float LoadingOffset=1570;bool Semi=false,Loading=false,LayoutClear=true,SmallTruckClear=true;FFoundrylineVehiclePose Pose;FFoundrylineDriveRect Bay;TArray<FVector2D> Footprint;
 };
 struct FOUNDRYLINE_API FFoundrylineDrivingMap {
  int64 Revision=0;TArray<FFoundrylineDriveSurface> Surfaces;TArray<FFoundrylineVehicleTarget> Targets;

@@ -12,9 +12,29 @@ public:
 	virtual void NotifyHitBoxClick(FName BoxName) override;
 	virtual void NotifyHitBoxBeginCursorOver(FName BoxName) override;
 	virtual void NotifyHitBoxEndCursorOver(FName BoxName) override;
+ bool HandlePlanningWheelInput(const struct FInputKeyEventArgs& Params);
+ bool IsOverPlanningWheel()const;
+ FString PlanningWheelTool()const;
+ bool IsPlanningWheelOpen()const {return bPlanningWheelOpen;}
+ int32 PlanningWheelPage()const {return WheelPage;}
+ FVector PlanningWheelGeometry()const;
+ FVector2D PlanningWheelButtonCenter()const;
 private:
+ void DrawPlanningWheel(class AFoundrylinePlayerController* PC);
+ void PlanningWheelAction(FName Action);
+ bool PlanningWheelAvailable()const;
+ bool bPlanningWheelOpen=false,bWheelPointerCapture=false;
+ int32 WheelPage=0;
+ FVector WheelGeometry=FVector::ZeroVector;
+ FVector2D WheelScreenOrigin=FVector2D::ZeroVector,WheelScreenScale=FVector2D(1,1);
+ FBox2D WheelButton=FBox2D(ForceInit);
  void DrawText(const FString& Text,FLinearColor Color,float X,float Y,class UFont* Font=nullptr,float Scale=1,bool ScalePosition=false);
  void GetTextSize(const FString& Text,float& Width,float& Height,class UFont* Font=nullptr,float Scale=1)const;
+ void DrawPlannerInspector(class AFoundrylinePlayerController* PC);
+ bool DrawSignInspector(class AFoundrylinePlayerController* PC);
+ void DrawPavementPalette(class AFoundrylinePlayerController* PC);
+ void DrawPavementTools(class AFoundrylinePlayerController* PC);
+ void DrawFirstPersonPrompt(const FString& Title,const FString& Detail);
  bool DrawOperations(class AFoundrylinePlayerController* PC);
  bool DrawBusinessDesktop(class AFoundrylinePlayerController* PC);
  void DrawFactoryMap(class AFoundrylinePlayerController* PC);

@@ -9,6 +9,12 @@ class UFoundrylineNetworkTestTools : public UBlueprintFunctionLibrary
 {
  GENERATED_BODY()
 public:
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static bool QueuePavement(APlayerController* Player,FName Mode,const TArray<FVector>& Points,float Width,int32 Lanes,bool Truck,bool Curbs);
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static bool QueuePavementPaint(APlayerController* Player,int32 Kind,const TArray<FVector>& Points,float Width);
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static bool QueuePavementOption(APlayerController* Player,FIntVector Cursor,FName Action);
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static bool ShowPavementTool(APlayerController* Player,FName Action);
+ UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static FString PavementReport(APlayerController* Player);
+ UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static float PavementHeightAt(APlayerController* Player,FVector Point);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Collision",meta=(DevelopmentOnly)) static bool PlacePlayerCollisionReview(APlayerController* Player,FVector Position,float Yaw);
  UFUNCTION(BlueprintPure,Category="Foundryline|Editor|Collision") static FString AuthoritativePlayerCollisionPosition(APlayerController* Player);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Collision",meta=(DevelopmentOnly)) static FString ProbePlayerCollision(APlayerController* Player,FVector Start,FVector End);

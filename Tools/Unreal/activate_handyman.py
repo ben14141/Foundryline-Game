@@ -8,9 +8,10 @@ if unreal.EditorAssetLibrary.does_asset_exist(path):asset=unreal.load_asset(path
 else:
  factory=unreal.DataAssetFactory();factory.set_editor_property('data_asset_class',unreal.FoundrylineEmployeeAppearance)
  asset=unreal.AssetToolsHelpers.get_asset_tools().create_asset('DA_HandymanEmployees',root,unreal.FoundrylineEmployeeAppearance,factory)
-source='/Game/Handyman/Mesh/Handyman/Parts/'
+source='/Game/Handyman/Mesh/Handyman_SE/Parts/'
 sets=[['SK_Body_1','SK_Head_1','SK_Boots_1','SK_Hat_1'],['SK_Body_1','SK_Head_2','SK_Boots_1','SK_Hat_2','SK_Beard_1_2'],['SK_Body_4','SK_Head_3','SK_Boots_1','SK_Hat_1','SK_Beard_2_3']]
-main=unreal.load_asset('/Game/Handyman/Mesh/Handyman/SK_Handyman_modular')
+sets=[[name+'_SE' for name in names] for names in sets]
+main=unreal.load_asset('/Game/Handyman/Mesh/Handyman_SE/SK_Handyman_modular_SE_')
 outfits=[]
 for names in sets:
  outfit=unreal.FoundrylineEmployeeOutfit();outfit.set_editor_property('parts',[unreal.load_asset(source+p) for p in names]);outfits.append(outfit)

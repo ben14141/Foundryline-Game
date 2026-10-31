@@ -6,6 +6,7 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "CanvasItem.h"
 void AFoundrylineBuildHUD::DrawSurfaceSizing(AFoundrylinePlayerController* PC) {
  const float S=FMath::Min(1.5f,Canvas->ClipY/1320.f),X=Canvas->ClipX/S-390,Y=276;
  const FLinearColor Ink(FColor::FromHex(TEXT("1F2327"))),Paper(FColor::FromHex(TEXT("F7F5F1"))),Orange(FColor::FromHex(TEXT("F07A2F"))),Grey(FColor::FromHex(TEXT("9AA0A6")));
@@ -36,24 +37,26 @@ void AFoundrylineBuildHUD::DrawPlacementGuide(AFoundrylinePlayerController* PC) 
  if(PC->IsLogisticsOverlayVisible() || !PC->bShowPlanningGrid || PC->IsOverBuildHUD()) return;
  FIntVector Anchor;if(!PC->GetCursorAnchor(Anchor)) return;
  const float S=FMath::Min(1.5f,Canvas->ClipY/1320.f);int32 VW=0,VH=0;PC->GetViewportSize(VW,VH);if(VW<=0 || VH<=0) return;
- auto Project=[&](FVector P,FVector2D& Out){if(!PC->ProjectWorldLocationToScreen(P,Out,true)) return false;Out.X*=Canvas->ClipX/VW;Out.Y*=Canvas->ClipY/VH;return true;};
+ auto Project=[&](FVector P,FVector2D& Out){if(!PC->ProjectWorldLocationToScreen(P,Out,false)) return false;Out.X*=Canvas->ClipX/VW;Out.Y*=Canvas->ClipY/VH;return true;};
  auto Line=[&](FVector A,FVector B,FLinearColor Color,float Thick){FVector2D P,Q;if(Project(A,P) && Project(B,Q)) DrawLine(P.X,P.Y,Q.X,Q.Y,Color,Thick*S);};
  // All guides use the same ground plane and anchor as picking. The old cell
  // box was displaced half a metre, and debug-world lines could draw over HUD.
- const FVector Center(Anchor);const FLinearColor Blue(.12f,.45f,.8f,.6f),Orange(1,.45f,.12f,1);
+ const FVector Center=FVector(Anchor)+FVector(0,0,(PC->IsPavementTool()||PC->bPaveDirectDrag)?20:0);const FLinearColor Orange(1,.45f,.12f,1);
  const int32 Step=FFoundrylineGrid::SnapStep(PC->GetPlacementSnap());
  if(Step<=0) return;
- for(int32 I=-10;I<=10;++I) {Line(Center+FVector(I*Step,-10*Step,0),Center+FVector(I*Step,10*Step,0),Blue,1);Line(Center+FVector(-10*Step,I*Step,0),Center+FVector(10*Step,I*Step,0),Blue,1);}
+ // Show the snapped cursor and actual draft footprint, without a fixed cursor lattice.
  FVector2D P;if(!Project(Center,P)) return; {DrawLine(P.X-7*S,P.Y,P.X+7*S,P.Y,Orange,2*S);DrawLine(P.X,P.Y-7*S,P.X,P.Y+7*S,Orange,2*S);}
+ if((PC->IsPavementTool()||PC->bPaveDirectDrag)&&PC->BuildTool!=TEXT("PaveRect")&&PC->BuildTool!=TEXT("PaveErase"))return;
  FIntVector Start,End;const bool Drag=PC->IsConstructionDragging(Start,End);
  if(!Drag && PC->bExactSurface && FFoundrylineSizing::Surface(PC->BuildTool)) {Start=Anchor;End=PC->ExactSurfaceEnd(Anchor);}
  else if(!Drag) return;
  const bool Horizontal=FMath::Abs(End.X-Start.X)>FMath::Abs(End.Y-Start.Y);
  // Invalid small drags still show the intended footprint instead of vanishing.
- const FVector RawA(Start.X,Start.Y,0),RawB(End.X,Start.Y,0),RawC(End.X,End.Y,0),RawD(Start.X,End.Y,0);
+ const float GuideZ=(PC->IsPavementTool()||PC->bPaveDirectDrag)?20:0;const FVector RawA(Start.X,Start.Y,GuideZ),RawB(End.X,Start.Y,GuideZ),RawC(End.X,End.Y,GuideZ),RawD(Start.X,End.Y,GuideZ);
  const FLinearColor Pending(1,.35f,.1f,.9f);
  Line(RawA,RawB,Pending,2);Line(RawB,RawC,Pending,2);Line(RawC,RawD,Pending,2);Line(RawD,RawA,Pending,2);
 
+ if(PC->IsPavementTool()){const FString Label=FString::Printf(TEXT("%.1f ft x %.1f ft"),FMath::Abs(End.X-Start.X)/30.48,FMath::Abs(End.Y-Start.Y)/30.48);DrawRect(FLinearColor(.03f,.04f,.05f,.94f),P.X+14*S,P.Y+14*S,240*S,30*S);DrawText(Label,FLinearColor::White,P.X+22*S,P.Y+21*S,GEngine->GetMediumFont(),1.15f*S);return;}
  for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It) if(It->bHasPreviewBounds) {
   const auto& B=It->PreviewBounds;const FVector A(B.Min.X,B.Min.Y,0),C(B.Max.X,B.Min.Y,0),D(B.Max.X,B.Max.Y,0),E(B.Min.X,B.Max.Y,0);
   const auto Color=It->IsConstructionFeedbackError()?FLinearColor(1,.1f,.08f,1):FLinearColor(.12f,.7f,1,1);Line(A,C,Color,2);Line(C,D,Color,2);Line(D,E,Color,2);Line(E,A,Color,2);
@@ -81,7 +84,7 @@ void AFoundrylineBuildHUD::DrawSelectionOutlines(AFoundrylinePlayerController* P
  // Canvas lines replace the old DrawDebug outline, which Shipping builds strip out.
  const float S=FMath::Min(1.5f,Canvas->ClipY/1320.f);
  int32 VW=0,VH=0;PC->GetViewportSize(VW,VH);if(VW<=0||VH<=0) return;
- auto Project=[&](FVector P,FVector2D& Out){if(!PC->ProjectWorldLocationToScreen(P,Out,true)) return false;Out.X*=Canvas->ClipX/VW;Out.Y*=Canvas->ClipY/VH;return true;};
+ auto Project=[&](FVector P,FVector2D& Out){if(!PC->ProjectWorldLocationToScreen(P,Out,false)) return false;Out.X*=Canvas->ClipX/VW;Out.Y*=Canvas->ClipY/VH;return true;};
  const FLinearColor Orange(FColor::FromHex(TEXT("F07A2F"))),Sky(.39f,.71f,.86f);
  for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)
   for(const auto& O:It->SelectionOutlines)
@@ -90,7 +93,16 @@ void AFoundrylineBuildHUD::DrawSelectionOutlines(AFoundrylinePlayerController* P
    FVector2D P[4];bool Visible=true;
    for(int32 I=0;I<4&&Visible;++I) Visible=Project(Corners[I],P[I]);
    if(!Visible) continue;
-   const auto Color=O.Hover?Sky:Orange;
+   const auto Color=O.Blocked?FLinearColor(1,.08f,.025f):O.Hover?Sky:Orange;
+   if(O.Height>0)
+   {
+    FVector2D Top[4];bool TopVisible=true;for(int I=0;I<4;++I)TopVisible=TopVisible&&Project(Corners[I]+FVector(0,0,O.Height),Top[I]);
+    if(TopVisible)
+    {
+     auto Fill=[&](FVector2D A,FVector2D B,FVector2D C){FCanvasTriangleItem Item(A,B,C,GWhiteTexture);auto Tint=Color;Tint.A=O.Hover?.10f:.16f;Item.SetColor(Tint);Item.BlendMode=SE_BLEND_Translucent;Canvas->DrawItem(Item);};
+     for(int I=0;I<4;++I){const int J=(I+1)%4;Fill(P[I],P[J],Top[J]);Fill(P[I],Top[J],Top[I]);DrawLine(Top[I].X,Top[I].Y,Top[J].X,Top[J].Y,Color,(O.Hover?2:3)*S);DrawLine(P[I].X,P[I].Y,Top[I].X,Top[I].Y,Color,(O.Hover?2:3)*S);}
+    }
+   }
    for(int32 I=0;I<4;++I) DrawLine(P[I].X,P[I].Y,P[(I+1)%4].X,P[(I+1)%4].Y,Color,(O.Hover?2:4)*S);
    if(!O.Hover) for(const auto& C:P) DrawRect(Color,C.X-5*S,C.Y-5*S,10*S,10*S);
   }

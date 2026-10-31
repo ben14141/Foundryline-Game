@@ -4,7 +4,7 @@
 
 // A player's trip draft and immutable route-check result, never shared construction state.
 struct FFoundrylineLogisticsGate {
- FGuid SurfaceId;FString Label;FVector2D Portal;float InwardYaw=0;FFoundrylineVehiclePose Entry,Exit;
+ FGuid SurfaceId;FString Label;FVector2D Portal;float InwardYaw=0;FFoundrylineVehiclePose Entry,Exit;bool CanEnter=true,CanExit=true;
 };
 struct FFoundrylineLogisticsTripResult {
  bool Success=false;int64 Revision=-1;FString Reason;FFoundrylineVehicleRoute Inbound,Outbound;

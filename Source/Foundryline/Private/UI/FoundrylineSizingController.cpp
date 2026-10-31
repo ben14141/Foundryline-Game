@@ -1,4 +1,6 @@
 #include "UI/FoundrylinePlayerController.h"
+#include "Construction/FoundrylineBuildSite.h"
+#include "EngineUtils.h"
 #include "Construction/FoundrylineSizing.h"
 #include "Construction/FoundrylineBuildSite.h"
 #include "EngineUtils.h"
@@ -16,7 +18,7 @@ void AFoundrylinePlayerController::SetConstructionSize(int32 W,int32 D,bool Exac
  SurfaceSizes.Add(BuildTool,{W*100,D*100});bExactSurface=Exact;bDraggingBuild=false;ApplySurfaceDraft();
  for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It) It->Status=Exact?TEXT("Click once to place. R rotates. Right-click cancels."):TEXT("Hold left mouse and drag. Release to build. Right-click cancels.");
 }
-void AFoundrylinePlayerController::RotateSurfaceDraft() {SurfaceSizingAction(TEXT("SizeRotate"));}
+void AFoundrylinePlayerController::RotateSurfaceDraft() {if(BuildTool==TEXT("Sign")){for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It){It->DraftAreaRotation=(It->DraftAreaRotation+1)%4;break;}return;}SurfaceSizingAction(TEXT("SizeRotate"));}
 bool AFoundrylinePlayerController::SurfaceSizingAction(FName Action) {
  if(!Action.ToString().StartsWith(TEXT("Size"))) return false;
  if(!FFoundrylineSizing::Surface(BuildTool) || IsWalking() || IsConstructionPending()) return true;

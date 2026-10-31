@@ -1,3 +1,5 @@
+#include "Construction/FoundrylineLoadingBayLayout.h"
+#include "Construction/FoundrylinePavementGeometry.h"
 #include "Construction/FoundrylinePlacementSubsystem.h"
 #include "Construction/FoundrylineFacadeLayout.h"
 #include "Engine/World.h"
@@ -15,11 +17,7 @@ namespace
 	}
     FFoundrylineGridBounds DockBounds(const UFoundrylinePlaceableDefinition& Def,const FFoundrylinePlacedObject& Object,const FFoundrylineOpening& Opening)
     {
-     const int32 Along=Opening.OffsetCm+Opening.WidthCm()/2,Width=Def.Footprint.Max.X,Depth=Def.Footprint.Max.Y;
-     FFoundrylineGridBounds Bounds;
-     Bounds.Min=Opening.Edge%2==0?FIntVector(Along-250,Opening.Edge==0?-330:Depth,0):FIntVector(Opening.Edge==3?-330:Width,Along-250,0);
-     Bounds.Max=Bounds.Min+(Opening.Edge%2==0?FIntVector(500,330,600):FIntVector(330,500,600));
-     return FFoundrylineGrid::RotateBounds(Bounds,Object.Anchor,Object.QuarterTurns);
+     return FFoundrylineLoadingBayLayout::Bounds(Def,Object,Opening);
     }
 	bool Road(FName F) {return F==TEXT("Service") || F==TEXT("Driveway") || F==TEXT("Road2") || F==TEXT("Road4") || F==TEXT("TruckAccess");}
 	bool ContainsXY(const FFoundrylineGridBounds& Outer, const FFoundrylineGridBounds& Inner)
@@ -87,6 +85,11 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 	const auto* Entry = Definitions.Find(Candidate.DefinitionId);
 	if (!Entry || !IsValid(Entry->Get())) return EFoundrylinePlacementError::UnknownDefinition;
 	const auto& Def = **Entry;
+ if(Def.FunctionId==TEXT("ManufacturingSign")){if(Candidate.SignName.TrimStartAndEnd().IsEmpty()||Candidate.SignName.Len()>40||!FMath::IsFinite(Candidate.SignFacingDegrees)||FMath::Abs(Candidate.SignFacingDegrees)>180)return EFoundrylinePlacementError::InvalidTransform;for(TCHAR C:Candidate.SignName)if(!FChar::IsPrint(C)||C==TCHAR('<')||C==TCHAR('>'))return EFoundrylinePlacementError::InvalidTransform;}
+ else if(!Candidate.SignName.IsEmpty()||Candidate.SignFacingDegrees!=0)return EFoundrylinePlacementError::InvalidTransform;
+
+ if(Def.FunctionId==TEXT("Pavement")){FString Error;if(!FFoundrylinePavementGeometry::Valid(Candidate.Pavement,FVector2D(Def.Footprint.Max.X,Def.Footprint.Max.Y),Error))return EFoundrylinePlacementError::InvalidTransform;}
+ else if(!Candidate.Pavement.Polygons.IsEmpty()||!Candidate.Pavement.Markings.IsEmpty()||!Candidate.Pavement.RoadControls.IsEmpty()||Candidate.Pavement.Lanes||Candidate.Pavement.RoadWidthCm!=0)return EFoundrylinePlacementError::InvalidTransform;
 	if (!Def.IsDefinitionValid()) return EFoundrylinePlacementError::InvalidDefinition;
 	if (!Candidate.Openings.IsEmpty() && Def.FunctionId != TEXT("BuildingShell")) return EFoundrylinePlacementError::InvalidDefinition;
 	if(Def.DefinitionId.ToString().StartsWith(TEXT("Office_"))!=Candidate.bOfficeAnnex) return EFoundrylinePlacementError::InvalidDefinition;
@@ -152,9 +155,10 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 		const auto& O = Candidate.Openings[I];
 		const int32 Length = (O.Edge % 2 == 0 ? Def.Footprint.Max.X : Def.Footprint.Max.Y);
 		if (!O.OpeningId.IsValid() || OpeningIds.Contains(O.OpeningId) || O.Edge > 3
-			|| uint8(O.Kind) > uint8(EFoundrylineOpeningKind::LoadingDock) || (!(O.bAutomatic && O.Kind==EFoundrylineOpeningKind::ShopWindow) && O.OffsetCm % 100 != 0)
+			|| uint8(O.Kind) > uint8(EFoundrylineOpeningKind::OfficeGlassWall) || O.LoadingTier>3 || (O.Kind!=EFoundrylineOpeningKind::LoadingDock&&O.LoadingTier!=0) || (!(O.bAutomatic && O.Kind==EFoundrylineOpeningKind::ShopWindow) && O.OffsetCm % (O.Kind==EFoundrylineOpeningKind::OfficeGlassWall?25:100) != 0)
 			|| (O.Kind==EFoundrylineOpeningKind::ShopWindow && (O.WindowSillCm<0 || O.WindowSillCm>Def.Footprint.Max.Z))
-			|| O.OffsetCm < 100 || O.OffsetCm > Length - 100 || O.OffsetCm + O.WidthCm() > Length - 100
+			|| (O.Kind==EFoundrylineOpeningKind::OfficeGlassWall && (!Candidate.bOfficeAnnex || O.PanelWidthCm<100 || O.PanelWidthCm>20000 || O.PanelWidthCm%25 || O.bAutomatic))
+			|| O.OffsetCm < (O.Kind==EFoundrylineOpeningKind::OfficeGlassWall?25:100) || O.OffsetCm + O.WidthCm() > Length - (O.Kind==EFoundrylineOpeningKind::OfficeGlassWall?25:100)
 			|| O.BottomCm() + O.HeightCm() + 20 >= Def.Footprint.Max.Z) return EFoundrylinePlacementError::InvalidTransform;
 		OpeningIds.Add(O.OpeningId);
 		for (int32 J=0; J<I; ++J)
@@ -179,17 +183,14 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
     for(const auto& Opening:Candidate.Openings) if(Opening.Kind==EFoundrylineOpeningKind::LoadingDock)
     {
      if(Candidate.bOfficeAnnex) return EFoundrylinePlacementError::InvalidDefinition;
-     const int32 Along=Opening.OffsetCm+Opening.WidthCm()/2;
-     const int32 Width=Def.Footprint.Max.X,Depth=Def.Footprint.Max.Y;
-     FFoundrylineGridBounds Dock;
-     Dock.Min=Opening.Edge%2==0?FIntVector(Along-250,Opening.Edge==0?-330:Depth,0):FIntVector(Opening.Edge==3?-330:Width,Along-250,0);
-     Dock.Max=Dock.Min+(Opening.Edge%2==0?FIntVector(500,330,600):FIntVector(330,500,600));
-     const auto WorldDock=FFoundrylineGrid::RotateBounds(Dock,Candidate.Anchor,Candidate.QuarterTurns);
+     const auto WorldDock=DockBounds(Def,Candidate,Opening);
      if(!InRegions.ContainsByPredicate([&](const auto& R){return R.CompanyId==Candidate.CompanyId && R.PlantId==Candidate.PlantId && ContainsXY(R.Bounds,WorldDock);})) return EFoundrylinePlacementError::AccessDenied;
+     for(const auto& Bay:Candidate.Openings)if(Bay.Kind==EFoundrylineOpeningKind::LoadingDock&&Bay.OpeningId!=Opening.OpeningId&&(Bay.LoadingTier||Opening.LoadingTier)&&WorldDock.Overlaps(DockBounds(Def,Candidate,Bay)))return EFoundrylinePlacementError::Occupied;
      for(const auto& Other:Against)
      {
       if(Other.ObjectId==Candidate.ObjectId) continue;
       const auto* OtherDef=FindDefinition(Other.DefinitionId);
+      if(OtherDef)for(const auto& Bay:Other.Openings)if(Bay.Kind==EFoundrylineOpeningKind::LoadingDock&&(Opening.LoadingTier||Bay.LoadingTier)&&WorldDock.Overlaps(DockBounds(*OtherDef,Other,Bay)))return EFoundrylinePlacementError::Occupied;
       if(OtherDef && OtherDef->FunctionId==TEXT("BuildingShell") && WorldDock.Overlaps(FFoundrylineGrid::RotateBounds(OtherDef->Footprint,Other.Anchor,Other.QuarterTurns))) return EFoundrylinePlacementError::Occupied;
      }
     }
@@ -225,6 +226,16 @@ EFoundrylinePlacementError UFoundrylinePlacementSubsystem::ValidateObject(
 			return EFoundrylinePlacementError::InvalidDefinition;
 		const auto& OtherDef = **OtherEntry;
 		if (OtherDef.CollisionClass == EFoundrylineCollisionClass::Cosmetic) continue;
+  const bool Owned=Candidate.CompanyId==Other.CompanyId&&Candidate.PlantId==Other.PlantId;
+  auto SignSurface=[](FName F){return F==TEXT("Parking")||F==TEXT("Walkway")||F==TEXT("FreightYard")||F==TEXT("Pavement");};
+  if(Owned&&((Def.FunctionId==TEXT("ManufacturingSign")&&SignSurface(OtherDef.FunctionId))||(OtherDef.FunctionId==TEXT("ManufacturingSign")&&SignSurface(Def.FunctionId))))continue;
+
+  if(Def.FunctionId==TEXT("Pavement")||OtherDef.FunctionId==TEXT("Pavement")){
+   if(Owned&&FFoundrylineDrivingLayout::IsPaved(Def.FunctionId)&&FFoundrylineDrivingLayout::IsPaved(OtherDef.FunctionId))continue;
+   const auto Shape=[&](const auto& O,const auto& D){const FTransform T(FRotator(0,O.QuarterTurns*90,0),FVector(O.Anchor));return FFoundrylinePavementGeometry::Transform(D.FunctionId==TEXT("Pavement")?O.Pavement.Polygons:FFoundrylinePavementGeometry::Rectangle({0,0},{double(D.Footprint.Max.X),double(D.Footprint.Max.Y)}),T);};
+   if(!FFoundrylinePavementGeometry::Intersects(Shape(Candidate,Def),Shape(Other,OtherDef)))continue;
+   return EFoundrylinePlacementError::Occupied;
+  }
 		// A connected road surface may overlap another road owned by the same plant.
 		// Parking, buildings and other companies still retain their full exclusion bounds.
 		if(Road(Def.FunctionId) && Road(OtherDef.FunctionId) && Candidate.CompanyId==Other.CompanyId && Candidate.PlantId==Other.PlantId && Candidate.QuarterTurns%2!=Other.QuarterTurns%2) continue;
@@ -262,7 +273,7 @@ FFoundrylinePlacementResult UFoundrylinePlacementSubsystem::ValidateAgainst(
 	Candidate.DefinitionId = Request.DefinitionId;
 	Candidate.Anchor = Request.Anchor;
 	Candidate.QuarterTurns = Request.QuarterTurns;
-	Candidate.Openings = Request.Openings;
+	Candidate.Openings = Request.Openings;Candidate.SignName=Request.SignName;Candidate.SignFacingDegrees=Request.SignFacingDegrees;Candidate.Colors=Request.Colors;Candidate.Pavement=Request.Pavement;
 	Candidate.ColumnBayCm = Request.ColumnBayCm;
 	Candidate.bOfficeAnnex=Request.bOfficeAnnex;Candidate.OfficeAreas=Request.OfficeAreas;
 	if (Request.Action == EFoundrylinePlacementAction::Build)
@@ -289,7 +300,7 @@ FFoundrylinePlacementResult UFoundrylinePlacementSubsystem::ValidateAgainst(
 		case EFoundrylinePlacementAction::ReplaceObject:
 		{
 			const auto* Old=FindDefinition(Existing->DefinitionId); const auto* New=FindDefinition(Request.Replacement.DefinitionId);
-			if(!Old || !New || Old->FunctionId!=New->FunctionId || Old->Footprint.Max.Z!=New->Footprint.Max.Z
+			if(!Old || !New || (Old->FunctionId!=New->FunctionId&&!((Old->FunctionId==TEXT("Pavement")&&FFoundrylineDrivingLayout::IsPaved(New->FunctionId))||(New->FunctionId==TEXT("Pavement")&&FFoundrylineDrivingLayout::IsPaved(Old->FunctionId)))) || Old->Footprint.Max.Z!=New->Footprint.Max.Z
 				|| Request.Replacement.ObjectId!=Existing->ObjectId || Request.Replacement.CompanyId!=Existing->CompanyId || Request.Replacement.PlantId!=Existing->PlantId)
 			{Result.Error=EFoundrylinePlacementError::InvalidIdentity;return Result;}
 			Candidate=Request.Replacement; break;
@@ -298,7 +309,7 @@ FFoundrylinePlacementResult UFoundrylinePlacementSubsystem::ValidateAgainst(
   case EFoundrylinePlacementAction::SetTruckZones: Candidate.TruckZones=Request.TruckZones;break;
   case EFoundrylinePlacementAction::SetBuildingColors:
    if(const auto* D=FindDefinition(Candidate.DefinitionId);!D || D->FunctionId!=TEXT("BuildingShell")) {Result.Error=EFoundrylinePlacementError::InvalidDefinition;return Result;}
-   Candidate.Colors=Request.Colors;break;
+   Candidate.Colors=Request.Colors;Candidate.Pavement=Request.Pavement;break;
 		case EFoundrylinePlacementAction::SetLandscaping:
 			if(const auto* D=FindDefinition(Candidate.DefinitionId);!D || D->FunctionId!=TEXT("Parking")) {Result.Error=EFoundrylinePlacementError::InvalidDefinition;return Result;}
 			Candidate.bLandscaping=Request.bLandscaping;break;
@@ -344,6 +355,7 @@ FFoundrylinePlacementResult UFoundrylinePlacementSubsystem::ValidateAgainst(
 		default: Result.Error = EFoundrylinePlacementError::InvalidAction; return Result;
 		}
 	}
+	if(Request.Action==EFoundrylinePlacementAction::SetRouteNodes&&!Candidate.Pavement.Polygons.IsEmpty())for(const auto& N:Candidate.RouteNodes)if(!FFoundrylinePavementGeometry::Contains(Candidate.Pavement.Polygons,FVector2D(N.Position))){Result.Error=EFoundrylinePlacementError::InvalidTransform;return Result;}
 	Result.Error = ValidateObject(Candidate, Against, Regions);
 	return Result;
 }
@@ -390,7 +402,7 @@ FFoundrylinePlanResult UFoundrylinePlacementSubsystem::StageBatch(
 			Object.DefinitionId = Request.DefinitionId;
 			Object.Anchor = Request.Anchor;
 			Object.QuarterTurns = Request.QuarterTurns;
-			Object.Openings = Request.Openings;
+			Object.Openings = Request.Openings;Object.SignName=Request.SignName;Object.SignFacingDegrees=Request.SignFacingDegrees;Object.Colors=Request.Colors;Object.Pavement=Request.Pavement;
 			Object.ColumnBayCm = Request.ColumnBayCm;
 			Object.bOfficeAnnex=Request.bOfficeAnnex;Object.OfficeAreas=Request.OfficeAreas;
 			Staged.Add(Object);

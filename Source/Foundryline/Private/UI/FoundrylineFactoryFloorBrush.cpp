@@ -50,7 +50,7 @@ bool AFoundrylinePlayerController::PreviewFactoryFloor(FVector Cursor){
   bFactoryPresetValid=Check.PaintLane(Crossing?EFoundrylineFloorLane::Crossing:FactoryTool==TEXT("Pedestrian")?EFoundrylineFloorLane::Pedestrian:EFoundrylineFloorLane::Forklift,FactoryPreviewA,FactoryPreviewB,FactoryWidth,FactoryDirection,Error);
   if(bFactoryPresetValid){const auto& L=Check.State.Lanes.Last();FactoryPreviewBounds=FBox2D(L.Min,L.Max);}
  }
- if(Plant->Snapshot.Running&&FactoryTool!=TEXT("Station")){bFactoryPresetValid=false;Error=TEXT("Pause the plant before painting");}
+ if(Plant->Snapshot.Running&&FactoryTool!=TEXT("Station")&&FactoryTool!=TEXT("Equipment")){bFactoryPresetValid=false;Error=TEXT("Pause the plant before painting");}
  const auto Size=FactoryPreviewBounds.GetSize();FactoryBrushDimensions=FFoundrylineUnits::Length(Size.X)+TEXT(" x ")+FFoundrylineUnits::Length(Size.Y);
  FactoryPlacementHint=bFactoryPresetValid?(bFactorySnapped?TEXT("EDGE ALIGNED / ready"):TEXT("GRID ALIGNED / ready")):Error;
  return bFactoryPresetValid;

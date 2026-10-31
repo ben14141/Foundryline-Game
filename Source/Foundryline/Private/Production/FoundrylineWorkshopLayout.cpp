@@ -1,5 +1,6 @@
 #include "Production/FoundrylineWorkshopLayout.h"
 #include "Construction/FoundrylinePlanningEquipment.h"
+#include "Construction/FoundrylinePlannerItems.h"
 
 TArray<FFoundrylineWorkshopRack> FFoundrylineWorkshopLayout::Racks(){
  TArray<FFoundrylineWorkshopRack> Out;
@@ -27,9 +28,7 @@ TArray<FFoundrylineFactorySlot> FFoundrylineWorkshopLayout::Slots(){
 const TCHAR* FFoundrylineWorkshopLayout::SlotName(int Id){switch(Id){case 100:return TEXT("Plasma / sheet supply");case 101:case 102:return TEXT("Brake / finished parts");case 103:return TEXT("Roller / finished shells");case 104:return TEXT("Whole-head storage");case 105:case 106:return TEXT("Purchased kits");case 107:case 108:case 109:return TEXT("Plasma / cut blanks");case 110:case 111:return TEXT("Brake / blank supply");case 112:return TEXT("Roller / blank supply");default:return TEXT("Assigned storage");}}
 
 TArray<FBox2D> FFoundrylineWorkshopLayout::PlantSolids(const FFoundrylineFactoryState& State){
- auto Out=State.bCutPartsStarter?CutShopSolids():Solids();for(const auto& Rack:State.StorageRacks)Out.Add(FFoundrylinePlanningEquipment::Bounds(Rack.Center,Rack.QuarterTurns,FFoundrylinePlanningEquipment::Size(Rack.FinishedGoods?2:1,Rack.Levels)));if(!State.bCutPartsStarter)return Out;
- // Same footprint InstallBrake adds on the server.
- if(State.Machines.ContainsByPredicate([](const auto& M){return M.Id==2;})){Out.Emplace(FVector2D(-2025,1675),FVector2D(-1675,2025));Out.Emplace(FVector2D(-1560,1642),FVector2D(-1440,2058));}return Out;
+ TArray<FBox2D> Out;for(const auto& Item:FFoundrylinePlannerItems::List(State))if(!Item.Stored&&(Item.Kind==EFoundrylinePlannerItem::Machine||Item.Kind==EFoundrylinePlannerItem::StorageRack||Item.Kind==EFoundrylinePlannerItem::FixedRack))Out.Emplace(FVector2D(Item.Bounds.Min),FVector2D(Item.Bounds.Max));return Out;
 }
 TArray<FBox2D> FFoundrylineWorkshopLayout::CutShopSolids(){
  TArray<FBox2D> Out;const FVector2D P(Machine(1));Out.Emplace(P+FVector2D(-280,-260),P+FVector2D(285,260));

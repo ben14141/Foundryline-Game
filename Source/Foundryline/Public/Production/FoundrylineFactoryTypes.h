@@ -51,6 +51,8 @@ struct FFoundrylineFactoryMachine {
  GENERATED_BODY()
  UPROPERTY(SaveGame) int32 Id=0;
  UPROPERTY(SaveGame) FVector Origin=FVector::ZeroVector;
+ UPROPERTY(SaveGame) bool bStored=false;
+ UPROPERTY(SaveGame) TArray<FFoundrylineFactorySlot> StoredSlots;
  UPROPERTY(SaveGame) FVector InputDock=FVector::ZeroVector;
  UPROPERTY(SaveGame) FVector OutputDock=FVector::ZeroVector;
  UPROPERTY(SaveGame) FVector InputStock=FVector::ZeroVector;

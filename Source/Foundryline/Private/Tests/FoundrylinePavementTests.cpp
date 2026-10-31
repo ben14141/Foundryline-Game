@@ -1,72 +1,82 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Construction/FoundrylinePavementGeometry.h"
 #include "Construction/FoundrylineBuildSite.h"
-#include "Construction/FoundrylineSizing.h"
+#include "Pathing/FoundrylineVehiclePathSubsystem.h"
+#include "Logistics/FoundrylineLogisticsTrip.h"
 #include "Engine/World.h"
+#include "UI/FoundrylinePlayerController.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Serialization/ObjectAndNameAsStringProxyArchive.h"
+using G=FFoundrylinePavementGeometry;
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFoundrylinePavementLifecycleTest,"Foundryline.Construction.AllPavementOptionsLifecycle",
- EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
-bool FFoundrylinePavementLifecycleTest::RunTest(const FString&) {
- for(const FName Tool:{FName(TEXT("Service")),FName(TEXT("Road2")),FName(TEXT("Road4")),FName(TEXT("Driveway")),FName(TEXT("TruckAccess")),FName(TEXT("Parking")),FName(TEXT("FreightYard")),FName(TEXT("Walkway"))}) {
-  auto* W=UWorld::CreateWorld(EWorldType::Game,false);auto* S=W->SpawnActor<AFoundrylineBuildSite>();S->DispatchBeginPlay();auto* P=W->GetSubsystem<UFoundrylinePlacementSubsystem>();
-  auto Check=[&](const TCHAR* Label,bool Value){return TestTrue(Tool.ToString()+TEXT(" / ")+Label,Value);};
-  const FIntVector Start(-3500,2800,0),End=Start+(FFoundrylineSizing::Road(Tool)?FIntVector(0,1600,0):FIntVector(1000,1600,0));
-  const auto Revision=P->GetRevision();S->PreviewRectangle(Tool,Start,End);const auto Preview=S->PreviewBounds;
-  Check(TEXT("preview is valid and never mutates"),S->bHasPreviewBounds && !S->IsConstructionFeedbackError() && P->GetRevision()==Revision);
-  if(!Check(TEXT("commit"),S->BuildRectangle(Tool,Start,End))) {W->DestroyWorld(false);continue;}
-  const auto Original=P->GetObjects().Last();const FGuid Id=Original.ObjectId;
-  auto Current=[&](){return P->GetObjects().FindByPredicate([&](const auto& O){return O.ObjectId==Id;});};
-  auto Bounds=[&](){const auto* O=Current();return FFoundrylineGrid::RotateBounds(P->FindDefinition(O->DefinitionId)->Footprint,O->Anchor,O->QuarterTurns);};
-  auto B=Bounds();Check(TEXT("committed footprint matches hologram"),B.Min==Preview.Min && B.Max==Preview.Max);
-  FHitResult Hit;const FVector Center((B.Min.X+B.Max.X)/2.,(B.Min.Y+B.Max.Y)/2.,0);
-  Check(TEXT("surface is solid and level with the 20 cm shop floor"),W->LineTraceSingleByChannel(Hit,Center+FVector(0,0,100),Center-FVector(0,0,100),ECC_Visibility) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,20.,.1));
-  FIntVector Pick(FMath::RoundToInt(Center.X),FMath::RoundToInt(Center.Y),0);
-  Check(TEXT("select and move"),S->BeginEdit(TEXT("Move"),Pick) && S->CommitEdit(TEXT("Move"),Pick,Pick+FIntVector(300,0,0)));
-  Check(TEXT("move retains identity and dimensions"),Current() && Current()->Anchor==Original.Anchor+FIntVector(300,0,0) && Current()->DefinitionId==Original.DefinitionId);
-  Pick+=FIntVector(300,0,0);
-  Check(TEXT("quarter-turn"),S->BeginEdit(TEXT("Rotate"),Pick) && S->CommitEdit(TEXT("Rotate"),Pick,Pick));
-  const auto Rotated=*Current();const auto* D=P->FindDefinition(Rotated.DefinitionId);
-  auto WorldPoint=[&](FIntVector Local){return Rotated.Anchor+FFoundrylineGrid::RotateOffset(Local,Rotated.QuarterTurns);};
-  const auto Corner=WorldPoint(D->Footprint.Max-FIntVector(100,100,D->Footprint.Max.Z));
-  const auto Target=WorldPoint({D->Footprint.Max.X+200,D->Footprint.Max.Y+300,0});
-  Check(TEXT("select rotated corner"),S->BeginEdit(TEXT("Resize"),Corner));S->PreviewEdit(TEXT("Resize"),Corner,Target);const auto ResizedPreview=S->PreviewBounds;
-  Check(TEXT("resize"),S->CommitEdit(TEXT("Resize"),Corner,Target));
-  B=Bounds();Check(TEXT("resized footprint matches preview"),B.Min==ResizedPreview.Min && B.Max==ResizedPreview.Max);
-  const auto* RD=P->FindDefinition(Current()->DefinitionId);
-  Check(TEXT("real width and depth are preserved"),RD->Footprint.Max.X==D->Footprint.Max.X+(FFoundrylineSizing::FixedWidth(Tool)?0:200) && RD->Footprint.Max.Y==D->Footprint.Max.Y+300 && RD->Footprint.Max.Z==20);
-  S->Undo();Check(TEXT("undo resize"),Current()->DefinitionId==Rotated.DefinitionId && Current()->Anchor==Rotated.Anchor);
-  S->Redo();Check(TEXT("redo resize"),Bounds().Min==B.Min && Bounds().Max==B.Max);
-  Pick={(B.Min.X+B.Max.X)/2,(B.Min.Y+B.Max.Y)/2,0};
-  Check(TEXT("demolish"),S->BeginEdit(TEXT("Demolish"),Pick) && S->CommitEdit(TEXT("Demolish"),Pick,Pick));Check(TEXT("section removed"),!Current());
-  S->Undo();Check(TEXT("undo demolition restores original identity"),Current() && Bounds().Min==B.Min && Bounds().Max==B.Max);
-  auto* Saved=P->CreateSnapshot();auto* Fresh=NewObject<UFoundrylinePlacementSubsystem>(W);
-  bool Definitions=true;for(const auto& O:Saved->Objects) Definitions&=Fresh->EnsureGeneratedDefinition(O.DefinitionId);
-  Check(TEXT("save reconstructs approved definitions and restores edited pavement"),Definitions && Fresh->RestoreSnapshot(Saved)==EFoundrylinePlacementError::None);
-  const auto BeforeInvalid=P->GetRevision();
-  Check(TEXT("undersized draft rejected"),!S->BuildRectangle(Tool,{-5000,3000,0},{-4900,3100,0}));
-  Check(TEXT("out-of-property draft rejected"),!S->BuildRectangle(Tool,{20000,20000,0},{21600,21600,0}));
-  Check(TEXT("invalid requests do not change the property"),P->GetRevision()==BeforeInvalid);
-  W->DestroyWorld(false);
- }
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPavementGeometryTest,"Foundryline.Construction.Pavement.BooleanHolesRounding",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FPavementGeometryTest::RunTest(const FString&){
+ TArray<G::FPolygon> Result;TestTrue(TEXT("Touching rectangles union"),G::Boolean(G::Rectangle({0,0},{1000,1000}),G::Rectangle({1000,0},{2000,1000}),false,Result));TestEqual(TEXT("One continuous outer perimeter"),Result.Num(),1);TestTrue(TEXT("Union keeps exact area"),FMath::Abs(G::Area(Result)-2000000)<1);
+ TArray<G::FPolygon> Hole;TestTrue(TEXT("Cut an interior island"),G::Boolean(Result,G::Rectangle({500,300},{900,700}),true,Hole));TestTrue(TEXT("Interior cut remains a true hole"),Hole.Num()==1&&Hole[0].Holes.Num()==1);TestFalse(TEXT("Cutout is not pavement"),G::Contains(Hole,{700,500}));TestTrue(TEXT("Surrounding asphalt remains pavement"),G::Contains(Hole,{200,500}));
+ TArray<FVector2D> Vertices;TArray<int32> Triangles;TestTrue(TEXT("Hole triangulates"),G::Triangulate(Hole[0],Vertices,Triangles));double Area=0;for(int I=0;I<Triangles.Num();I+=3){const auto A=Vertices[Triangles[I]],B=Vertices[Triangles[I+1]],C=Vertices[Triangles[I+2]];Area+=FMath::Abs((B.X-A.X)*(C.Y-A.Y)-(B.Y-A.Y)*(C.X-A.X))*.5;}TestTrue(TEXT("No triangles bridge the island"),FMath::Abs(Area-G::Area(Hole))<1);
+ FFoundrylinePavementData Handles;Handles.Polygons=G::Rectangle({0,0},{2000,2000});const auto RectHandles=G::EditHandles(Handles);TestEqual(TEXT("Rectangle offers four corner and four edge handles"),RectHandles.Num(),8);Handles.Lanes=2;Handles.RoadControls={{1000,0},{1000,3000}};const auto RoadHandles=G::EditHandles(Handles);TestEqual(TEXT("Straight road offers two endpoints and one bend handle"),RoadHandles.Num(),3);TestTrue(TEXT("Straight road bend handle uses the same bend command as curved roads"),RoadHandles.Last().Tool==TEXT("PaveBend")&&RoadHandles.Last().Position.Equals({1000,1500}));
+ auto Rounded=G::Rectangle({0,0},{2000,2000});TestTrue(TEXT("Corner has an editable roundover"),G::RoundCorner(Rounded,{0,0},300));TestFalse(TEXT("Rounded corner removes its former square tip"),G::Contains(Rounded,{5,5}));TestTrue(TEXT("Roundover preserves the useful interior"),G::Contains(Rounded,{350,350}));return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPavementRoadTest,"Foundryline.Construction.Pavement.CurvesWidthsAndDriving",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FPavementRoadTest::RunTest(const FString&){
+ FFoundrylinePavementData D;D.Lanes=2;D.Curbs=true;D.RoadWidthCm=731.52f;D.RoadControls={{1000,1000},{4000,1000},{4000,4000}};D.Polygons=G::Road(D.RoadControls,D.RoadWidthCm+36);const auto B=G::Bounds(D.Polygons);G::Translate(D,-B.Min);FString E;TestTrue(TEXT("24 ft two-way curve validates: ")+E,G::Valid(D,B.Max-B.Min,E));
+ D.RoadWidthCm=600;D.Polygons=G::Road(D.RoadControls,636);TestFalse(TEXT("Two-way driveway cannot shrink under 24 ft"),G::Valid(D,{10000,10000},E));D.Lanes=1;D.RoadWidthCm=365.76f;D.Polygons=G::Road(D.RoadControls,D.RoadWidthCm+36);TestTrue(TEXT("12 ft one-way access remains allowed: ")+E,G::Valid(D,{10000,10000},E));
+ FFoundrylineDriveSurface S;S.Id=FGuid::NewGuid();S.Function=TEXT("Pavement");S.Transform=FTransform::Identity;S.Size={4000,4000};S.Pavement=D;S.Centerline=G::RoadPath(D.RoadControls);FFoundrylineDrivingMap Map;Map.Surfaces.Add(S);const auto Mid=S.Centerline[S.Centerline.Num()/2];TestTrue(TEXT("Truck clear checks use actual curved asphalt"),Map.PointAllowed(Mid,true,false,{}));TestFalse(TEXT("Bounding-box corner is not drivable"),Map.PointAllowed({100,3000},true,false,{}));
+ FFoundrylineVehiclePose Pose;Pose.Position=Mid;const auto Forward=(S.Centerline[S.Centerline.Num()/2+1]-S.Centerline[S.Centerline.Num()/2]).GetSafeNormal();Pose.Yaw=FMath::Atan2(Forward.Y,Forward.X);TestTrue(TEXT("One-way direction follows the curve"),Map.LaneAllowed(Pose));Pose.Yaw+=PI;TestFalse(TEXT("Opposing one-way travel is rejected"),Map.LaneAllowed(Pose));
+ FFoundrylineDrivingMap GatesMap;FFoundrylineDriveSurface Access;Access.Id=FGuid::NewGuid();Access.Function=TEXT("Pavement");Access.Size={2000,10000};Access.Transform=FTransform::Identity;Access.Pavement.Lanes=1;Access.Pavement.RoadWidthCm=365.76f;Access.Pavement.RoadControls={{1000,0},{1000,10000}};Access.Pavement.Polygons=G::Road(Access.Pavement.RoadControls,401.76);Access.Centerline=G::RoadPath(Access.Pavement.RoadControls);GatesMap.Surfaces.Add(Access);
+ for(int I=0;I<2;++I){FFoundrylineDriveSurface Street;Street.Id=FGuid::NewGuid();Street.Function=TEXT("Road2");Street.Public=true;Street.Size={800,20000};Street.Transform=FTransform(FRotator(0,-90,0),FVector(-8000,I?10800:0,0));GatesMap.Surfaces.Add(Street);}TestFalse(TEXT("Straight road has polygon faces"),Access.Pavement.Polygons.IsEmpty());
+ const auto AccessBounds=G::Bounds(Access.Pavement.Polygons);TestTrue(TEXT("Straight road maintains the requested full physical width"),FMath::Abs(AccessBounds.GetSize().X-401.76)<.1);
+ FFoundrylineVehiclePose StreetProbe;StreetProbe.Position={-1600,-600};StreetProbe.Yaw=0;TestTrue(TEXT("Incoming public street pose is clear"),FFoundrylineVehiclePath::PoseClear(GatesMap,FFoundrylineVehicleProfile::Car(),StreetProbe,false));
+ const auto Gates=FFoundrylineLogisticsTrip::Gates(GatesMap,false);TestEqual(TEXT("Curved/custom pavement participates in street gate discovery"),Gates.Num(),2);TestEqual(TEXT("One-way entry is not an exit"),Gates.FilterByPredicate([](const auto& V){return V.CanEnter&&!V.CanExit;}).Num(),1);TestEqual(TEXT("One-way exit is not an entry"),Gates.FilterByPredicate([](const auto& V){return V.CanExit&&!V.CanEnter;}).Num(),1);
+ G::RoadPaint(D,true);const int PaintCount=D.Markings.Num();TestTrue(TEXT("One-way road gets two continuous edge lines"),PaintCount==2);const auto PaintId=D.Markings[0].Id;D.RoadControls[1]+=FVector2D(200,300);G::RoadPaint(D);TestTrue(TEXT("Automatic paint follows edited controls with stable identity"),D.Markings.Num()==PaintCount&&D.Markings[0].Id==PaintId);return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPavementAuthoringTest,"Foundryline.Construction.Pavement.AuthoringUndoPaintAndSave",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FPavementAuthoringTest::RunTest(const FString&){
+ auto* W=UWorld::CreateWorld(EWorldType::Game,false);auto* Controller=W->SpawnActor<AFoundrylinePlayerController>();Controller->ChooseTool(TEXT("PaveRect"));TestTrue(TEXT("Pavement cursor and visible grid both use 25 cm snapping"),Controller->GetPlacementSnap()==EFoundrylineSnap::Fine25cm);Controller->ChooseTool(TEXT("Building"));TestTrue(TEXT("Building structural snap remains one metre"),Controller->GetPlacementSnap()==EFoundrylineSnap::Structural100cm);auto* Site=W->SpawnActor<AFoundrylineBuildSite>();Site->DispatchBeginPlay();auto* P=W->GetSubsystem<UFoundrylinePlacementSubsystem>();auto Areas=[&](){return P->GetObjects().FilterByPredicate([](const auto& O){return !O.Pavement.Polygons.IsEmpty();});};
+ TestTrue(TEXT("Drag a first rectangle"),Site->PavementShape(TEXT("Rectangle"),{{-5500,2000},{-4500,3000}},0,0,false,false));TestTrue(TEXT("Drag a second separate rectangle"),Site->PavementShape(TEXT("Rectangle"),{{-4000,2000},{-3000,3000}},0,0,false,false));const auto Before=Areas();TestEqual(TEXT("Two separate areas"),Before.Num(),2);
+ TestTrue(TEXT("Bridge joins the areas"),Site->PavementShape(TEXT("Rectangle"),{{-4500,2000},{-4000,3000}},0,0,false,false));TestEqual(TEXT("Areas merge into one record"),Areas().Num(),1);Site->Undo();TestEqual(TEXT("Atomic undo restores both original records"),Areas().Num(),2);for(const auto& O:Before)TestTrue(TEXT("Undo retains original stable identities"),Areas().ContainsByPredicate([&](const auto& A){return A.ObjectId==O.ObjectId;}));Site->Redo();TestEqual(TEXT("Redo rejoins the surface"),Areas().Num(),1);
+ const int ParkingBefore=W->GetSubsystem<UFoundrylineVehiclePathSubsystem>()->GetParkingTargetCount();TestTrue(TEXT("Drag a row of painted parking spaces"),Site->AddPavementMark(EFoundrylinePavementMark::Parking,{{-5400,2100},{-3100,2100}},548.64));const auto Original=Areas()[0];TestEqual(TEXT("One saved parking marking group"),Original.Pavement.Markings.Num(),1);TestTrue(TEXT("Paint creates actual parking targets"),W->GetSubsystem<UFoundrylineVehiclePathSubsystem>()->GetParkingTargetCount()>=ParkingBefore+8);
+ TestTrue(TEXT("Erase a rectangular island"),Site->PavementShape(TEXT("Erase"),{{-4400,2400},{-3800,2800}},0,0,false,false));const auto Cut=Areas()[0];TestTrue(TEXT("Cut preserves paint record and flags its fit"),Cut.Pavement.Markings.Num()==1&&!G::MarkingFits(Cut.Pavement,Cut.Pavement.Markings[0]));TestFalse(TEXT("Deleted asphalt cannot be selected by its old bounding box"),Site->ObjectAt({-4100,2600,0})!=nullptr);
+ Site->Undo();TestTrue(TEXT("Undo restores paint fit"),G::MarkingFits(Areas()[0].Pavement,Areas()[0].Pavement.Markings[0]));
+ auto* Save=P->CreateSnapshot();TArray<uint8> Bytes;FMemoryWriter Writer(Bytes);FObjectAndNameAsStringProxyArchive Out(Writer,false);Save->Serialize(Out);auto* Loaded=NewObject<UFoundrylinePlacementSave>();FMemoryReader Reader(Bytes);FObjectAndNameAsStringProxyArchive In(Reader,true);Loaded->Serialize(In);const auto* Saved=Loaded->Objects.FindByPredicate([&](const auto& O){return O.ObjectId==Original.ObjectId;});TestTrue(TEXT("Contours and marking IDs survive a real archive round trip"),Saved&&Saved->Pavement.Polygons.Num()==1&&Saved->Pavement.Markings[0].Id==Original.Pavement.Markings[0].Id);
+ Site->BeginEdit(TEXT("Select"),{-2000,-600,0});const auto* Legacy=Site->GetSelectedObject();const FName OldDef=Legacy?Legacy->DefinitionId:NAME_None;TestTrue(TEXT("Existing parking can adopt new tools"),Site->PavementOption(TEXT("Convert")));TestTrue(TEXT("Conversion is custom pavement"),Site->GetSelectedObject()&&!Site->GetSelectedObject()->Pavement.Polygons.IsEmpty());Site->Undo();TestTrue(TEXT("Conversion undo restores its original kit"),Site->GetSelectedObject()&&Site->GetSelectedObject()->DefinitionId==OldDef);
+ W->DestroyWorld(false);return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPavementEntranceTest,"Foundryline.Construction.Pavement.EntranceRadiiAndSemiClearance",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FPavementEntranceTest::RunTest(const FString&){
+ auto Surface=[](double Radius){FFoundrylineDriveSurface S;S.Id=FGuid::NewGuid();S.Function=TEXT("Pavement");auto& D=S.Pavement;D.Lanes=2;D.TruckAccess=true;D.RoadWidthCm=914.4;D.Curbs=true;D.RoadControls={{0,0},{0,8000}};D.EntranceRadiusCm=Radius;D.EntranceEnds=Radius>0?1:0;D.Polygons=G::RoadSurface(D);const auto B=G::Bounds(D.Polygons);G::Translate(D,-B.Min);S.Transform=FTransform(FVector(B.Min,0));S.Size=B.GetSize();S.Centerline=G::RoadPath(D.RoadControls);return S;};
+ const auto Square=Surface(0),Flared=Surface(1219.2);FString Error;TestTrue(TEXT("Forty-foot circular entrance validates"),G::Valid(Flared.Pavement,Flared.Size,Error));
+ auto WorldShape=[](const auto& S){return G::Transform(S.Pavement.Polygons,S.Transform);};TestTrue(TEXT("Entrance adds real drivable pavement outside the old square mouth"),G::Contains(WorldShape(Flared),{900,100})&&!G::Contains(WorldShape(Square),{900,100}));TestFalse(TEXT("Flare leaves the normal road width unchanged beyond its return"),G::Contains(WorldShape(Flared),{600,2200}));
+ auto Forged=Flared.Pavement;Forged.Polygons=G::Transform(WorldShape(Square),Flared.Transform.Inverse());TestFalse(TEXT("Claiming a radius without the matching physical shape is rejected"),G::Valid(Forged,Flared.Size,Error));auto Bad=Flared.Pavement;Bad.EntranceRadiusCm=INFINITY;TestFalse(TEXT("Non-finite entrance radius rejected"),G::Valid(Bad,Flared.Size,Error));
+ FFoundrylineDrivingMap SquareMap,FlaredMap;FFoundrylineDriveSurface Street;Street.Id=FGuid::NewGuid();Street.Function=TEXT("Road2");Street.Public=true;Street.Size={1600,16000};Street.Transform=FTransform(FRotator(0,-90,0),FVector(-8000,0,0));SquareMap.Surfaces={Square,Street};FlaredMap.Surfaces={Flared,Street};
+ const auto Truck=FFoundrylineVehicleProfile::Truck();FFoundrylineVehiclePose Pose;Pose.Position={228.6-1400,-900};int SquareBlocked=0,FlaredBlocked=0;
+ for(int I=0;I<=160;++I){if(I>0)Pose=FFoundrylineVehiclePath::Advance(Pose,Truck,I<=100?HALF_PI*1400/100:35,I<=100?1.f/1400:0);SquareBlocked+=!FFoundrylineVehiclePath::PoseClear(SquareMap,Truck,Pose,false);const bool Clear=FFoundrylineVehiclePath::PoseClear(FlaredMap,Truck,Pose,false);if(!Clear&&FlaredBlocked<2){AddInfo(FString::Printf(TEXT("Blocked flared pose %d at %s yaw %.1f trailer %.1f lane %d"),I,*Pose.Position.ToString(),FMath::RadiansToDegrees(Pose.Yaw),FMath::RadiansToDegrees(Pose.TrailerYaw),FlaredMap.LaneAllowed(Pose,true)));const FVector2D F(FMath::Cos(Pose.Yaw),FMath::Sin(Pose.Yaw));auto Box=[&](FVector2D At,double Yaw,double Front,double Rear,double Width){const FVector2D X(FMath::Cos(Yaw),FMath::Sin(Yaw)),Y(-X.Y,X.X);for(double A:{Front+20,-Rear-20})for(double B:{Width/2+20,-Width/2-20}){const auto P=At+X*A+Y*B;if(!FlaredMap.PointAllowed(P,true,false,{}))AddInfo(TEXT("Outside body point ")+P.ToString());}};Box(Pose.Position,Pose.Yaw,Truck.Front,Truck.Rear,Truck.Width);Box(Pose.Position-F*Truck.Hitch,Pose.TrailerYaw,Truck.TrailerFront,Truck.TrailerRear,Truck.TrailerWidth);}FlaredBlocked+=!Clear;}
+ AddInfo(FString::Printf(TEXT("Articulated rig sweep: square blocks %d poses; 40 ft returns block %d poses"),SquareBlocked,FlaredBlocked));TestTrue(TEXT("Square entrance blocks the articulated trailer's inside sweep"),SquareBlocked>0);TestEqual(TEXT("Full tractor/trailer sweep clears the enlarged circular entrance"),FlaredBlocked,0);
+ auto* Save=NewObject<UFoundrylinePlacementSave>();FFoundrylinePlacedObject SavedRoad;SavedRoad.Pavement=Flared.Pavement;Save->Objects.Add(SavedRoad);TArray<uint8> Bytes;FMemoryWriter Writer(Bytes);FObjectAndNameAsStringProxyArchive Output(Writer,false);Save->Serialize(Output);auto* Loaded=NewObject<UFoundrylinePlacementSave>();FMemoryReader Reader(Bytes);FObjectAndNameAsStringProxyArchive Input(Reader,true);Loaded->Serialize(Input);TestTrue(TEXT("Entrance radius and connected ends survive archive save/load"),Loaded->Objects.Num()==1&&Loaded->Objects[0].Pavement.EntranceRadiusCm==Flared.Pavement.EntranceRadiusCm&&Loaded->Objects[0].Pavement.EntranceEnds==1);
+ FFoundrylinePavementData Curved;Curved.Lanes=2;Curved.TruckAccess=true;Curved.RoadWidthCm=914.4;Curved.EntranceRadiusCm=304.8;Curved.EntranceEnds=3;Curved.RoadControls={{4200,-2400},{4200,-1000},{2600,1500}};Curved.Polygons=G::RoadSurface(Curved);const auto CB=G::Bounds(Curved.Polygons);const FVector2D Low(FMath::FloorToDouble((CB.Min.X+.01)/25)*25,FMath::FloorToDouble((CB.Min.Y+.01)/25)*25),High(FMath::CeilToDouble((CB.Max.X-.01)/25)*25,FMath::CeilToDouble((CB.Max.Y-.01)/25)*25);G::Translate(Curved,-Low);const bool CurveValid=G::Valid(Curved,High-Low,Error);AddInfo(TEXT("Connected curved entrance validation: ")+Error);TestTrue(TEXT("Curved road keeps valid circular returns after origin normalization"),CurveValid);
+ auto Concave=G::Rectangle({0,0},{4000,4000});TArray<G::FPolygon> Notched;G::Boolean(Concave,G::Rectangle({2000,2000},{4500,4500}),true,Notched);const double Before=G::Area(Notched);TestTrue(TEXT("Custom pavement can round a re-entrant entrance corner"),G::RoundCorner(Notched,{2000,2000},500));TestTrue(TEXT("A concave radius adds turning space rather than cutting it away"),G::Area(Notched)>Before);
  return true;
 }
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFoundrylinePavementRoutingResizeTest,"Foundryline.Construction.PaintedPavementResizePreservesRouting",
- EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
-bool FFoundrylinePavementRoutingResizeTest::RunTest(const FString&) {
- auto* W=UWorld::CreateWorld(EWorldType::Game,false);auto* S=W->SpawnActor<AFoundrylineBuildSite>();S->DispatchBeginPlay();auto* P=W->GetSubsystem<UFoundrylinePlacementSubsystem>();
- TestTrue(TEXT("Pave test yard"),S->BuildRectangle(TEXT("FreightYard"),{-5000,2800,0},{-3800,4400,0}));const FGuid Id=P->GetObjects().Last().ObjectId;
- TestTrue(TEXT("Paint permitted truck driving area"),S->EditTruckRouting({-5000,2800,0},{-3800,4400,0}));
- FGuid Kept,Outside,Out;TestTrue(TEXT("Place retained route point"),S->EditRouteNetwork(TEXT("NetDraw"),{},{-4500,3400},Kept));TestTrue(TEXT("Place route point near old edge"),S->EditRouteNetwork(TEXT("NetDraw"),{},{-3900,4300},Outside));
- S->BeginEdit(TEXT("Resize"),{-3900,4300,0});const auto Revision=P->GetRevision();
- TestFalse(TEXT("Shrinking cannot silently lose a route point"),S->CommitEdit(TEXT("Resize"),{-3900,4300,0},{-4000,4000,0}));TestEqual(TEXT("Rejected shrink is atomic"),P->GetRevision(),Revision);
- TestTrue(TEXT("Remove the outlying route point"),S->EditRouteNetwork(TEXT("NetDelete"),Outside,{},Out));
- S->BeginEdit(TEXT("Resize"),{-3900,4300,0});TestTrue(TEXT("Painted pavement can shrink after moving or removing outlying points"),S->CommitEdit(TEXT("Resize"),{-3900,4300,0},{-4000,4000,0}));
- S->BeginEdit(TEXT("Resize"),{-4900,2900,0});TestTrue(TEXT("Opposite edge can also be adjusted without moving routing"),S->CommitEdit(TEXT("Resize"),{-4900,2900,0},{-4800,3000,0}));
- const auto* O=P->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==Id;});
- TestTrue(TEXT("Driving permissions are clipped to the resized pavement"),O && O->TruckZones.Num()==1 && O->TruckZones[0].Min==FIntPoint(0,0) && O->TruckZones[0].Max==FIntPoint(800,1000));
- if(O && O->RouteNodes.Num()==1) {const auto& N=O->RouteNodes[0];TestTrue(TEXT("Route point stays at its original world location"),O->Anchor+FFoundrylineGrid::RotateOffset({N.Position.X,N.Position.Y,0},O->QuarterTurns)==FIntVector(-4500,3400,0));}
- else AddError(TEXT("Retained route point was lost"));
- S->Undo();S->Redo();O=P->GetObjects().FindByPredicate([&](const auto& V){return V.ObjectId==Id;});TestTrue(TEXT("Redo keeps the clipped permissions and route identity"),O && O->RouteNodes.Num()==1 && O->RouteNodes[0].Id==Kept && O->TruckZones[0].Max==FIntPoint(800,1000));
- W->DestroyWorld(false);return true;
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPavementSweepFrameTest,"Foundryline.Construction.Pavement.VehicleSweepFrameAndRadiusCache",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FPavementSweepFrameTest::RunTest(const FString&){auto* W=UWorld::CreateWorld(EWorldType::Game,false);auto* PC=W->SpawnActor<AFoundrylinePlayerController>();PC->PaveVehicle=0;const TArray<FVector2D> C={{-3000,2000},{-3000,10000}};PC->UpdatePavementSweep(C,914.4,false,2);TestTrue(TEXT("Vehicle preview supports negative world coordinates"),PC->PaveSweepClear);auto* Site=W->SpawnActor<AFoundrylineBuildSite>();Site->bPavementPreviewActive=true;auto& D=Site->LastPavementPreview.Pavement;D.Lanes=2;D.Curbs=false;D.RoadWidthCm=914.4;D.RoadControls=C;D.EntranceRadiusCm=304.8;D.EntranceEnds=1;D.Polygons=G::RoadSurface(D);PC->UpdatePavementSweep(C,914.4,false,2);const auto Key=PC->PaveSweepKey;D.EntranceRadiusCm=609.6;D.Polygons=G::RoadSurface(D);PC->UpdatePavementSweep(C,914.4,false,2);TestTrue(TEXT("Changing entrance radius refreshes the vehicle preview"),Key!=PC->PaveSweepKey);W->DestroyWorld(false);return true;}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPavementSplineTest,"Foundryline.Construction.Pavement.MultiPointSplineContract",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FPavementSplineTest::RunTest(const FString&){
+ FFoundrylinePavementData D;D.Spline=true;D.Lanes=2;D.RoadWidthCm=731.52;D.RoadControls={{-3000,0},{-3000,2000},{-1500,4000},{1000,4000},{2500,5500}};const auto Path=G::RoadPath(D.RoadControls,true);
+ TestTrue(TEXT("Spline samples more than its authored points"),Path.Num()>D.RoadControls.Num()&&Path.Num()<=513);TestTrue(TEXT("Spline retains exact endpoints"),Path[0]==D.RoadControls[0]&&Path.Last()==D.RoadControls.Last());for(const auto P:D.RoadControls)TestTrue(TEXT("Spline passes through every clicked point"),Path.ContainsByPredicate([&](const auto Q){return Q.Equals(P,.001);}));
+ D.Polygons=G::RoadSurface(D);const auto Bounds=G::Bounds(D.Polygons);G::Translate(D,-Bounds.Min);G::RoadPaint(D,true);FString Error;TestTrue(TEXT("Multi-point asphalt and generated paint validate"),G::Valid(D,Bounds.GetSize(),Error));TestEqual(TEXT("Every authored spline point has a direct edit handle"),G::EditHandles(D).Num(),5);for(const auto& M:D.Markings)TestTrue(TEXT("Generated spline markings fit the asphalt"),G::MarkingFits(D,M));
+ const auto Id=D.Markings[0].Id;D.RoadControls[2]+=FVector2D(100,100);D.Polygons=G::RoadSurface(D);G::RoadPaint(D);TestTrue(TEXT("Editing a spline retains generated paint identities"),D.Markings[0].Id==Id);
+ auto* Save=NewObject<UFoundrylinePlacementSave>();FFoundrylinePlacedObject O;O.Pavement=D;Save->Objects.Add(O);TArray<uint8> Bytes;FMemoryWriter W(Bytes);FObjectAndNameAsStringProxyArchive Out(W,false);Save->Serialize(Out);auto* Loaded=NewObject<UFoundrylinePlacementSave>();FMemoryReader R(Bytes);FObjectAndNameAsStringProxyArchive In(R,true);Loaded->Serialize(In);TestTrue(TEXT("Spline mode and all points survive save/load"),Loaded->Objects.Num()==1&&Loaded->Objects[0].Pavement.Spline&&Loaded->Objects[0].Pavement.RoadControls==D.RoadControls);
+ auto Bad=D;Bad.Spline=false;TestFalse(TEXT("Old road format still rejects untagged extra controls"),G::Valid(Bad,Bounds.GetSize(),Error));Bad=D;Bad.RoadControls.SetNum(33);TestFalse(TEXT("Server caps spline input to 32 authored points"),G::Valid(Bad,Bounds.GetSize(),Error));Bad=D;Bad.RoadControls[1]=Bad.RoadControls[0];TestFalse(TEXT("Duplicate spline points rejected"),G::Valid(Bad,Bounds.GetSize(),Error));return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPavementPaintGestureTest,"Foundryline.Construction.Pavement.PaintGestures",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FPavementPaintGestureTest::RunTest(const FString&){
+ using K=EFoundrylinePavementMark;auto Row=G::PaintDraft(K::Parking,{100,100},{1000,120},548.64,false,true);TestTrue(TEXT("Parking snaps to full 9-foot spaces"),Row.Points[1].Equals({100+3*274.32,100},.01));TestEqual(TEXT("Parking depth stays 18 feet"),Row.WidthCm,548.64f);auto Flip=G::PaintDraft(K::Parking,{100,100},{1000,120},548.64,true,true);TestTrue(TEXT("Flipping reverses the baseline and bay side"),Flip.Points[0]==Row.Points[1]&&Flip.Points[1]==Row.Points[0]);
+ auto Line=G::PaintDraft(K::WhiteLine,{0,0},{500,450},10.16,false,true);TestTrue(TEXT("45 degree snapping"),FMath::Abs(Line.Points[1].X-Line.Points[1].Y)<.01);Line=G::PaintDraft(K::WhiteLine,{0,0},{500,450},10.16,false,false);TestTrue(TEXT("Free drawing preserves cursor"),Line.Points[1]==FVector2D(500,450));
+ for(auto Kind:{K::Loading,K::KeepClear}){const auto A=G::PaintDraft(Kind,{200,300},{1400,1100},10.16,false,true),B=G::PaintDraft(Kind,{1400,1100},{200,300},10.16,true,false);TestTrue(TEXT("Area drag is independent of drag direction"),A.Points==B.Points&&A.WidthCm==B.WidthCm);TestTrue(TEXT("Area uses actual dragged corners"),A.Points[0]==FVector2D(200,300)&&A.Points[1]==FVector2D(1400,300)&&A.WidthCm==800);FFoundrylinePavementData D;D.Polygons=G::Rectangle({0,0},{1600,1200});TestTrue(TEXT("Dragged area fits pavement"),G::MarkingFits(D,A));D.Polygons=G::Rectangle({0,0},{1300,1200});TestFalse(TEXT("Area over the pavement edge is rejected"),G::MarkingFits(D,A));}
+ return true;
 }
 #endif

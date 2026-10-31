@@ -1,5 +1,8 @@
+#include "FoundrylineBuildCatalog.h"
+#include "UI/FoundrylineBuildHUD.h"
 #include "Inventory/FoundrylineAssemblySupply.h"
 #include "UI/FoundrylinePlayerController.h"
+#include "Audio/FoundrylineUIAudio.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "Production/FoundrylineFactoryPlant.h"
 #include "Construction/FoundrylineBuildSite.h"
@@ -20,12 +23,12 @@ AFoundrylineFactoryPlant* AFoundrylinePlayerController::FactoryPlant()const{for(
 void AFoundrylinePlayerController::SendFactory(FFoundrylineFactoryCommand C){FactoryStatus.Reset();ServerFactoryCommand(C,++FactorySequence);}
 void AFoundrylinePlayerController::ServerFactoryCommand_Implementation(const FFoundrylineFactoryCommand& C,uint32 Sequence){
  if(Sequence<=LastFactorySequence)return;LastFactorySequence=Sequence;double Now=GetWorld()->GetTimeSeconds();if(Now-FactoryRateWindow>=1){FactoryRateWindow=Now;FactoryRateCount=0;}if(++FactoryRateCount>20){ClientFactoryReply(TEXT("Please wait before sending more factory actions"));return;}
- FString E;auto* Plant=FactoryPlant();if(!Plant||!Plant->Execute(this,C,E))ClientFactoryReply(E.IsEmpty()?TEXT("Plant unavailable"):E);
+ FString E;auto* Plant=FactoryPlant();if(!Plant||!Plant->Execute(this,C,E))ClientFactoryReply(E.IsEmpty()?TEXT("Plant unavailable"):E);else if(C.Action==EFoundrylineFactoryAction::EditPlanningItem)ClientFactoryReply(FString());
 }
-void AFoundrylinePlayerController::ClientFactoryReply_Implementation(const FString& E){FactoryStatus=E;if(!E.IsEmpty())OperationsHireRequest.Invalidate();if(OperationsScreen==1&&(OperationsPage==7||OperationsWatch)&&!E.IsEmpty()){OperationsStatus=E;OperationsStatusAt=GetWorld()->GetRealTimeSeconds();OperationsWatch=0;}}
-bool AFoundrylinePlayerController::FactoryOverHUD()const{float X,Y;int W,H;GetViewportSize(W,H);if(!GetMousePosition(X,Y)||W<=0||H<=0)return false;const float S=H/1080.f;if(FactoryMachine>0||X<420*S||X>W-300*S&&Y<205*S)return true;if((bFactoryOverlay||FactorySelectedPart>=0)&&X>W-330*S&&Y>150*S&&Y<(FactorySelectedPart>=0?640:400)*S)return true;return false;}
+void AFoundrylinePlayerController::ClientFactoryReply_Implementation(const FString& E){if(bPlannerPending){bPlannerPending=false;PlannerStatus=E;}if(!E.IsEmpty())UFoundrylineUIAudio::Play(this,TEXT("Error"));FactoryStatus=E;if(!E.IsEmpty())OperationsHireRequest.Invalidate();if(OperationsScreen==1&&(OperationsPage==7||OperationsWatch)&&!E.IsEmpty()){OperationsStatus=E;OperationsStatusAt=GetWorld()->GetRealTimeSeconds();OperationsWatch=0;}}
+bool AFoundrylinePlayerController::FactoryOverHUD()const{if(bPropertyViewAccess&&!IsWalking()&&!FactoryMachine)if(auto* H=Cast<AFoundrylineBuildHUD>(GetHUD()))return FoundrylineBuildCatalogOverUI(H,this);float X,Y;int W,H;GetViewportSize(W,H);if(!GetMousePosition(X,Y)||W<=0||H<=0)return false;const float S=H/1080.f;if(FactoryMachine>0||X<420*S||X>W-300*S&&Y<205*S)return true;if((bFactoryOverlay||FactorySelectedPart>=0)&&X>W-330*S&&Y>150*S&&Y<(FactorySelectedPart>=0?640:400)*S)return true;return false;}
 int32 AFoundrylinePlayerController::FocusedComputer()const{if(!IsWalking()||!PlayerCameraManager||!FactoryPlant())return 0;const FVector Eye=PlayerCameraManager->GetCameraLocation(),Forward=PlayerCameraManager->GetCameraRotation().Vector();int Best=0;float Distance=260;for(const auto& Machine:FactoryPlant()->Snapshot.Machines){const int I=Machine.Id;const FVector Delta=FactoryPlant()->ScreenWorldPosition(I)-Eye;const float D=Delta.Size();if(D<Distance&&FVector::DotProduct(Delta.GetSafeNormal(),Forward)>.35){Distance=D;Best=I;}}return Best;}
-void AFoundrylinePlayerController::OpenFactoryComputer(int Id){if(auto* P=FactoryPlant()){if(P->Snapshot.bCutPartsStarter){bFactoryAuto=false;if(Id>0&&!P->Snapshot.Machines.ContainsByPredicate([&](const auto& M){return M.Id==Id;}))return;}}FactoryMachine=Id;FactoryTool=NAME_None;bFactoryDragging=false;
+void AFoundrylinePlayerController::OpenFactoryComputer(int Id){if(auto* P=FactoryPlant()){if(P->Snapshot.bCutPartsStarter){bFactoryAuto=false;if(Id>0&&!P->Snapshot.Machines.ContainsByPredicate([&](const auto& M){return M.Id==Id;}))return;}}if(FactoryMachine!=Id)UFoundrylineUIAudio::Play(this,Id>0?TEXT("Open"):TEXT("Close"));FactoryMachine=Id;FactoryTool=NAME_None;bFactoryDragging=false;
  if(Id>0){bFactoryMenu=true;FactoryProgramIndex=0;if(!bFactoryInputLocked){SetIgnoreLookInput(true);SetIgnoreMoveInput(true);bFactoryInputLocked=true;}FInputModeGameAndUI Mode;Mode.SetHideCursorDuringCapture(false);SetInputMode(Mode);bShowMouseCursor=true;}
  else {if(bFactoryInputLocked){SetIgnoreLookInput(false);SetIgnoreMoveInput(false);bFactoryInputLocked=false;}if(IsWalking())bFactoryMenu=false;ApplyViewInputMode();}}
 bool AFoundrylinePlayerController::HandleFactoryInput(const FInputKeyEventArgs& P){if(!IsLocalController()||!FactoryPlant())return false;
@@ -122,7 +125,7 @@ void AFoundrylinePlayerController::FactoryAction(FName Name){auto* Plant=Factory
  if(A==TEXT("ZoneNext")){if(!S.Zones.IsEmpty()){int I=S.Zones.IndexOfByPredicate([&](const auto& Z){return Z.Id==FactoryZone;});I=FMath::Max(0,I);FactoryZone=S.Zones[(I+1)%S.Zones.Num()].Id;FactorySelectedPart=-1;}return;}
  if(A==TEXT("ZoneRotate")){FactoryZoneQuarter=(FactoryZoneQuarter+1)%4;return;}
  if(A==TEXT("ZoneSide")){FactoryZoneSide=-FactoryZoneSide;return;}
- if(A.StartsWith(TEXT("ShopItem"))){FactoryEquipmentChoice=FCString::Atoi(*A.RightChop(8));if(FactoryEquipmentChoice<0||FactoryEquipmentChoice>3)return;FactoryTool=FactoryEquipmentChoice==0?TEXT("Station"):TEXT("Equipment");bFactoryDragging=false;return;}
+ if(A.StartsWith(TEXT("ShopItem"))){FactoryEquipmentChoice=FCString::Atoi(*A.RightChop(8));if(FactoryEquipmentChoice<0||FactoryEquipmentChoice>3)return;if(IsWalking()||!bPropertyViewAccess){FactoryStatus=TEXT("Use the office computer Planning View to place equipment");return;}if(S.Running){C.Action=FactoryAct::Run;C.Flag=false;SendFactory(C);FactoryStatus=TEXT("Pausing this business for equipment placement");}FactoryTool=FactoryEquipmentChoice==0?TEXT("Station"):TEXT("Equipment");bFactoryDragging=false;return;}
  if(A==TEXT("RackLevel")){FactoryRackLevels=FactoryRackLevels%3+1;return;}
  if(A==TEXT("StationRotate")){FactoryStationQuarter=(FactoryStationQuarter+1)%4;return;}
  if(A==TEXT("StationSide")){bFactoryStationSwap=!bFactoryStationSwap;return;}

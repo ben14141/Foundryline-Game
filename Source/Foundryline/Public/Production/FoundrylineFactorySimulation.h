@@ -15,6 +15,8 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void MigrateGenericEmployees();
  void MigrateAssemblySupply();
  bool CanBuyPlanningEquipment(int32 Item,FVector At,int32 Quarter,int32 Levels,FString& Error,bool Swap=false)const;
+ bool RequestPlanningPalletMove(int32 Pallet,int32 Slot,FString& Error);
+ bool EditPlanningItem(int32 Kind,int32 Id,FVector At,bool Remove,FString& Error);
  bool BuyPlanningEquipment(int32 Item,FVector At,int32 Quarter,int32 Levels,FString& Error,bool Swap=false);
  bool AssignCollector(int32 Employee,int32 Area,FString& Error);
  bool ConfigureSupplyBin(int32 Area,int32 Compartments,FString& Error);
@@ -53,8 +55,8 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  void CommerceIncome(int64 Cents,const FString& Label);
  void RefreshCommerceOffers();
  static FVector PickupPosition(int32 Slot);
- static FVector CarrierPalletPosition(int32 Slot);
- static FVector CarrierDock(int32 Slot);
+ static FVector CarrierPalletPosition(int32 Slot,int32 Carrier=1,bool Wide=false);
+ static FVector CarrierDock(int32 Slot,int32 Carrier=1,bool Wide=false);
  void Step(float Seconds);
  bool Valid(FString& Error)const;
  bool PaintLane(EFoundrylineFloorLane Kind,FVector A,FVector B,float Width,int32 Direction,FString& Error);
@@ -104,7 +106,7 @@ struct FOUNDRYLINE_API FFoundrylineFactorySimulation {
  bool AddDriver(int32 Route,FString& Error,bool Staff=true);
  bool AddWelder(int32 Zone,FString& Error);
  bool Program(int32 Machine,EFoundrylinePart Part,int32 Batch,bool Auto,FString& Error);
- TArray<FVector> Path(FVector Start,FVector End,bool Pedestrian=false,bool Cart=false)const;
+ TArray<FVector> Path(FVector Start,FVector End,bool Pedestrian=false,bool Cart=false,bool FreeWalk=false)const;
  int32 Available(EFoundrylinePart Part,EFoundrylinePalletPlace Place,int32 Owner=0)const;
  int32 Incoming(EFoundrylinePart Part,int32 Owner)const;
  int32 Total(EFoundrylinePart Part)const;
@@ -135,5 +137,5 @@ private:
  int32 AddPallet(EFoundrylinePart Part,int32 Count,EFoundrylinePalletPlace Place,int32 Owner,FVector Position,float UnitLb=0);
  bool Consume(EFoundrylinePart Part,int32 Count,EFoundrylinePalletPlace Place,int32 Owner,float* Mass=nullptr);
  int32 Wanted(EFoundrylinePart Part)const;
- bool Walkable(FVector2D Point,bool Pedestrian,bool Cart=false)const;
+ bool Walkable(FVector2D Point,bool Pedestrian,bool Cart=false,bool FreeWalk=false)const;
 };

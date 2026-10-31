@@ -31,6 +31,9 @@ struct FOUNDRYLINE_API FFoundrylinePlacementRequest
 	UPROPERTY() int32 ColumnBayCm = 600;
 	UPROPERTY() FFoundrylinePlacedObject Replacement;
  UPROPERTY() FFoundrylineBuildingColors Colors;
+ UPROPERTY() FFoundrylinePavementData Pavement;
+ UPROPERTY() FString SignName;
+ UPROPERTY() float SignFacingDegrees=0;
  UPROPERTY() TArray<FFoundrylineTruckZone> TruckZones;
  UPROPERTY() TArray<FFoundrylineRouteNode> RouteNodes;
 	UPROPERTY() bool bLandscaping = true;

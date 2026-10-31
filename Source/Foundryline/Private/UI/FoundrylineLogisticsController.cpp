@@ -14,7 +14,7 @@ void AFoundrylinePlayerController::ToggleLogisticsEdit() {
  else ChooseTool(NAME_None);
 }
 void AFoundrylinePlayerController::CancelBuild() {
- if(bLogisticsEdit) {if(LogisticsPanel==0) {ChooseTool(TEXT("NetSelect"));NetworkStatus=TEXT("Route finished. Press TEST DRIVE to check every turn and the full trailer.");}bDraggingBuild=false;LogisticsStatus=TEXT("Selection cancelled. Choose a step in the sidebar to continue");return;}ChooseTool(NAME_None);
+ if(bLogisticsEdit) {if(LogisticsPanel==0) {ChooseTool(TEXT("NetSelect"));NetworkStatus=TEXT("Route finished. Press TEST DRIVE to check every turn and the full trailer.");}bDraggingBuild=false;LogisticsStatus=TEXT("Selection cancelled. Open the build catalogue to choose another logistics tool");return;}ChooseTool(NAME_None);
 }
 void AFoundrylinePlayerController::InvalidateLogisticsTest() {++RouteGeneration;TripResult={};TripPreviewPoses.Reset();TripPoseTimes.Reset();bTripPlaying=false;TripPreviewClock=0;}
 void AFoundrylinePlayerController::ChooseLogisticsTool(FName Tool) {

@@ -90,7 +90,7 @@ bool FFoundrylineBuildSiteTest::RunTest(const FString& Parameters)
 				if(FMath::IsNearlyEqual(Size.Z,20.,0.01))
 				{
 					TestTrue(TEXT("Slab bottom touches ground and top is 20 cm"),FMath::IsNearlyEqual(T.GetLocation().Z,10.,0.01));
-					FoundRoad|=C->GetMaterial(0)->GetName()==TEXT("M_Asphalt");
+					FoundRoad|=C->GetMaterial(0)->GetName()==TEXT("M_PavementAsphalt");
 					FoundFoundation|=C->GetMaterial(0)->GetName()==TEXT("M_Concrete");
 				}
 				if(FMath::IsNearlyEqual(Size.Z,600.,0.01) && (FMath::IsNearlyEqual(Size.X,29.,0.01) || FMath::IsNearlyEqual(Size.Y,29.,0.01))) FoundWall=true;
@@ -99,8 +99,8 @@ bool FFoundrylineBuildSiteTest::RunTest(const FString& Parameters)
 		for(auto* C:Components)
 		{
 			if(!C->GetMaterial(0)) continue;
-			FoundWhite|=C->GetMaterial(0)->GetName()==TEXT("M_White") && C->GetInstanceCount()>0;
-			FoundYellow|=C->GetMaterial(0)->GetName()==TEXT("M_Yellow") && C->GetInstanceCount()>0;
+			FoundWhite|=C->GetMaterial(0)->GetName()==TEXT("M_RoadPaintWhite") && C->GetInstanceCount()>0;
+			FoundYellow|=C->GetMaterial(0)->GetName()==TEXT("M_RoadPaintYellow") && C->GetInstanceCount()>0;
 		}
 	}
 	TestTrue(TEXT("Foundation slab rendered"),FoundFoundation); TestTrue(TEXT("Road slab rendered"),FoundRoad);

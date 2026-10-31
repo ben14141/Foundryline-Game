@@ -7,6 +7,25 @@
 
 void AFoundrylineBuildSite::SeedStarterProperty()
 {
+ // Separate clean starts: road-only, or an unfurnished shop/office with ordinary site paving.
+ if(GetWorld()->GetMapName().Contains(TEXT("L_RoadOnlyStarter")) || GetWorld()->GetMapName().Contains(TEXT("L_BasicShopStarter"))){
+  const auto Owned=Context;Context.CompanyId=FGuid(0xF001,99,1,1);Context.PlantId=FGuid(0xF001,99,2,1);
+  BuildRectangle(TEXT("Road2"),{-8000,-2800,0},{-1600,-2800,0});BuildRectangle(TEXT("Road2"),{-1600,-2800,0},{4800,-2800,0});BuildRectangle(TEXT("Road2"),{4800,-2800,0},{10000,-2800,0});Context=Owned;
+  if(GetWorld()->GetMapName().Contains(TEXT("L_BasicShopStarter"))){
+   BuildRectangle(TEXT("Building"),{-2400,0,0},{0,1800,0});
+   PlaceDoor(TEXT("Personnel"),{-2100,0,0});
+   PlaceDoor(TEXT("Garage"),{0,600,0});PlaceDoor(TEXT("LoadingBay"),{0,1400,0});
+   OfficeRectangle(TEXT("OfficeArea"),{-3200,400,0},{-2400,1400,0});
+   OfficeOpening(TEXT("RoomWindow"),{-3200,800,0});
+   BuildRectangle(TEXT("Parking"),{-3700,-1800,0},{-1500,-300,0});
+   BuildRectangle(TEXT("Driveway"),{-2400,-2400,0},{-2400,-1800,0});
+   PavementShape(TEXT("Rectangle"),{FVector2D(0,-200),FVector2D(3600,2600)},0,0,false,false);
+   DraftTruckWidthCm=1400;BuildRectangle(TEXT("TruckAccess"),{2400,-2400,0},{2400,-200,0});DraftTruckWidthCm=2400;
+   BuildRectangle(TEXT("Walkway"),{-3500,-300,0},{-3200,400,0});BuildRectangle(TEXT("Walkway"),{-3200,200,0},{-2400,400,0});BuildRectangle(TEXT("Walkway"),{-2400,-300,0},{-1900,0,0});
+  }
+  DrawLotBoundary();UndoStack.Reset();return;
+ }
+
  if(bCutPartsStarter){SeedCutPartsShop();return;}
  if(bProductionWorkshop){SeedProductionWorkshop();return;}
  const auto PlantContext=Context;
@@ -87,7 +106,7 @@ void AFoundrylineBuildSite::DrawLotBoundary()
  const auto B=Lot.Region.Bounds;
  for(int32 X=B.Min.X;X<B.Max.X;X+=200)
  {
-  const bool Gate=(X+100>-2700 && X<-2100) || (bProductionWorkshop?(X+100>3600 && X<4800):(X+100>1400 && X<2600));
+  const bool Gate=(X+100>-2700 && X<-2100) || (GetWorld()->GetMapName().Contains(TEXT("L_BasicShopStarter"))?(X+100>1700 && X<3100):bProductionWorkshop?(X+100>3600 && X<4800):(X+100>1400 && X<2600));
   if(!Gate) Mark({double(X+50),double(B.Min.Y),2},{100,8,4});
   Mark({double(X+50),double(B.Max.Y),2},{100,8,4});
  }

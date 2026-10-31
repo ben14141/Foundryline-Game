@@ -4,13 +4,13 @@
 #include "Grid/FoundrylineFloorPlacement.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 
-bool FFoundrylineFactorySimulation::Walkable(FVector2D P,bool Pedestrian,bool Cart)const{
+bool FFoundrylineFactorySimulation::Walkable(FVector2D P,bool Pedestrian,bool Cart,bool FreeWalk)const{
  const float Radius=Cart?75:Pedestrian?35:80;
  if(P.X<State.FloorMin.X+Radius||P.Y<State.FloorMin.Y+Radius||P.X>State.FloorMax.X-Radius||P.Y>State.FloorMax.Y-Radius)return false;
  for(const auto& Box:Solids)if(Box.ExpandBy(Radius).IsInside(P))return false;
  for(const auto& Z:State.Zones){if(FFoundrylineWorkZoneLayout::WelderBounds(Z).ExpandBy(Radius).IsInside(P))return false;const FVector Local=FFoundrylineWorkZoneLayout::Rotation(Z).UnrotateVector(FVector(P,20)-FFoundrylineWorkZoneLayout::ProductCenter(Z));if(FMath::Abs(Local.X)<665+Radius&&FMath::Abs(Local.Y)<130+Radius)return false;}
  for(const auto& S:State.WeldingStations){if(FFoundrylineWeldingStationLayout::Bench(S).ExpandBy(Radius).IsInside(P))return false;if(!Pedestrian&&FFoundrylineWeldingStationLayout::Bounds(S).ExpandBy(Radius-.01).IsInside(P))return false;}
- auto Inside=[&](FVector2D V){if(Cart)return true;if(Pedestrian){for(const auto& Z:State.Zones)if(FFoundrylineWorkZoneLayout::Bounds(Z).IsInsideOrOn(V))return true;for(const auto& S:State.WeldingStations){for(int Side=0;Side<2;++Side)if(FFoundrylineWeldingStationLayout::Worker(S,Side).IsInsideOrOn(V))return true;for(const auto& R:FFoundrylineWeldingStationLayout::AccessRing(S))if(R.IsInsideOrOn(V))return true;}}for(const auto& L:State.Lanes)if((Pedestrian?(L.Kind!=EFoundrylineFloorLane::Forklift):(L.Kind==EFoundrylineFloorLane::Forklift))&&FBox2D(L.Min,L.Max).IsInsideOrOn(V))return true;return false;};
+ auto Inside=[&](FVector2D V){if(Cart||FreeWalk)return true;if(Pedestrian){for(const auto& Z:State.Zones)if(FFoundrylineWorkZoneLayout::Bounds(Z).IsInsideOrOn(V))return true;for(const auto& S:State.WeldingStations){for(int Side=0;Side<2;++Side)if(FFoundrylineWeldingStationLayout::Worker(S,Side).IsInsideOrOn(V))return true;for(const auto& R:FFoundrylineWeldingStationLayout::AccessRing(S))if(R.IsInsideOrOn(V))return true;}}for(const auto& L:State.Lanes)if((Pedestrian?(L.Kind!=EFoundrylineFloorLane::Forklift):(L.Kind==EFoundrylineFloorLane::Forklift))&&FBox2D(L.Min,L.Max).IsInsideOrOn(V))return true;return false;};
  return Inside(P)&&Inside(P+FVector2D(Radius,0))&&Inside(P-FVector2D(Radius,0))&&Inside(P+FVector2D(0,Radius))&&Inside(P-FVector2D(0,Radius));
 }
 namespace {
@@ -22,7 +22,7 @@ namespace {
   }return true;
  }
 }
-TArray<FVector> FFoundrylineFactorySimulation::Path(FVector Start,FVector End,bool Pedestrian,bool Cart)const{
+TArray<FVector> FFoundrylineFactorySimulation::Path(FVector Start,FVector End,bool Pedestrian,bool Cart,bool FreeWalk)const{
  TArray<FVector> Empty;if(Start.ContainsNaN()||End.ContainsNaN())return Empty;
  auto MobileClear=[&](FVector V){if(Cart)for(const auto& D:State.Drivers){const FVector Body=D.Position+FRotator(0,D.Yaw,0).RotateVector(FVector(-95,0,0));if(FVector::Dist2D(V,Body)<FMath::Min(220.f,float(FVector::Dist2D(Start,Body)))-.1f)return false;}if(Cart){auto ClearPerson=[&](FVector Person){const float Before=FVector::Dist2D(Start,Person);return Before<1||FVector::Dist2D(V,Person)>=FMath::Min(100.f,Before)-.01f;};for(const auto& O:State.Operators)if(!ClearPerson(O.Position))return false;for(const auto& W:State.Walkers)if(!ClearPerson(W.Position))return false;for(const auto& U:State.UnassignedEmployees)if(!ClearPerson(U.Position))return false;for(const auto& C:State.Collectors)if(!C.Position.Equals(Start,1)&&(!ClearPerson(C.Position)||!ClearPerson(C.Position-FRotator(0,C.Yaw,0).RotateVector(FVector(90,0,0)))))return false;}if(!Pedestrian)for(const auto& Other:State.Drivers)if(FVector::Dist2D(Start,Other.Position)>1&&FVector::Dist2D(End,Other.Position)>200&&FVector::Dist2D(V,Other.Position)<200)return false;return true;};
  auto PeopleClear=[&](FVector A,FVector B){if(Pedestrian)return true;auto Clear=[&](FVector Person){const float Before=FVector::Dist2D(A,Person),After=FVector::Dist2D(B,Person),Closest=FMath::PointDistToSegment(Person,A,B);return Closest>=140||(Before<140&&After>Before+.01&&Closest>=Before-.01);};for(const auto& O:State.Operators)if(!Clear(O.Position))return false;for(const auto& C:State.Collectors)if(!Clear(C.Position))return false;for(const auto& W:State.Walkers)if(!Clear(W.Position))return false;for(const auto& D:State.UnassignedEmployees)if(!Clear(D.Position))return false;return true;};
@@ -65,7 +65,7 @@ TArray<FVector> FFoundrylineFactorySimulation::Path(FVector Start,FVector End,bo
  };
  auto ClearSpur=[&](FVector A,FVector B){return PhysicalClear(A,B,Cart?75:Pedestrian?30:65,false)&&DirectionClear(A,B);};
  TMap<FIntPoint,bool> NodeCache;
- auto NodeClear=[&](FIntPoint N){if(const auto* Cached=NodeCache.Find(N))return *Cached;const FVector V(N.X*50,N.Y*50,20);const bool Clear=MobileClear(V)&&(Pedestrian?Walkable(FVector2D(V),true,Cart):LaneSegment(V,V));NodeCache.Add(N,Clear);return Clear;};
+ auto NodeClear=[&](FIntPoint N){if(const auto* Cached=NodeCache.Find(N))return *Cached;const FVector V(N.X*50,N.Y*50,20);const bool Clear=MobileClear(V)&&(Pedestrian?Walkable(FVector2D(V),true,Cart,FreeWalk):LaneSegment(V,V));NodeCache.Add(N,Clear);return Clear;};
  auto Nearest=[&](FVector P,FIntPoint& Out){float Best=FMath::Square(360.f);bool Found=false;const FIntPoint C(FMath::RoundToInt(P.X/50),FMath::RoundToInt(P.Y/50));
   for(int X=-8;X<=8;++X)for(int Y=-8;Y<=8;++Y){FIntPoint N=C+FIntPoint(X,Y);const FVector V(N.X*50,N.Y*50,20);const float D=FVector::DistSquared2D(P,V);if(D<Best&&NodeClear(N)&&ClearSpur(P,V)){Best=D;Out=N;Found=true;}}return Found;};
  FIntPoint A,B;if(!Nearest(Start,A)||!Nearest(End,B))return Empty;

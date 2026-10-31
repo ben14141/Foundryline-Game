@@ -57,7 +57,9 @@ FFoundrylineStarterGuide FFoundrylineERPViewModel::Guide(const FFoundrylineFacto
  using G=EFoundrylineGuideStep;using Place=EFoundrylinePalletPlace;FFoundrylineStarterGuide Out;const auto& C=S.Commerce;Out.bAvailable=C.Enabled;if(!C.Enabled)return Out;
  const double SheetLb=FFoundrylineSteelSheet::PoundsEach();Out.CashCents=C.CashCents;
  auto Need=[&](const FString& Text,const FString& Action){Out.Problems.Add({Text,Action});};
- auto SteelLb=[&](int32 Part){const auto* P=S.Programs.FindByPredicate([&](const auto& V){return V.Machine==1&&int(V.Part)==Part;});return P?double(P->SteelLb):0.;};
+ // Planning still needs a material estimate before a machine and its installed programs exist.
+ const auto StandardPrograms=FFoundrylineFactoryCatalog::DefaultPrograms();
+ auto SteelLb=[&](int32 Part){const auto* P=S.Programs.FindByPredicate([&](const auto& V){return V.Machine==1&&int(V.Part)==Part;});if(!P)P=StandardPrograms.FindByPredicate([&](const auto& V){return V.Machine==1&&int(V.Part)==Part;});return P?double(P->SteelLb):0.;};
  // Staffing: an operator assigned to the plasma (machine 1) and a driver on any owned forklift.
  for(const auto& E:FFoundrylineEmployeeRoster::Build(S)){
   if(E.Role==EFoundrylineEmployeeRole::Operator&&E.Assignment==1&&!Out.bOperator){Out.bOperator=true;Out.OperatorName=E.Label;}

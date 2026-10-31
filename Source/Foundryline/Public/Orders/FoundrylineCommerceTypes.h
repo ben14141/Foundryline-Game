@@ -31,6 +31,7 @@ USTRUCT() struct FFoundrylineFreightItem {
  UPROPERTY(SaveGame) uint8 Part=1;
  UPROPERTY(SaveGame) int32 Quantity=0;
  UPROPERTY(SaveGame) float UnitLb=0;
+ UPROPERTY() int32 DeckSlot=0;
 };
 USTRUCT() struct FFoundrylineFreightBooking {
  GENERATED_BODY()

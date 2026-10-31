@@ -26,5 +26,13 @@ bool FFoundrylineFacadeTest::RunTest(const FString&)
  TestTrue(TEXT("Manual garage retained"),Object.Openings.ContainsByPredicate([&](const auto& V){return V.OpeningId==Door.OpeningId;}));
  Object.bOfficeAnnex=true;const int32 Count=Object.Openings.Num();FFoundrylineFacadeLayout::Reflow(Object,3000,3000,320);
  TestEqual(TEXT("Office windows remain manual"),Object.Openings.Num(),Count);
+ // Partial expansions leave real exterior returns; caps and posts must fit wholly inside each return.
+ FFoundrylineOpening Opening;Opening.OffsetCm=800;Opening.Kind=EFoundrylineOpeningKind::ShopWindow;
+ const auto Partial=FFoundrylineFacadeLayout::ColumnsForSpan(2400,600,450,1850,{Opening});
+ TestTrue(TEXT("Partial expansion retains framing"),Partial.Num()>0);
+ for(float P:Partial){TestTrue(TEXT("No half-width post at an exposed span end"),P-28>=450 && P+28<=1850);TestTrue(TEXT("Post clears glazing and frame"),P+34<=Opening.OffsetCm-6 || P-34>=Opening.OffsetCm+Opening.WidthCm()+6);}
+ TestTrue(TEXT("Thin return cannot generate a clipped pilaster"),FFoundrylineFacadeLayout::ColumnsForSpan(2400,600,500,580,{}).IsEmpty());
+ for(int32 Size=400;Size<=6400;Size+=100){const auto Posts=FFoundrylineFacadeLayout::ColumnsForSpan(Size,600,0,Size,{});for(int I=1;I<Posts.Num();++I)TestTrue(TEXT("No doubled posts on odd sized shells"),Posts[I]-Posts[I-1]>=60);}
+
  return true;
 }
