@@ -154,7 +154,7 @@ void AFoundrylineFactoryPlant::AddStationFitUpParts(){
   for(int I=0;I<6;++I)Lay(Part::FrameSection,FVector(0,-26-I*6.5,Layout::BenchHeightCm),200);
   // Clear of the jig risers and hold-downs.
   for(int I=0;I<2;++I)Lay(Part::MountingPlate,FVector(-40,18,Layout::BenchHeightCm+I*1.5),40);
-  for(int I=0;I<4;++I)Lay(Part::Bracket,FVector(12+(I%2)*24,10+(I/2)*20,Layout::BenchHeightCm),22);
+  for(int I=0;I<4;++I)Lay(Part::BentBracket,FVector(12+(I%2)*24,10+(I/2)*20,Layout::BenchHeightCm),22);
  }
 }
 int32 AFoundrylineFactoryPlant::StationGunsInHand(int32 I)const{int32 N=0;for(int K=I*2;K<I*2+2;++K)if(StationGuns.IsValidIndex(K)&&StationGuns[K]&&StationGuns[K]->IsVisible())++N;return N;}

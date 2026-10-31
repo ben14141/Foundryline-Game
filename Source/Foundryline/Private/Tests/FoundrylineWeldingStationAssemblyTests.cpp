@@ -38,7 +38,7 @@ bool FWeldingStationAssembly::RunTest(const FString&){using namespace WeldingAss
  // They walk to Welder A's work point; the kit is reserved only then, exactly once.
  if(!TestTrue(TEXT("Welder reaches the work point and a unit starts"),RunUntil(M,[&]{return Station(M).Stage>0;})))return false;
  TestTrue(TEXT("Welder stands at Welder A's work point"),M.StationWelderReady(Station(M)));
- TestTrue(TEXT("Exactly one kit left the IN stock"),KitBin(M,Id,Part::MountingPlate)==2&&KitBin(M,Id,Part::Bracket)==4&&KitBin(M,Id,Part::FrameSection)==6&&KitBin(M,Id,Part::LightKit)==2);
+ TestTrue(TEXT("Exactly one kit left the IN stock"),KitBin(M,Id,Part::MountingPlate)==2&&KitBin(M,Id,Part::BentBracket)==4&&KitBin(M,Id,Part::FrameSection)==6&&KitBin(M,Id,Part::LightKit)==2);
  TestTrue(TEXT("The unit holds the recipe's whole kit"),Station(M).Reserved==R.Bill&&FMath::IsNearlyEqual(Station(M).ReservedLb,KitLb,.01f)&&Station(M).UnitRecipe==1);
  TestEqual(TEXT("One unit of the batch is in work"),Station(M).BatchRemaining,1);
  TestTrue(TEXT("Material mass is conserved at kit reservation"),FMath::Abs(M.SteelMass()-Mass)<.01f);

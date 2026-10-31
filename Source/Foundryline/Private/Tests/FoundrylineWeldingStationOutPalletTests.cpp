@@ -62,7 +62,7 @@ bool FWeldingStationOutPallets::RunTest(const FString&){using namespace WeldingO
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Position=Layout::OutPalletPoint(T.State.WeldingStations[0],1);TestFalse(TEXT("Two stacks on one pallet rejected"),T.Valid(E));}
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Position=Layout::PortCenter(T.State.WeldingStations[0],true);TestFalse(TEXT("A stack off the pallet positions rejected"),T.Valid(E));}
  {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Reserved=A.Quantity+1;TestFalse(TEXT("More reserved than stacked rejected"),T.Valid(E));}
- {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Part=Part::Bracket;TestFalse(TEXT("Other stock on an OUT pallet rejected"),T.Valid(E));}
+ {auto T=M;for(auto& A:T.State.Pallets)if(A.Owner==Id&&A.Place==Place::StationOut)A.Part=Part::BentBracket;TestFalse(TEXT("Other stock on an OUT pallet rejected"),T.Valid(E));}
 
  // Schema 13 saves held one rack on a 4 ft OUT cradle in a 17 ft station: the station grows at its OUT end and the rack moves
  // onto the first OUT pallet, everything else staying where it was.

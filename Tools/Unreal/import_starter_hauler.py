@@ -16,15 +16,23 @@ def solid(name,color,roughness):
  unreal.EditorAssetLibrary.save_loaded_asset(m);return m
 paint=solid('M_TruckCabPaint',(.82,.84,.86),.38);glass=solid('M_TruckGlass',(.025,.055,.08),.15)
 meshes=[]
-for name in ['StarterFlatbed']+['Wheel'+str(i) for i in range(6)]+['LoadingSideGate']:
+for name in ['StarterFlatbed']+['Wheel'+str(i) for i in range(6)]+['LoadingSideGate','LoadingSideGateLeft']:
  o=unreal.FbxImportUI();o.import_materials=False;o.import_textures=False;o.import_as_skeletal=False;o.mesh_type_to_import=unreal.FBXImportType.FBXIT_STATIC_MESH;o.automated_import_should_detect_type=False;d=o.static_mesh_import_data;d.combine_meshes=True;d.convert_scene=True;d.convert_scene_unit=True;d.auto_generate_collision=False
  t=unreal.AssetImportTask();t.filename=str(src/(name+'.fbx'));t.destination_path=folder;t.destination_name='SM_'+name;t.automated=True;t.replace_existing=True;t.save=True;t.options=o;tools.import_asset_tasks([t]);m=unreal.load_asset(folder+'/SM_'+name)
  if not m:raise RuntimeError(name)
  for i,slot in enumerate(m.get_editor_property('static_materials')):
-  name=str(slot.material_slot_name).lower();m.set_material(i,glass if 'glass' in name else paint if 'cabpaint' in name else mat)
+  slot_name=str(slot.material_slot_name).lower();m.set_material(i,glass if 'glass' in slot_name else paint if 'cabpaint' in slot_name else mat)
  unreal.EditorAssetLibrary.save_loaded_asset(m);meshes.append(m)
 path='/Game/Foundryline/Logistics';lib=unreal.load_asset(path+'/DA_FreightVehicles') or tools.create_asset('DA_FreightVehicles',path,unreal.FoundrylineFreightVehicleLibrary,unreal.DataAssetFactory())
-lib.set_editor_property('bodies',[None,meshes[0],None,None]);lib.set_editor_property('body_offsets',[unreal.Vector(),unreal.Vector(0,134.4,0),unreal.Vector(),unreal.Vector()]);lib.set_editor_property('yaw_offsets',[0,90,0,0]);lib.set_editor_property('starter_wheels',meshes[1:7]);j=json.loads((src/'manifest.json').read_text());lib.set_editor_property('starter_wheel_positions',[unreal.Vector(-r['centre_cm'][1],r['centre_cm'][0]+134.4,r['centre_cm'][2]) for r in j['wheels']]);unreal.EditorAssetLibrary.save_loaded_asset(lib)
+# Replace only the starter-hauler entry; retain every other purchased carrier.
+def replace_entry(property_name,index,value,default):
+ values=list(lib.get_editor_property(property_name))
+ while len(values)<=index:values.append(default())
+ values[index]=value;lib.set_editor_property(property_name,values)
+replace_entry('bodies',1,meshes[0],lambda:None)
+replace_entry('body_offsets',1,unreal.Vector(0,134.4,0),unreal.Vector)
+replace_entry('yaw_offsets',1,90,lambda:0)
+lib.set_editor_property('starter_wheels',meshes[1:7]);j=json.loads((src/'manifest.json').read_text());lib.set_editor_property('starter_wheel_positions',[unreal.Vector(-r['centre_cm'][1],r['centre_cm'][0]+134.4,r['centre_cm'][2]) for r in j['wheels']]);unreal.EditorAssetLibrary.save_loaded_asset(lib)
 (root/'Saved/Logs/StarterHaulerImported.json').write_text(json.dumps({'meshes':[m.get_path_name() for m in meshes],'library':lib.get_path_name(),'source_dimensions_cm':j['size_cm']},indent=2))
 
 chairs=[]

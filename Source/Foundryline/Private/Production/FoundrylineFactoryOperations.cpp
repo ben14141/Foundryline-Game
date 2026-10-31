@@ -11,29 +11,44 @@ void FFoundrylineFactorySimulation::Machines(float Dt){
  for(auto& M:State.Machines){
   if(!M.Enabled||!MachineStaffReady(M.Id))continue;
   // A newly bought press brake is still being installed.
-  if(M.Id==2&&State.Commerce.BrakeInstallMinutes>0)continue;
+  if(M.Id==2&&M.Kind()==2&&State.Commerce.BrakeInstallMinutes>0)continue;
   if(M.Remaining>0){M.Remaining=FMath::Max(0.f,M.Remaining-Dt);if(M.Remaining>0)continue;
-   auto* P=State.Pallets.FindByPredicate([&](const auto& A){return A.Place==Place::MachineOutput&&A.Owner==M.Id&&A.Part==M.Making&&FMath::IsNearlyEqual(A.UnitLb,M.ReservedLb,.01f);});
-   if(P)++P->Quantity;else AddPallet(M.Making,1,Place::MachineOutput,M.Id,M.OutputStock,M.ReservedLb);M.ReservedLb=0;
+   const auto* Slot=M.bRackOutput?State.Slots.FindByPredicate([&](const auto& S){return S.Id==M.OutputSlot;}):nullptr;
+   if(M.bRackOutput&&!Slot){M.Remaining=.001f;continue;}
+   const auto Where=Slot?Place::Rack:Place::MachineOutput;const int Owner=Slot?Slot->Id:M.Id;
+   auto* P=State.Pallets.FindByPredicate([&](const auto& A){return A.Place==Where&&A.Owner==Owner&&A.Part==M.Making&&FMath::IsNearlyEqual(A.UnitLb,M.ReservedLb,.01f);});
+   if(P)++P->Quantity;else AddPallet(M.Making,1,Where,Owner,Slot?Slot->Position:M.OutputStock,M.ReservedLb);M.ReservedLb=0;M.OutputSlot=0;
    if(M.HasQueuedProgram){M.Making=M.NextPart;M.BatchRemaining=M.NextBatch;M.Auto=M.NextAuto;M.Enabled=true;M.HasQueuedProgram=false;}continue;
   }
   if(!M.Enabled||!MachineStaffReady(M.Id))continue;
+  if(!M.Auto&&M.BatchRemaining<=0&&!M.Queue.IsEmpty()){const auto Batch=M.Queue[0];M.Queue.RemoveAt(0);M.Making=Batch.Part;M.BatchRemaining=Batch.Quantity;M.ActiveOrderId=Batch.OrderId;M.Auto=false;}
   Part P=M.Making;bool Want=!M.Auto&&M.BatchRemaining>0;
   if(M.Auto){
-   if(M.Id==1){int Bent=Wanted(Part::BentBracket)-Total(Part::Bracket),Rail=Wanted(Part::FrameRail)-Total(Part::RailBlank),Shell=Wanted(Part::ShellSection)-Total(Part::ShellBlank);
+   if(M.Kind()==1){int Bent=Wanted(Part::BentBracket)-Total(Part::Bracket),Rail=Wanted(Part::FrameRail)-Total(Part::RailBlank),Shell=Wanted(Part::ShellSection)-Total(Part::ShellBlank);
     for(const auto& Other:State.Machines)if(Other.Remaining>0){if(Other.Making==Part::BentBracket)--Bent;if(Other.Making==Part::FrameRail)--Rail;if(Other.Making==Part::ShellSection)--Shell;}
     if(Bent>0)P=Part::Bracket;else if(Rail>0)P=Part::RailBlank;else if(Shell>0)P=Part::ShellBlank;else continue;
-   }else if(M.Id==2){if(Wanted(Part::BentBracket)>0)P=Part::BentBracket;else if(Wanted(Part::FrameRail)>0)P=Part::FrameRail;else continue;}
+   }else if(M.Kind()==2){if(Wanted(Part::BentBracket)>0)P=Part::BentBracket;else if(Wanted(Part::FrameRail)>0)P=Part::FrameRail;else continue;}
    else {P=Part::ShellSection;if(!Wanted(P))continue;}Want=true;
   }
   if(!Want)continue;
+  if(M.bRackOutput){M.OutputSlot=SelectMachineOutput(M.Id,P);if(!M.OutputSlot){State.Status=TEXT("Machine output rack is full / move a pallet to storage or shipping");continue;}}
   bool Blocked=false;for(const auto& A:State.Pallets)if(A.Place==Place::MachineOutput&&A.Owner==M.Id&&(A.Part!=P||A.Quantity+A.Reserved>=FFoundrylineFactoryCatalog::Part(P).Capacity))Blocked=true;
   if(Blocked)continue;
   const auto* Program=State.Programs.FindByPredicate([&](const auto& A){return A.Machine==M.Id&&A.Part==P;});if(!Program)continue;
   float Lb=0;
-  if(M.Id==1){
+  if(M.Kind()==1){
    // Loading a new sheet onto the bed takes its process time before the first cut from it.
-   if(M.BedLb+.0001f<Program->SteelLb){if(!Available(Part::Sheet,Place::MachineInput,1))continue;M.SheetLoad+=Dt;if(M.SheetLoad<FFoundrylineEconomyTuning::SheetLoadMinutes)continue;M.SheetLoad=0;float SheetLb=0;Consume(Part::Sheet,1,Place::MachineInput,1,&SheetLb);M.BedLb+=SheetLb;++State.RawConsumed;}
+   if(M.BedLb+.0001f<Program->SteelLb){
+    // Modern plasma workspaces draw directly from their own sheet-rack positions.
+    // Old MachineInput inventory is drained first so existing saves retain every sheet.
+    int Sheets=Available(Part::Sheet,Place::MachineInput,M.Id);
+    if(M.bRackOutput)for(const auto& Slot:State.Slots)if(Slot.MachineId==M.Id&&Slot.bInputSupply&&Slot.Part==Part::Sheet)Sheets+=Available(Part::Sheet,Place::Rack,Slot.Id);
+    if(Sheets<1){if(M.bRackOutput)State.Status=TEXT("Plasma input rack needs steel sheets / assign a forklift to restock it");continue;}
+    M.SheetLoad+=Dt;if(M.SheetLoad<FFoundrylineEconomyTuning::SheetLoadMinutes)continue;
+    float SheetLb=0;bool Loaded=Consume(Part::Sheet,1,Place::MachineInput,M.Id,&SheetLb);
+    if(!Loaded&&M.bRackOutput)for(const auto& Slot:State.Slots)if(Slot.MachineId==M.Id&&Slot.bInputSupply&&Slot.Part==Part::Sheet&&Consume(Part::Sheet,1,Place::Rack,Slot.Id,&SheetLb)){Loaded=true;break;}
+    if(!Loaded)continue;M.SheetLoad=0;M.BedLb+=SheetLb;++State.RawConsumed;
+   }
    if(M.BedLb+.0001f<Program->SteelLb)continue;M.BedLb-=Program->SteelLb;Lb=Program->SteelLb;
   }else if(!Consume(Input(P),1,Place::MachineInput,M.Id,&Lb))continue;
   M.Making=P;M.ReservedLb=Lb;M.Duration=Program->Seconds;M.Remaining=M.Duration;if(!M.Auto)--M.BatchRemaining;
@@ -60,11 +75,14 @@ void FFoundrylineFactorySimulation::Assembly(float Dt){
 bool FFoundrylineFactorySimulation::MakeJob(int Source,int Destination,Place Where,int Count,FVector Dock,FVector Store,int Priority){
  if(Count<=0||State.Jobs.Num()>=32||State.Pallets.Num()>=63)return false;
  auto* A=State.Pallets.FindByPredicate([&](const auto& P){return P.Id==Source;});if(!A||A->Quantity-A->Reserved<Count||A->BookingId&&Where!=Place::Outbound&&A->Place!=Place::Inbound)return false;
+ if(Where==Place::Rack&&State.Machines.ContainsByPredicate([&](const auto& M){return M.Remaining>0&&M.OutputSlot==Destination;}))return false;
+ if(!FFoundrylineFactoryCatalog::FitsPalletWeight(A->Part,Count,A->UnitLb))return false;
  int Physical=0;for(const auto& P:State.Pallets)if(P.Place==Where&&P.Owner==Destination&&(Where!=Place::Buffer||P.Part==A->Part)){if(P.Part!=A->Part||!FMath::IsNearlyEqual(P.UnitLb,A->UnitLb,.01f))return false;Physical+=P.Quantity;}
  if(Where!=Place::Outbound&&Physical+Incoming(A->Part,Destination)+Count>(A->bLegacyFiveStack&&Count==5?5:FFoundrylineFactoryCatalog::Part(A->Part).Capacity))return false;
+ if(Where!=Place::Outbound&&!FFoundrylineFactoryCatalog::FitsPalletWeight(A->Part,Physical+Incoming(A->Part,Destination)+Count,A->UnitLb))return false;
  if(State.Jobs.ContainsByPredicate([&](const auto& J){return J.SourcePallet==Source||(J.Destination==Destination&&J.Part==A->Part);}))return false;
  bool Allowed=false;for(const auto& R:State.Routes)if(R.Enabled&&R.Sources.Contains(A->Owner)&&(R.Destinations.Contains(Destination)||Where==Place::Outbound&&R.Destinations.Contains(12)))Allowed=true;if(!Allowed)return false;
- FFoundrylineFactoryJob J;J.Id=State.NextId++;J.SourcePallet=Source;J.Part=A->Part;J.Quantity=Count;J.Destination=Destination;J.DestinationPlace=Where;J.Drop=Dock;J.StoredAt=Store;J.Priority=Priority;J.Task=Where==Place::MachineInput?EFoundrylineForkTask::Machine:EFoundrylineForkTask::Storage;
+ FFoundrylineFactoryJob J;J.Id=State.NextId++;J.SourcePallet=Source;J.SourcePlace=A->Place;J.Part=A->Part;J.Quantity=Count;J.Destination=Destination;J.DestinationPlace=Where;J.Drop=Dock;J.StoredAt=Store;J.Priority=Priority;J.Task=Where==Place::MachineInput?EFoundrylineForkTask::Machine:EFoundrylineForkTask::Storage;
  if(A->Place==Place::Rack){const auto* S=State.Slots.FindByPredicate([&](const auto& X){return X.Id==A->Owner;});if(!S)return false;J.Pickup=S->Dock;}
  else if(A->Place==Place::MachineOutput){const auto* M=State.Machines.FindByPredicate([&](const auto& X){return X.Id==A->Owner;});if(!M)return false;J.Pickup=M->OutputDock;}
  // A whole pallet of finished products is lifted off a welding station's OUT from the forklift stop in line with that pallet.
@@ -84,16 +102,41 @@ void FFoundrylineFactorySimulation::Plan(){
   }
  }
  // Replenish each machine without mixing two input part types on the same pallet spot.
- for(const auto& M:State.Machines){if(!M.Enabled||!MachineStaffReady(M.Id))continue;Part In=Part::Sheet;int Need=0;
-  if(M.Id==1){bool Demand=false;for(auto P:{Part::BentBracket,Part::FrameRail,Part::ShellSection})Demand|=Wanted(P)>0;if((M.Auto&&Demand)||(!M.Auto&&M.BatchRemaining>0))Need=10;}
-  else {Part Out=M.Id==3?Part::ShellSection:(!M.Auto?M.Making:Wanted(Part::BentBracket)>0?Part::BentBracket:Part::FrameRail);In=Input(Out);Need=M.Auto?Wanted(Out):M.BatchRemaining;Need=FMath::Min(Need,FFoundrylineFactoryCatalog::Part(In).Capacity);}
+ for(const auto& M:State.Machines){if(!M.Enabled||M.bStored)continue;
+  if(M.Kind()==1&&M.bRackOutput){
+   // Forklifts restock the attached rack, not a fictitious pallet beside the cutting bed.
+   // Count occupied stock (including reservations) and pending deliveries before making work.
+   for(const auto& Slot:State.Slots)if(Slot.MachineId==M.Id&&Slot.bInputSupply&&Slot.Part==Part::Sheet){
+    int Occupied=0;for(const auto& P:State.Pallets)if(P.Place==Place::Rack&&P.Owner==Slot.Id&&P.Part==Part::Sheet)Occupied+=P.Quantity;
+    const int Room=FFoundrylineFactoryCatalog::Part(Part::Sheet).Capacity-Occupied-Incoming(Part::Sheet,Slot.Id);if(Room<=0)continue;
+    for(const auto& P:State.Pallets)if(P.Part==Part::Sheet&&P.Place==Place::Rack&&P.Quantity>P.Reserved){
+     const auto* Source=State.Slots.FindByPredicate([&](const auto& S){return S.Id==P.Owner;});
+     if(!Source||Source->MachineId||Source->Id==Slot.Id)continue; // Never borrow another machine's buffer.
+     if(MakeJob(P.Id,Slot.Id,Place::Rack,FMath::Min(Room,P.Quantity-P.Reserved),Slot.Dock,Slot.Position,75))break;
+    }
+   }
+   continue;
+  }
+  if(!MachineStaffReady(M.Id))continue;Part In=Part::Sheet;int Need=0;
+  if(M.Kind()==1){bool Demand=false;for(auto P:{Part::BentBracket,Part::FrameRail,Part::ShellSection})Demand|=Wanted(P)>0;if((M.Auto&&Demand)||(!M.Auto&&M.BatchRemaining>0))Need=10;}
+  else {Part Out=M.Kind()==3?Part::ShellSection:(!M.Auto?M.Making:Wanted(Part::BentBracket)>0?Part::BentBracket:Part::FrameRail);In=Input(Out);Need=M.Auto?Wanted(Out):M.BatchRemaining;Need=FMath::Min(Need,FFoundrylineFactoryCatalog::Part(In).Capacity);}
   bool Other=false;for(const auto& A:State.Pallets)if(A.Owner==M.Id&&A.Place==Place::MachineInput&&A.Part!=In&&A.Quantity)Other=true;if(Other)continue;
   Need-=Available(In,Place::MachineInput,M.Id)+Incoming(In,M.Id);if(Need<=0)continue;
   const auto* InputSlot=State.Slots.FindByPredicate([&](const auto& S){return S.MachineId==M.Id&&S.bInputSupply&&S.Part==In;});if(!InputSlot)continue;
   for(const auto& A:State.Pallets)if(A.Part==In&&A.Place==Place::Rack&&A.Owner==InputSlot->Id&&A.Quantity>A.Reserved){if(MakeJob(A.Id,M.Id,Place::MachineInput,FMath::Min(Need,A.Quantity-A.Reserved),M.InputDock,M.InputStock,70))break;}
   // Cut blanks first enter the downstream machine's dedicated supply rack.
   const int Stock=Available(In,Place::Rack,InputSlot->Id)+Incoming(In,InputSlot->Id);const int Room=FMath::Min(Need-Stock,FFoundrylineFactoryCatalog::Part(In).Capacity-Stock);
-  if(Room>0)for(const auto& A:State.Pallets)if(A.Part==In&&A.Place==Place::Rack&&A.Owner!=InputSlot->Id&&A.Quantity>A.Reserved){if(MakeJob(A.Id,InputSlot->Id,Place::Rack,FMath::Min(Room,A.Quantity-A.Reserved),InputSlot->Dock,InputSlot->Position,75))break;}
+  if(Room>0)for(const auto& A:State.Pallets)if(A.Part==In&&A.Place==Place::Rack&&A.Owner!=InputSlot->Id&&A.Quantity>A.Reserved){
+   // Let a live producing pallet accumulate a useful trip, while small orders
+   // and the last partial batch still flow without waiting for a full pallet.
+   const auto* SourceSlot=State.Slots.FindByPredicate([&](const auto& S){return S.Id==A.Owner&&S.bMachineOutput;});
+   const auto* Producer=SourceSlot?State.Machines.FindByPredicate([&](const auto& V){return V.Id==SourceSlot->MachineId;}):nullptr;
+   Part Final=In;if(In==Part::Bracket)Final=Part::BentBracket;else if(In==Part::RailBlank)Final=Part::FrameRail;else if(In==Part::ShellBlank)Final=Part::ShellSection;
+   const bool ProducingMore=Producer&&!Producer->bStored&&Producer->Enabled&&Producer->Making==In&&(Producer->Remaining>0||!Producer->Auto&&Producer->BatchRemaining>0||Producer->Auto&&Wanted(Final)>0);
+   const int AvailableNow=A.Quantity-A.Reserved,TripMinimum=FMath::Min(10,FMath::Min(Room,FFoundrylineFactoryCatalog::Part(In).Capacity));
+   if(ProducingMore&&AvailableNow<TripMinimum)continue;
+   if(MakeJob(A.Id,InputSlot->Id,Place::Rack,FMath::Min(Room,AvailableNow),InputSlot->Dock,InputSlot->Position,75))break;
+  }
  }
  // Every completed pallet enters the producing machine output rack, including cut blanks.
  for(const auto& A:State.Pallets)if(A.Place==Place::MachineOutput&&A.Quantity>A.Reserved){
@@ -120,7 +163,8 @@ void FFoundrylineFactorySimulation::Dispatch(){
  for(int DriverIndex:DriverOrder){auto& D=State.Drivers[DriverIndex];if(CorridorBusy&&!State.Commerce.Enabled)break;if(D.Job||!D.EmployeeId||State.Commerce.ForkliftInstallDriver==D.Id&&State.Commerce.ForkliftInstallMinutes>0)continue;const auto* R=State.Routes.FindByPredicate([&](const auto& A){return A.Id==D.Route&&A.Enabled;});if(!R)continue;
   FFoundrylineFactoryJob* Best=nullptr;TArray<FVector> BestPath;
   for(auto& J:State.Jobs)if(!J.Driver){const auto* Source=State.Pallets.FindByPredicate([&](const auto& A){return A.Id==J.SourcePallet;});if(!Source||!R->Sources.Contains(Source->Owner)||!(R->Destinations.Contains(J.Destination)||J.DestinationPlace==Place::Outbound&&R->Destinations.Contains(12)))continue;
-   auto Score=[&](const auto& V){return (State.Commerce.Enabled&&D.Priorities.Num()==3?(3-D.Priorities[int(V.Task)])*1000:0)+V.Priority;};if(Best&&Score(*Best)>=Score(J))continue;auto P=Path(D.Position,J.Pickup);auto Delivery=Path(J.Pickup,J.Drop);if(P.IsEmpty()||Delivery.IsEmpty()){State.Status=TEXT("A transport request needs connected forklift lanes");continue;}Best=&J;BestPath=MoveTemp(P);
+   if(D.Priorities.Num()==3&&D.Priorities[ForkPriorityGroup(J)]<0)continue;
+   auto Score=[&](const auto& V){return (State.Commerce.Enabled&&D.Priorities.Num()==3?(3-D.Priorities[ForkPriorityGroup(V)])*1000:0)+V.Priority;};if(Best&&Score(*Best)>=Score(J))continue;auto P=Path(D.Position,J.Pickup);auto Delivery=Path(J.Pickup,J.Drop);if(P.IsEmpty()||Delivery.IsEmpty()){State.Status=TEXT("A transport request needs connected forklift lanes");continue;}Best=&J;BestPath=MoveTemp(P);
   }
   if(Best){Best->Driver=D.Id;Best->Phase=1;D.Job=Best->Id;D.Path=MoveTemp(BestPath);D.Distance=0;D.Waiting=false;State.LastDriver=D.Id;CorridorBusy=true;}
  }

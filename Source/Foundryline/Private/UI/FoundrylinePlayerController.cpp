@@ -1,5 +1,5 @@
-#include "FoundrylineBuildCatalog.h"
 #include "UI/FoundrylinePlayerController.h"
+#include "FoundrylineBuildCatalog.h"
 #include "UI/FoundrylineBuildHUD.h"
 #include "Components/InputComponent.h"
 #include "World/FoundrylineViewMath.h"
@@ -60,6 +60,7 @@ void AFoundrylinePlayerController::SetupInputComponent()
 	InputComponent->BindAction(TEXT("Snap5cm"), IE_Pressed, this, &AFoundrylinePlayerController::FiveCmSnap);
 	InputComponent->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &AFoundrylinePlayerController::CancelBuild);
 	InputComponent->BindKey(EKeys::Z, IE_Pressed, this, &AFoundrylinePlayerController::UndoBuild);
+ InputComponent->BindKey(EKeys::Y, IE_Pressed, this, &AFoundrylinePlayerController::RedoPlanner);
  InputComponent->BindKey(EKeys::Y, IE_Pressed, this, &AFoundrylinePlayerController::RedoBuild);
 }
 
@@ -149,10 +150,11 @@ void AFoundrylinePlayerController::ServerUseDoor_Implementation(FGuid ObjectId,F
 
 void AFoundrylinePlayerController::ChooseTool(FName Tool)
 {
+ if(OfficePlanningLevel&&Tool!=TEXT("OfficeRoom")&&Tool!=TEXT("RoomDoor")&&Tool!=TEXT("RoomWindow")&&Tool!=TEXT("OfficeGlass")&&Tool!=TEXT("Select")&&Tool!=TEXT("Move")&&Tool!=TEXT("Demolish")&&!Tool.IsNone())SetOfficePlanningLevel(0);
  // Construction tools own world clicks; never leave an equipment menu intercepting them.
  if(!Tool.IsNone()){if(FactoryMachine)OpenFactoryComputer(0);bFactoryMenu=false;FactoryTool=NAME_None;bFactoryDragging=false;}
 
-	BuildTool = Tool;
+	BuildTool = Tool;bLastPlannerEdit=false;
  PavePoints.Reset();PaveAwaitBend=false;bPaveDirectDrag=false;PaveSweepLines.Reset();PaveSweepKey.Reset();
  // Every newly selected pavement tool draws an area, even after legacy presets.
  if(FFoundrylineSizing::Surface(Tool)) bExactSurface=false;
@@ -210,6 +212,7 @@ void AFoundrylinePlayerController::RedoBuild()
 
 void AFoundrylinePlayerController::UndoBuild()
 {
+ if(bLastPlannerEdit&&bPropertyViewAccess&&!IsWalking()){if(bPlannerPending)return;auto* Plant=FactoryPlant();if(!Plant)return;FFoundrylineFactoryCommand C;C.Action=EFoundrylineFactoryAction::UndoPlanner;C.TargetPlantId=Plant->BusinessPlantId;bPlannerPending=true;SendFactory(C);return;}
  if(GetNetMode()!=NM_Standalone) return;
 	bDraggingBuild=false;
 	for (TActorIterator<AFoundrylineBuildSite> It(GetWorld()); It; ++It) { It->Undo(); break; }
@@ -220,6 +223,7 @@ bool AFoundrylinePlayerController::GetCursorAnchor(FIntVector& OutAnchorCm) cons
 	if (!IsLocalController()) return false;
 	FVector Origin, Direction;
 	if (!DeprojectMousePositionToWorld(Origin, Direction)) return false;
+ if(OfficePlanningLevel==1){if(FMath::Abs(Direction.Z)<.0001)return false;const double At=(320-Origin.Z)/Direction.Z;if(At<=0)return false;const auto P=Origin+Direction*At;OutAnchorCm={FMath::RoundToInt32(P.X/25)*25,FMath::RoundToInt32(P.Y/25)*25,320};return true;}
  bool PavementPlane=IsPavementTool()||bPaveDirectDrag;if(!PavementPlane&&AFoundrylineBuildSite::IsEditTool(BuildTool))for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)if(const auto* O=It->GetSelectedObject())PavementPlane=!O->Pavement.Polygons.IsEmpty();
  if(PavementPlane&&FMath::Abs(Direction.Z)>.0001f){const double Distance=(20-Origin.Z)/Direction.Z;if(Distance<=0)return false;const bool Ok=FFoundrylineGrid::SnapWorld(Origin+Direction*Distance,GetPlacementSnap(),OutAnchorCm);OutAnchorCm.Z=0;return Ok;}
  bool OpeningDrag=false;for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It){OpeningDrag=It->GetSelectedOpening()!=nullptr;break;}
@@ -246,10 +250,10 @@ void AFoundrylinePlayerController::SelectCell()
 	if (!GetCursorAnchor(Anchor)) return;
  if(bLogisticsEdit) {LogisticsClick(Anchor);return;}
  if(BuildTool==TEXT("Sign")){for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It){It->BuildRectangle(TEXT("Sign"),Anchor,Anchor);break;}return;}
- if(BuildTool.IsNone()||BuildTool==TEXT("Select")||BuildTool==TEXT("Move")||BuildTool==TEXT("Demolish"))
+ if(BuildTool.IsNone()||BuildTool==TEXT("Select")||BuildTool==TEXT("Move")||BuildTool==TEXT("Resize")||BuildTool==TEXT("Demolish"))
  {
   bool Opening=false;for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It){It->BeginEdit(TEXT("Select"),Anchor);Opening=It->GetSelectedOpening()!=nullptr;break;}
-  if(!Opening&&SelectPlannerItem(Anchor)){for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)It->SelectedObject.Invalidate();if(BuildTool==TEXT("Move"))StartPlannerMove(Anchor,true);else if(BuildTool==TEXT("Demolish"))PlannerAction(TEXT("Delete"));return;}
+  if(!Opening&&SelectPlannerItem(Anchor)){for(TActorIterator<AFoundrylineBuildSite> It(GetWorld());It;++It)It->SelectedObject.Invalidate();if(BuildTool==TEXT("Move"))StartPlannerMove(Anchor,true);else if(BuildTool==TEXT("Resize"))PlannerAction(TEXT("Resize"));else if(BuildTool==TEXT("Demolish"))PlannerAction(TEXT("Delete"));return;}
   PlannerKind=PlannerId=0;PlannerItemName.Reset();
  }
 
@@ -266,7 +270,8 @@ void AFoundrylinePlayerController::SelectCell()
 		{
 			if(AFoundrylineBuildSite::IsEditTool(BuildTool)) {if(It->BeginEdit(BuildTool,Anchor)) {DragStart=DragEnd=Anchor;bDraggingBuild=true;}}
 			else if(BuildTool==TEXT("Landscape") || BuildTool==TEXT("Crosswalk")) It->ApplyGroundTool(BuildTool,Anchor);
-			else if(BuildTool==TEXT("RoomDoor") || BuildTool==TEXT("RoomWindow")) It->OfficeOpening(BuildTool,Anchor);
+			else if(BuildTool.ToString().StartsWith(TEXT("OfficeStairs")))It->PlaceOfficeStairs(Anchor,FactoryStationQuarter,false,BuildTool==TEXT("OfficeStairsStraight")?1:0);
+   else if(BuildTool==TEXT("RoomDoor") || BuildTool==TEXT("RoomWindow")) It->OfficeOpening(BuildTool,Anchor);
 			else if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock") || BuildTool==TEXT("LoadingBay") || BuildTool==TEXT("OfficeGlass")) It->PlaceDoor(BuildTool, Anchor);
 			else { DragStart = DragEnd = Anchor; bDraggingBuild = true; }
 			return;
@@ -322,14 +327,15 @@ void AFoundrylinePlayerController::PlayerTick(float DeltaSeconds)
 		{
 			FIntVector SelectionCursor=FIntVector::ZeroValue;const bool HasCursor=!IsOverBuildHUD() && GetCursorAnchor(SelectionCursor);
             It->SelectionOutlines.Reset();
-            if(!IsWalking()) It->RecordSelection(FIntVector::ZeroValue,false);
-            if(!IsWalking() && HasCursor && (BuildTool.IsNone() || AFoundrylineBuildSite::IsEditTool(BuildTool)) && !bDraggingBuild) It->RecordSelection(SelectionCursor,true);
+            if(!IsWalking()&&!PlannerKind&&!bPlannerMoving&&FactoryTool.IsNone()) It->RecordSelection(FIntVector::ZeroValue,false);
+            if(!IsWalking()&&!PlannerKind&&!bPlannerMoving&&FactoryTool.IsNone() && HasCursor && (BuildTool.IsNone() || AFoundrylineBuildSite::IsEditTool(BuildTool)) && !bDraggingBuild) It->RecordSelection(SelectionCursor,true);
             if(BuildTool==TEXT("UpgradeBay")&&!It->IsPropertyBusy())It->PreviewEdit(BuildTool,FIntVector::ZeroValue,FIntVector::ZeroValue);
             else if (It->IsPropertyBusy() || BuildTool.IsNone() || IsOverBuildHUD() || !GetCursorAnchor(BuildAnchor)) It->HidePreview();
 			else if (BuildTool == TEXT("Personnel") || BuildTool == TEXT("Garage") || BuildTool == TEXT("TruckDoor") || BuildTool==TEXT("LoadingDock") || BuildTool==TEXT("LoadingBay") || BuildTool==TEXT("OfficeGlass")) It->PreviewDoor(BuildTool, BuildAnchor);
 			else if(BuildTool==TEXT("Columns")) It->PreviewColumns(BuildAnchor);
 			else if(BuildTool==TEXT("Landscape") || BuildTool==TEXT("Crosswalk")) It->ApplyGroundTool(BuildTool,BuildAnchor,true);
-			else if(BuildTool==TEXT("RoomDoor") || BuildTool==TEXT("RoomWindow")) It->OfficeOpening(BuildTool,BuildAnchor,true);
+			else if(BuildTool.ToString().StartsWith(TEXT("OfficeStairs")))It->PlaceOfficeStairs(BuildAnchor,FactoryStationQuarter,true,BuildTool==TEXT("OfficeStairsStraight")?1:0);
+   else if(BuildTool==TEXT("RoomDoor") || BuildTool==TEXT("RoomWindow")) It->OfficeOpening(BuildTool,BuildAnchor,true);
 			else if(BuildTool==TEXT("Sign"))It->PreviewRectangle(TEXT("Sign"),BuildAnchor,BuildAnchor);
 			else if (bDraggingBuild) { DragEnd=BuildAnchor; if(AFoundrylineBuildSite::IsEditTool(BuildTool)) It->PreviewEdit(BuildTool,DragStart,DragEnd);else if(BuildTool==TEXT("OfficeArea") || BuildTool==TEXT("OfficeRoom")) It->OfficeRectangle(BuildTool,DragStart,DragEnd,true);else It->PreviewRectangle(BuildTool, DragStart, DragEnd); }
 			else if(bExactSurface && FFoundrylineSizing::Surface(BuildTool)) It->PreviewRectangle(BuildTool,BuildAnchor,ExactSurfaceEnd(BuildAnchor));

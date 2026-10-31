@@ -1,3 +1,5 @@
+#include "Construction/FoundrylinePlanningEquipment.h"
+#include "Construction/FoundrylinePlannerItems.h"
 #include "Construction/FoundrylinePlacementSubsystem.h"
 #include "Production/FoundrylineFactoryPlant.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -50,7 +52,7 @@ void AFoundrylineFactoryPlant::SetupFloorVisuals(){
 }
 void AFoundrylineFactoryPlant::RebuildFloor(){
  bool PresetLoading=false;if(bCutPartsStarter)if(const auto* Placement=GetWorld()->GetSubsystem<UFoundrylinePlacementSubsystem>())PresetLoading=Placement->GetObjects().ContainsByPredicate([&](const auto& O){return O.CompanyId==BusinessCompanyId&&O.PlantId==BusinessPlantId&&O.Openings.ContainsByPredicate([](const auto& V){return V.Kind==EFoundrylineOpeningKind::LoadingDock&&V.LoadingTier>0;});});
- FString Key=PresetLoading?TEXT("PRESET;"):TEXT("LEGACY;");for(const auto& L:Snapshot.Lanes)Key+=FString::Printf(TEXT("%d:%d:%s:%s:%d;"),L.Id,int(L.Kind),*L.Min.ToString(),*L.Max.ToString(),L.Direction);for(const auto& Z:Snapshot.Zones)Key+=FString::Printf(TEXT("%d:%s:%s:%s:%s:%d;"),Z.Id,*Z.Min.ToString(),*Z.Max.ToString(),*Z.DropMin.ToString(),*Z.DropMax.ToString(),Z.QuarterTurns);for(const auto& S:Snapshot.WeldingStations)Key+=FString::Printf(TEXT("W%d:%d:%s:%d:%d;"),S.Id,S.Number,*S.Center.ToString(),S.QuarterTurns,S.bSwapSides?1:0);if(FloorLayoutKey==Key)return;FloorLayoutKey=Key;
+ FString Key=PresetLoading?TEXT("PRESET;"):TEXT("LEGACY;");for(const auto& L:Snapshot.Lanes)Key+=FString::Printf(TEXT("%d:%d:%s:%s:%d;"),L.Id,int(L.Kind),*L.Min.ToString(),*L.Max.ToString(),L.Direction);for(const auto& Z:Snapshot.Zones)Key+=FString::Printf(TEXT("%d:%s:%s:%s:%s:%d;"),Z.Id,*Z.Min.ToString(),*Z.Max.ToString(),*Z.DropMin.ToString(),*Z.DropMax.ToString(),Z.QuarterTurns);for(const auto& S:Snapshot.WeldingStations)Key+=FString::Printf(TEXT("W%d:%d:%s:%d:%d;"),S.Id,S.Number,*S.Center.ToString(),S.QuarterTurns,S.bSwapSides?1:0);for(const auto& M:Snapshot.Machines)Key+=FString::Printf(TEXT("M%d:%s:%d:%d;"),M.Id,*M.Origin.ToString(),M.QuarterTurns,M.bStored);for(const auto& Slot:Snapshot.Slots)Key+=FString::Printf(TEXT("S%d:%s:%s;"),Slot.Id,*Slot.Position.ToString(),*Slot.Dock.ToString());for(const auto& D:Snapshot.Drivers)Key+=FString::Printf(TEXT("D%d:%s:%f;"),D.Id,*D.Parking.ToString(),D.ParkingYaw);if(FloorLayoutKey==Key)return;FloorLayoutKey=Key;
  if(!FloorPaintTexture)return;
  UKismetRenderingLibrary::ClearRenderTarget2D(this,FloorPaintTexture,FLinearColor::Transparent);
  // An empty basic shop has no prepainted production or stock zones.
@@ -60,13 +62,13 @@ void AFoundrylineFactoryPlant::RebuildFloor(){
  UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(this,FloorPaintTexture,Canvas,CanvasSize,Context);
  if(!Canvas)return;
  Canvas->Canvas->SetWriteDestinationAlpha(true);
- auto Box=[&](int Style,FVector P,FVector Size,FRotator R=FRotator::ZeroRotator){
+ auto Box=[&](int Style,FVector P,FVector Size,FRotator R=FRotator::ZeroRotator,float Opacity=1){
   FVector2D V[4];const FVector Local[]={{-Size.X/2,-Size.Y/2,0},{Size.X/2,-Size.Y/2,0},{Size.X/2,Size.Y/2,0},{-Size.X/2,Size.Y/2,0}};
   for(int I=0;I<4;++I)V[I]=PaintPixel(FVector2D(P+R.RotateVector(Local[I])));
-  for(int I=1;I<3;++I){FCanvasTriangleItem Tri(V[0],V[I],V[I+1],GWhiteTexture);Tri.SetColor(PaintColors[Style]);Tri.BlendMode=SE_BLEND_Opaque;Canvas->DrawItem(Tri);}
+  for(int I=1;I<3;++I){FCanvasTriangleItem Tri(V[0],V[I],V[I+1],GWhiteTexture);auto Color=PaintColors[Style];Color.A=Opacity;Tri.SetColor(Color);Tri.BlendMode=Opacity>=.999f?SE_BLEND_Opaque:SE_BLEND_Translucent;Canvas->DrawItem(Tri);}
  };
  auto Outline=[&](int Style,FVector2D A,FVector2D B,float Width){const FVector2D C=(A+B)/2,D=B-A;Box(Style,{C.X,A.Y,22},{D.X,Width,1});Box(Style,{C.X,B.Y,22},{D.X,Width,1});Box(Style,{A.X,C.Y,22},{Width,D.Y,1});Box(Style,{B.X,C.Y,22},{Width,D.Y,1});};
- auto Hatch=[&](int Style,FVector2D A,FVector2D B,float Spacing,float Width){for(float K=A.Y-B.X;K<=B.Y-A.X;K+=Spacing){TArray<FVector2D> Points;for(FVector2D P:{FVector2D(A.X,A.X+K),FVector2D(B.X,B.X+K),FVector2D(A.Y-K,A.Y),FVector2D(B.Y-K,B.Y)})if(P.X>=A.X-.01&&P.X<=B.X+.01&&P.Y>=A.Y-.01&&P.Y<=B.Y+.01)Points.AddUnique(P);if(Points.Num()<2)continue;const FVector2D Delta=Points.Last()-Points[0],Center=(Points.Last()+Points[0])/2;if(Delta.Size()<5)continue;Box(Style,FVector(Center,22.1),{Delta.Size(),Width,.8},FRotator(0,FMath::RadiansToDegrees(FMath::Atan2(Delta.Y,Delta.X)),0));}};
+ auto Hatch=[&](int Style,FVector2D A,FVector2D B,float Spacing,float Width,float Opacity=1){for(float K=A.Y-B.X;K<=B.Y-A.X;K+=Spacing){TArray<FVector2D> Points;for(FVector2D P:{FVector2D(A.X,A.X+K),FVector2D(B.X,B.X+K),FVector2D(A.Y-K,A.Y),FVector2D(B.Y-K,B.Y)})if(P.X>=A.X-.01&&P.X<=B.X+.01&&P.Y>=A.Y-.01&&P.Y<=B.Y+.01)Points.AddUnique(P);if(Points.Num()<2)continue;const FVector2D Delta=Points.Last()-Points[0],Center=(Points.Last()+Points[0])/2;if(Delta.Size()<5)continue;Box(Style,FVector(Center,22.1),{Delta.Size(),Width,.8},FRotator(0,FMath::RadiansToDegrees(FMath::Atan2(Delta.Y,Delta.X)),0),Opacity);}};
  auto Text=[&](FString Value,FVector P,float Size,float Yaw=0,FLinearColor Color=FLinearColor(.025,.03,.035,1)){
   const auto Pixel=PaintPixel(FVector2D(P));auto* Font=GEngine->GetMediumFont();
   FCanvasTextItem Item(FVector2D::ZeroVector,FText::FromString(Value),Font,Color);
@@ -77,21 +79,26 @@ void AFoundrylineFactoryPlant::RebuildFloor(){
  };
  TArray<FFoundrylineFactoryLane> PaintedLanes;for(const auto& Lane:Snapshot.Lanes)if(Lane.Kind==EFoundrylineFloorLane::Forklift)PaintedLanes.Add(Lane);
  auto Line=[&](int Style,FVector2D A,FVector2D B,float Width,int Ignore,FVector2D Probe=FVector2D::ZeroVector){for(const auto& Segment:FFoundrylineFloorLaneGeometry::VisibleLine(A,B,PaintedLanes,Ignore,Probe,Style==1?EFoundrylineFloorLane::Pedestrian:EFoundrylineFloorLane::Forklift)){const FVector2D D=Segment.Value-Segment.Key,P=(Segment.Key+Segment.Value)/2;Box(Style,FVector(P,22),FVector(D.Size(),Width,1),FRotator(0,FMath::RadiansToDegrees(FMath::Atan2(D.Y,D.X)),0));}};
- for(const auto& L:Snapshot.Lanes){const FVector2D C=(L.Min+L.Max)/2,D=L.Max-L.Min;const bool X=D.X>D.Y;
-  if(L.Kind!=EFoundrylineFloorLane::Forklift)continue;
-  if(L.Kind==EFoundrylineFloorLane::Forklift){if(X){for(float Y:{float(L.Min.Y),float(L.Max.Y)}){const float Side=Y==L.Min.Y?-1:1;Line(0,{L.Min.X,Y},{L.Max.X,Y},7,L.Id,{0,Side*.2});Line(0,{L.Min.X,Y-Side*12},{L.Max.X,Y-Side*12},3,L.Id,{0,Side*12.2});}}else for(float PX:{float(L.Min.X),float(L.Max.X)}){const float Side=PX==L.Min.X?-1:1;Line(0,{PX,L.Min.Y},{PX,L.Max.Y},7,L.Id,{Side*.2,0});Line(0,{PX-Side*12,L.Min.Y},{PX-Side*12,L.Max.Y},3,L.Id,{Side*12.2,0});}
-   const float Angle=X?0:90;for(int Direction:{-1,1}){if(L.Direction&&(L.Direction==1?Direction<0:Direction>0))continue;const FVector P(C.X+(X?Direction*D.X*.22:0),C.Y+(X?0:Direction*D.Y*.22),22);const FRotator R(0,Angle+(Direction<0?180:0),0);Box(0,P,{100,9,1},R);for(int Side:{-1,1})Box(0,P+R.RotateVector(FVector(30,Side*16,0)),{55,9,1},FRotator(0,R.Yaw+Side*40,0));}
-   if(FMath::Max(D.X,D.Y)>600)Text(TEXT("FORKLIFTS"),FVector(C.X-90,C.Y-65,23),24,Angle);
-  }
+ // Forklift areas are a union of rectangular floor permissions. Paint the soft
+ // fill first, then only the outside boundary, so touching/overlapping areas join.
+ for(const auto& Area:PaintedLanes){const FVector2D Center=(Area.Min+Area.Max)/2,Size=Area.Max-Area.Min;
+  Box(0,FVector(Center,22),FVector(Size,1),FRotator::ZeroRotator,.045f);
+  Hatch(0,Area.Min+FVector2D(8),Area.Max-FVector2D(8),180,1.8f,.14f);
+ }
+ for(const auto& Area:PaintedLanes){
+  Line(0,{Area.Min.X,Area.Min.Y},{Area.Max.X,Area.Min.Y},6,Area.Id,{0,-.2});
+  Line(0,{Area.Min.X,Area.Max.Y},{Area.Max.X,Area.Max.Y},6,Area.Id,{0,.2});
+  Line(0,{Area.Min.X,Area.Min.Y},{Area.Min.X,Area.Max.Y},6,Area.Id,{-.2,0});
+  Line(0,{Area.Max.X,Area.Min.Y},{Area.Max.X,Area.Max.Y},6,Area.Id,{.2,0});
  }
  FFoundrylineFactorySimulation View;View.State=Snapshot;const EFoundrylinePart Parts[]={EFoundrylinePart::BentBracket,EFoundrylinePart::FrameRail,EFoundrylinePart::ShellSection,EFoundrylinePart::EndCap,EFoundrylinePart::RunningGear,EFoundrylinePart::Fittings};const TCHAR* Names[]={TEXT("BRACKETS"),TEXT("FRAME RAILS"),TEXT("SHELLS"),TEXT("WHOLE HEADS"),TEXT("RUNNING GEAR"),TEXT("FITTINGS")};
  if(bCutPartsStarter){
-  for(const auto& Rack:FFoundrylineWorkshopLayout::CutShopRacks()){const FVector2D P(Rack.Center),Half(75,220);Outline(3,P-Half,P+Half,6);Text(Rack.Name,Rack.Center+FVector(-70,-240,3),18);}
+
   const FBox2D Receiving({1050,1480},{1350,1900}),Shipping({-1100,1850},{-600,2170});
   if(!PresetLoading){Outline(3,Receiving.Min,Receiving.Max,6);Text(TEXT("RAW STEEL ARRIVAL"),FVector(Receiving.Min+FVector2D(-30,-35),23),18);}
-  Outline(3,Shipping.Min,Shipping.Max,6);Hatch(3,Shipping.Min,Shipping.Max,90,3);Text(TEXT("OUTBOUND / CUT-PART PALLETS"),FVector(Shipping.Min+FVector2D(20,30),23),22);
-  const FBox2D Bay({0,220},{200,720});Outline(2,Bay.Min,Bay.Max,4);Text(TEXT("FORK 01"),FVector(Bay.Min+FVector2D(10,20),23),22);
-  const FBox2D CutCell({-1600,400},{-1000,1100});Outline(4,CutCell.Min,CutCell.Max,6);Text(TEXT("01 / BURN TABLE"),FVector(-1580,370,23),22);
+  if(!PresetLoading){Outline(3,Shipping.Min,Shipping.Max,6);Hatch(3,Shipping.Min,Shipping.Max,90,3);Text(TEXT("OUTBOUND / CUT-PART PALLETS"),FVector(Shipping.Min+FVector2D(20,30),23),22);}
+  for(int I=0;I<Snapshot.Drivers.Num();++I){const auto& D=Snapshot.Drivers[I];const auto Bay=FFoundrylinePlanningEquipment::Bounds(D.Parking+FRotator(0,D.ParkingYaw,0).RotateVector({-95,0,0}),FMath::RoundToInt(D.ParkingYaw/90),{350,180,0});Outline(2,Bay.Min,Bay.Max,4);Text(FString::Printf(TEXT("FORK %02d"),I+1),FVector(Bay.Min+FVector2D(10,20),23),18);}
+
   if(!PresetLoading){const FBox2D Apron({500,1250},{2700,2050});Outline(3,Apron.Min,Apron.Max,6);Text(TEXT("BOX TRAILER / PALLET LOADING"),FVector(600,1300,23),28);}
  }else {
  const FVector2D Steel(FFoundrylineWorkshopLayout::SteelArrival());Outline(3,Steel-FVector2D(100,180),Steel+FVector2D(100,180),6);Hatch(3,Steel-FVector2D(100,180),Steel+FVector2D(100,180),70,2);Text(TEXT("STEEL RECEIVING"),FVector(Steel+FVector2D(-90,-200),23),18);
@@ -106,7 +113,11 @@ void AFoundrylineFactoryPlant::RebuildFloor(){
 
  for(int I=1;I<=3;++I){const TCHAR* CellNames[]={TEXT("01 / PLASMA CUTTING"),TEXT("02 / PRESS BRAKE"),TEXT("03 / SHEET ROLLER")};Text(CellNames[I-1],FFoundrylineWorkshopLayout::Machine(I)+FVector(-280,-400,3),28);const auto P=FFoundrylineWorkshopLayout::OutputStock(I);Outline(3,FVector2D(P)-FVector2D(100,180),FVector2D(P)+FVector2D(100,180),5);Hatch(3,FVector2D(P)-FVector2D(100,180),FVector2D(P)+FVector2D(100,180),50,2);Text(TEXT("OUTPUT PALLET"),P+FVector(-100,190,3),16);}
  }
- if(bCutPartsStarter&&Snapshot.Machines.ContainsByPredicate([](const auto& M){return M.Id==2;})){Outline(4,{-2100,1600},{-1600,2100},6);Text(TEXT("02 / PRESS BRAKE"),{-2070,1580,23},22);}
+ const auto PlanningItems=FFoundrylinePlannerItems::List(Snapshot);
+ if(bCutPartsStarter){for(const auto& Rack:FFoundrylinePlannerItems::FixedRacks(Snapshot)){const FBox2D B(FVector2D(Rack.Bounds.Min),FVector2D(Rack.Bounds.Max));Outline(3,B.Min,B.Max,5);Text(Rack.Name,FVector(B.Min+FVector2D(0,-24),23),16);}
+  for(const auto& M:Snapshot.Machines)if(!M.bStored){FBox2D Area(ForceInit);for(const auto& I:PlanningItems)if(I.Kind==EFoundrylinePlannerItem::Machine&&I.Id==M.Id||I.Kind==EFoundrylinePlannerItem::FixedRack&&I.MachineId==M.Id){Area+=FVector2D(I.Bounds.Min);Area+=FVector2D(I.Bounds.Max);}Area=Area.ExpandBy(25);Outline(4,Area.Min,Area.Max,6);Text(FString::Printf(TEXT("%03d / %s"),M.Id,M.Kind()==1?TEXT("PLASMA"):M.Kind()==2?TEXT("PRESS BRAKE"):TEXT("SHEET ROLLER")),FVector(Area.Min+FVector2D(10,-27),23),20);}
+ }
+
  for(int ZI=0;ZI<Snapshot.Zones.Num();++ZI){const auto& Z=Snapshot.Zones[ZI];const auto Bounds=FFoundrylineWorkZoneLayout::Bounds(Z);Outline(4,Bounds.Min,Bounds.Max,12);Hatch(4,FVector2D(Z.Min),FVector2D(Z.Max),150,8);Text(FString::Printf(TEXT("WORK ZONE %02d / TANKER"),ZI+1),Z.Min+FVector(60,65,3),38);
   const auto Equipment=FFoundrylineWorkZoneLayout::WelderBounds(Z).ExpandBy(10);Outline(2,Equipment.Min,Equipment.Max,3);Text(TEXT("MIG WELDER"),FVector(Equipment.Min+FVector2D(0,-20),23),14);
   Text(FString::Printf(TEXT("ZONE %02d / SUPPLIES"),ZI+1),Z.DropMin+FVector(25,15,3),22);for(int I=0;I<6;++I){const auto P=View.BufferPosition(Z,Parts[I]);const auto Size=FFoundrylineWorkZoneLayout::BaySize(Z,Parts[I]);Outline(3,FVector2D(P)-Size/2,FVector2D(P)+Size/2,6);Hatch(3,FVector2D(P)-Size/2,FVector2D(P)+Size/2,45,2);Text(Names[I],P+FVector(-Size.X/2+10,-Size.Y/2+15,3),15);}

@@ -38,16 +38,16 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  A.Action=Act::AssignPickup;if(!TestTrue(TEXT("Assign it to the pickup zone: ")+E,M.CommerceCommand(A,E)))return false;
 
  // The Overview recommends the real next action for a rack order: staff the station, then set its batch, then ship.
- using G=EFoundrylineGuideStep;auto Guide=FFoundrylineERPViewModel::Guide(M.State);
+ using WeldingGuideG=EFoundrylineGuideStep;auto Guide=FFoundrylineERPViewModel::Guide(M.State);
  TestTrue(TEXT("Overview focuses the rack order"),Guide.OrderId==OrderId&&Guide.bWeldedOrder&&Guide.StationId==Id);
- TestTrue(TEXT("Overview asks for a welder first: ")+Guide.Title,Guide.Step==G::StaffWork&&Guide.Title.Contains(TEXT("welder"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("No welder"));}));
- TestTrue(TEXT("No steel is asked for a rack order"),Guide.bStepDone[int(G::BuySteel)]&&!Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("steel"));}));
+ TestTrue(TEXT("Overview asks for a welder first: ")+Guide.Title,Guide.Step==WeldingGuideG::StaffWork&&Guide.Title.Contains(TEXT("welder"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("No welder"));}));
+ TestTrue(TEXT("No steel is asked for a rack order"),Guide.bStepDone[int(WeldingGuideG::BuySteel)]&&!Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("steel"));}));
  if(!TestTrue(TEXT("Hire and assign a welder: ")+E,Welder(M,E)))return false;Guide=FFoundrylineERPViewModel::Guide(M.State);
  TestTrue(TEXT("Paid welder with an idle station: the Overview says payroll is running and points at Orders"),Guide.PayrollCentsPerHour>0&&Guide.IdleWhilePaid.Contains(TEXT("welding station"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.StartsWith(TEXT("Payroll"))&&P.Action==TEXT("Page0");}));
- TestTrue(TEXT("Then it asks to set the station for the order: ")+Guide.Title,Guide.Step==G::ProgramPlasma&&Guide.PartsToMake==Quantity&&Guide.Action==FString::Printf(TEXT("StationOrder%d"),OrderId));
+ TestTrue(TEXT("Then it asks to set the station for the order: ")+Guide.Title,Guide.Step==WeldingGuideG::ProgramPlasma&&Guide.PartsToMake==Quantity&&Guide.Action==FString::Printf(TEXT("StationOrder%d"),OrderId));
  // Build exactly the order. Each finished rack is wanted by the order, so its OUT pallet goes whole to the pickup zone.
  TestTrue(TEXT("Batch for the order: ")+E,M.ConfigureWeldingStation(Id,1,Guide.PartsToMake,E));TopUpBins(M);Guide=FFoundrylineERPViewModel::Guide(M.State);
- TestTrue(TEXT("With the batch set, the Overview follows the welding: ")+Guide.Title,Guide.Step==G::BookFreight&&Guide.PartsToMake==0&&Guide.PartsCutting==Quantity&&Guide.Title.Contains(TEXT("Welding racks")));
+ TestTrue(TEXT("With the batch set, the Overview follows the welding: ")+Guide.Title,Guide.Step==WeldingGuideG::BookFreight&&Guide.PartsToMake==0&&Guide.PartsCutting==Quantity&&Guide.Title.Contains(TEXT("Welding racks")));
  bool SawOutReserved=false;auto Staged=[&](){for(const auto& P:M.State.Pallets)SawOutReserved|=P.Place==Place::StationOut&&P.Reserved>0;int N=0;for(const auto& P:M.State.Pallets)if(P.Place==Place::Pickup&&P.OrderId==OrderId)N+=P.Quantity;return N==Quantity;};
  if(!TestTrue(TEXT("Racks are built and staged at the pickup zone"),Pump(M,Staged)))return false;
  TestTrue(TEXT("A forklift collected from OUT"),SawOutReserved);TestEqual(TEXT("OUT is clear"),Racks(M,Place::StationOut),0);TestEqual(TEXT("Nothing went to storage on the way"),Racks(M,Place::Rack),0);

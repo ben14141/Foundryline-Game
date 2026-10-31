@@ -41,7 +41,7 @@ bool UFoundrylineNetworkTestTools::QueueFactoryConsole(APlayerController* Player
 bool UFoundrylineNetworkTestTools::QueueFactoryAction(APlayerController* Player,FName Action){
 #if WITH_EDITOR
  auto* PC=Cast<AFoundrylinePlayerController>(Player);if(!PC||!PC->IsLocalController())return false;TWeakObjectPtr<AFoundrylinePlayerController> Weak=PC;
- FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Action](float){if(Weak.IsValid()){if(Action==TEXT("Walk"))Weak->ToggleWalk();else if(Action==TEXT("WalkView")){if(!Weak->IsWalking())Weak->ToggleWalk();}else if(Action==TEXT("BuildView")){if(Weak->IsWalking())Weak->ToggleWalk();if(!Weak->IsWalking()&&Weak->AreRoofsShown())Weak->ToggleRoofs();}else if(Action==TEXT("Interact"))Weak->InputKey(FInputKeyEventArgs(nullptr,FInputDeviceId::CreateFromInternalId(0),EKeys::E,IE_Pressed,FPlatformTime::Cycles64()));else Weak->FactoryAction(Action);}return false;}));return true;
+ FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak,Action](float){if(Weak.IsValid()){if(Action==TEXT("CommitBrush"))Weak->CommitFactoryFloorBrush();else if(Action==TEXT("Walk"))Weak->ToggleWalk();else if(Action==TEXT("WalkView")){if(!Weak->IsWalking())Weak->ToggleWalk();}else if(Action==TEXT("BuildView")){if(Weak->IsWalking())Weak->ToggleWalk();if(!Weak->IsWalking()&&Weak->AreRoofsShown())Weak->ToggleRoofs();}else if(Action==TEXT("Interact"))Weak->InputKey(FInputKeyEventArgs(nullptr,FInputDeviceId::CreateFromInternalId(0),EKeys::E,IE_Pressed,FPlatformTime::Cycles64()));else Weak->FactoryAction(Action);}return false;}));return true;
 #else
  return false;
 #endif

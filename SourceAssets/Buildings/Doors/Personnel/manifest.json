@@ -1,0 +1,82 @@
+{
+  "units": "metres in Blender; centimetres in Unreal",
+  "leaf_panel_cm": [
+    91.44,
+    4.5,
+    213.36
+  ],
+  "rough_opening_cm": [
+    100,
+    220
+  ],
+  "leaf_hinge_offset_cm": [
+    4.28,
+    -2.55,
+    0.64
+  ],
+  "side_gap_mm": 2.8,
+  "head_gap_mm": 3,
+  "floor_gap_mm": 6.4,
+  "leaf_positive_x_toward_latch": true,
+  "assets": [
+    {
+      "name": "PersonnelDoor_OfficeLeaf",
+      "dimensions_cm": [
+        92.88999938964844,
+        18.155193328857422,
+        213.36000061035156
+      ],
+      "materials": [
+        "FD_LightGrey",
+        "FD_Stainless",
+        "FD_Rubber",
+        "FD_Glass"
+      ]
+    },
+    {
+      "name": "PersonnelDoor_ShopLeaf",
+      "dimensions_cm": [
+        92.88999938964844,
+        18.155193328857422,
+        213.36000061035156
+      ],
+      "materials": [
+        "FD_Graphite",
+        "FD_Stainless",
+        "FD_Rubber",
+        "FD_Glass"
+      ]
+    },
+    {
+      "name": "PersonnelDoor_OfficeFrame",
+      "dimensions_cm": [
+        104.99999237060547,
+        21.399999618530273,
+        222.49998474121094
+      ],
+      "materials": [
+        "FD_Graphite",
+        "FD_Rubber",
+        "FD_Stainless"
+      ]
+    },
+    {
+      "name": "PersonnelDoor_ShopFrame",
+      "dimensions_cm": [
+        104.99999237060547,
+        31.400001525878906,
+        222.49998474121094
+      ],
+      "materials": [
+        "FD_Graphite",
+        "FD_Rubber",
+        "FD_Stainless"
+      ]
+    }
+  ],
+  "unreal_leaf_hinge_offset_cm": [
+    4.28,
+    2.55,
+    0.64
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "assets": [
+    {
+      "name": "LoadingTablet",
+      "domain": "UI/Operations"
+    },
+    {
+      "name": "OfficeWorkstation",
+      "domain": "UI/Operations"
+    },
+    {
+      "name": "MountingPlate",
+      "domain": "Products/Components/Fabrication"
+    },
+    {
+      "name": "GussetPlate",
+      "domain": "Products/Components/Fabrication"
+    },
+    {
+      "name": "ReinforcementPlate",
+      "domain": "Products/Components/Fabrication"
+    },
+    {
+      "name": "SupportChannel",
+      "domain": "Products/Components/Fabrication"
+    }
+  ]
+}

@@ -47,7 +47,7 @@ void AFoundrylinePlasmaTable::SetOperating(bool Active){
  Cycle.bOperating=Active;Cycle.Epoch=ServerTime();ForceNetUpdate();
  if(!Active){bCutting=false;PlasmaEffect->SetLocalPlasmaActive(false);}
 }
-void AFoundrylinePlasmaTable::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const{Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AFoundrylinePlasmaTable,BusinessCompanyId);DOREPLIFETIME(AFoundrylinePlasmaTable,BusinessPlantId);DOREPLIFETIME(AFoundrylinePlasmaTable,Cycle);DOREPLIFETIME(AFoundrylinePlasmaTable,bFactoryAutomation);}
+void AFoundrylinePlasmaTable::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps)const{Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AFoundrylinePlasmaTable,BusinessCompanyId);DOREPLIFETIME(AFoundrylinePlasmaTable,BusinessPlantId);DOREPLIFETIME(AFoundrylinePlasmaTable,MachineId);DOREPLIFETIME(AFoundrylinePlasmaTable,Cycle);DOREPLIFETIME(AFoundrylinePlasmaTable,bFactoryAutomation);}
 namespace {
  FFoundrylinePlasmaPose ToolCycle(double T,float W,float L){
   FFoundrylinePlasmaPose P;const FVector Park=AFoundrylinePlasmaTable::AuthoredTorchTip()+FVector(0,0,4),Start(-W/2,-L/2,100.95);

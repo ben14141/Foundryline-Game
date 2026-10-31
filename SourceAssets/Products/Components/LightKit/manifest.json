@@ -1,0 +1,15 @@
+{
+  "bounds_cm": [
+    41.8,
+    28.475,
+    27.5
+  ],
+  "pivot": "carton bottom centre",
+  "labels": [
+    "LIGHT KIT",
+    "LED WORK LAMP",
+    "LAMP + HARNESS",
+    "LK-01"
+  ],
+  "geometry": "sealed flat lid, original standalone materials, no vendor dependencies"
+}

@@ -9,7 +9,7 @@ TArray<FFoundrylineSupplyItem> FFoundrylineAssemblySupplyCatalog::Items(){
  TArray<FFoundrylineSupplyItem> Out;
  auto Add=[&](Part P,float Lb,int32 Max){FFoundrylineSupplyItem I;I.Part=int32(P);I.HandlingLb=Lb;I.MaxUnitsPerCompartment=Max;Out.Add(I);};
  Add(Part::Bracket,5,50);Add(Part::BentBracket,5,50);Add(Part::MountingPlate,2,100);
- Add(Part::LightKit,4.5f,30);Add(Part::GussetPlate,3,75);Add(Part::ReinforcementPlate,8,30);Add(Part::Fittings,35,10);
+ Add(Part::LightKit,4.5f,30);
  return Out;
 }
 const FFoundrylineSupplyItem* FFoundrylineAssemblySupplyCatalog::Find(int32 P,const TArray<FFoundrylineSupplyItem>& Items){return Items.FindByPredicate([&](const auto& I){return I.Part==P;});}
@@ -139,6 +139,7 @@ FString FFoundrylineFactorySimulation::SupplyReport(int32 Area)const{
 bool FFoundrylineFactorySimulation::SupplyValid(FString& E)const{
  auto Fail=[&](){E=TEXT("Invalid assembly supply, cart capacity or stock reservation");return false;};
  if(State.SupplyBins.Num()>8||State.Collectors.Num()>12)return Fail();
+ if(State.OfficeDesks.Num()>32)return Fail();TSet<int32> DeskIds;for(const auto& D:State.OfficeDesks){if(D.Id<=0||D.Id>=State.NextId||DeskIds.Contains(D.Id)||D.Center.ContainsNaN()||(FMath::Abs(D.Center.Z-20)>1&&FMath::Abs(D.Center.Z-340)>1)||D.QuarterTurns<0||D.QuarterTurns>3)return Fail();DeskIds.Add(D.Id);}
  if(State.StorageRacks.Num()>8)return Fail();TSet<int32> RackIds,RackSlots;
  for(const auto& Rack:State.StorageRacks){if(Rack.Id<=0||Rack.Id>=State.NextId||RackIds.Contains(Rack.Id)||Rack.Center.ContainsNaN()||Rack.QuarterTurns<0||Rack.QuarterTurns>3||Rack.Levels<1||Rack.Levels>3||Rack.Slots.Num()!=Rack.Levels*2)return Fail();RackIds.Add(Rack.Id);for(int32 Slot:Rack.Slots){if(RackSlots.Contains(Slot)||!State.Slots.ContainsByPredicate([&](const auto& S){return S.Id==Slot;}))return Fail();RackSlots.Add(Slot);}}
  const auto Items=FFoundrylineAssemblySupplyCatalog::Items();TSet<int32> Areas,People;

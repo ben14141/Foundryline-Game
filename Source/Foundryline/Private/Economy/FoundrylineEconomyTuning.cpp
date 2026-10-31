@@ -2,11 +2,11 @@
 
 int64 FFoundrylineEconomyTuning::SalePriceCents(EFoundrylinePart P){
  switch(P){
-  case EFoundrylinePart::MountingPlate:return 800;
+  case EFoundrylinePart::MountingPlate:return 1150;
   case EFoundrylinePart::GussetPlate:return 1200;
-  case EFoundrylinePart::Bracket:return 1800;
+  case EFoundrylinePart::Bracket:return 2400;
   case EFoundrylinePart::ReinforcementPlate:return 2800;
-  case EFoundrylinePart::BentBracket:return 3000;
+  case EFoundrylinePart::BentBracket:return 4400;
   case EFoundrylinePart::SupportChannel:return 4800;
   case EFoundrylinePart::HeadacheRack:return 85000;
   default:return 0;

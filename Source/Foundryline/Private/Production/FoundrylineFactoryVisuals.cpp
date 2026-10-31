@@ -53,6 +53,7 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
   // Station bins and OUT stacks are drawn below (the OUT pallets belong to the station); a delivery on IN is a normal pallet.
   const auto* Station=StationOf(P);if(Station&&P.Place!=EFoundrylinePalletPlace::StationIn)continue;
   FVector Pos=P.Position;const int Part=int(P.Part),Cap=FFoundrylineFactoryCatalog::Part(P.Part).Capacity;FRotator Rot=Station?StationLayout::Rotation(*Station):FRotator::ZeroRotator;
+  if(P.Place==EFoundrylinePalletPlace::Rack)if(const auto* Slot=Snapshot.Slots.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))if(const auto* M=Snapshot.Machines.FindByPredicate([&](const auto& V){return V.Id==Slot->MachineId;}))Rot.Yaw=M->QuarterTurns*90;
   // Long stock is authored along Y, matching the machine rack shelves.
   if(P.Place==EFoundrylinePalletPlace::Rack&&(P.Owner==105||P.Owner==106))Rot.Yaw=90;
   if(P.Place==EFoundrylinePalletPlace::Buffer)if(const auto* Z=Snapshot.Zones.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))Rot=FFoundrylineWorkZoneLayout::Rotation(*Z);
@@ -61,6 +62,16 @@ void AFoundrylineFactoryPlant::RebuildVisuals(){
   if(P.Part==EFoundrylinePart::HeadacheRack){if(P.Place==EFoundrylinePalletPlace::Rack)if(const auto* Slot=Snapshot.Slots.FindByPredicate([&](const auto& V){return V.Id==P.Owner;}))Rot=FRotator(0,(Pos-Slot->Dock).Rotation().Yaw,0);
    Pallets->AddInstance(FTransform(Rot,Pos));for(int Level=0;Level<P.Quantity;++Level)PartMeshes[Part]->AddInstance(StationLayout::RackOnPallet(Level)*FTransform(Rot,Pos));continue;}
   if(Part==0||Part==2||Part==3||Part==4||Part==5||Part==6){for(int Side:{-1,1})Pallets->AddInstance(FTransform(Rot,Pos+Rot.RotateVector(FVector(0,Side*65,0))));}else Pallets->AddInstance(FTransform(Rot,Pos));
+  // Current small parts and labelled light-kit cartons show their real stock count.
+  // Pack against the source mesh bounds, using instancing rather than per-part actors.
+  if(Part==1||Part==9||Part==10||Part==15)if(const auto StockMesh=PartMeshes[Part]->GetStaticMesh()){
+   const auto B=StockMesh->GetBounds();const FVector Size=B.BoxExtent*2;
+   const int Cols=FMath::Max(1,FMath::FloorToInt(115./FMath::Max(1.,Size.X+2))),Rows=FMath::Max(1,FMath::FloorToInt(95./FMath::Max(1.,Size.Y+2)));
+   for(int I=0;I<P.Quantity;++I){const int StockCell=I%(Cols*Rows),Layer=I/(Cols*Rows);
+    const FVector Offset((StockCell%Cols-(Cols-1)*.5)*(Size.X+2)-B.Origin.X,(StockCell/Cols-(Rows-1)*.5)*(Size.Y+2)-B.Origin.Y,18+B.BoxExtent.Z-B.Origin.Z+Layer*(Size.Z+1.5));
+    PartMeshes[Part]->AddInstance(FTransform(Rot,Pos+Rot.RotateVector(Offset)));
+   }continue;
+  }
   int Count=FMath::Min(P.Quantity,Part==0?3:Part==1||Part==9||Part==10||Part==11?10:Part==6?2:3);if(Cap>10)Count=FMath::Max(1,FMath::CeilToInt(10.f*P.Quantity/Cap));
   for(int I=0;I<Count;++I){FVector Offset(0,0,18);if(Part==1||Part==9||Part==10||Part==11)Offset+=FVector((I%5-2)*27,(I/5-.5)*40,(I/10)*14);else if(Part==int(EFoundrylinePart::FrameSection))Offset+=FVector(0,(I%5-2)*14,(I/5)*10);else Offset.Z+=I*(Part==0?.65:Part==5?7:Part==6?48:Part==3?12:Part==7?48:Part==8||Part==int(EFoundrylinePart::LightKit)?35:1.2);
    PartMeshes[Part]->AddInstance(FTransform(Rot,Pos+Rot.RotateVector(Offset)));}
@@ -132,9 +143,9 @@ void AFoundrylineFactoryPlant::Animate(float Dt){
  }
  AnimateWeldingStations(Dt,Age);
  for(const auto& M:Snapshot.Machines){const bool Work=M.Remaining>0,Active=FFoundrylineMachineMotion::Active(Snapshot,M);const float Phase=FFoundrylineMachineMotion::Phase(M.Remaining,M.Duration,Active,Snapshot.Speed,Age);
-  if(M.Id==1&&Plasma)Plasma->SetFactoryPresentation(Phase,Active,Work,Work||M.BedLb>0,M.Making);
-  if(M.Id==2&&Brake)Brake->SetFactoryPresentation(Phase,Active,Work,M.Making);
-  if(M.Id==3&&Cell)Cell->SetFactoryRoller(Phase,Active,Work);
+  if(auto* Presented=Cast<AFoundrylinePlasmaTable>(MachineActors.FindRef(M.Id)))Presented->SetFactoryPresentation(Phase,Active,Work,Work||M.BedLb>0,M.Making);
+  if(auto* Presented=Cast<AFoundrylinePressBrakeDisplay>(MachineActors.FindRef(M.Id)))Presented->SetFactoryPresentation(Phase,Active,Work,M.Making);
+  if(auto* Presented=Cast<AFoundrylineMaterialHandlingCell>(MachineActors.FindRef(M.Id)))Presented->SetFactoryRoller(Phase,Active,Work);
  }
 
 

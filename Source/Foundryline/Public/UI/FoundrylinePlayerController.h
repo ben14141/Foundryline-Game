@@ -20,7 +20,17 @@ class FOUNDRYLINE_API AFoundrylinePlayerController : public APlayerController
 	GENERATED_BODY()
 public:
  bool bPropertyViewAccess=false;
- int32 PlannerKind=0,PlannerId=0;
+ // Local employee inspection reuses the authoritative Team job controls.
+ int32 FocusedEmployeeId() const;
+ bool InspectFocusedEmployee();
+ bool IsInspectedEmployeeAvailable() const;
+ int32 EmployeeInspectId=0;
+ FGuid EmployeeInspectPlantId;
+
+ int32 PlannerKind=0,PlannerId=0,PlannerQuarter=0;
+ bool bPlannerResizing=false,bLastPlannerEdit=false;
+ void RedoPlanner();
+ FVector PlannerSize=FVector::ZeroVector,PlannerResizeAnchor=FVector::ZeroVector;
  FString PlannerItemName,PlannerStatus;
  bool bPlannerMoving=false,bPlannerDrag=false,bPlannerPending=false,bPlannerValid=false;
  FIntVector PlannerGrab=FIntVector::ZeroValue;
@@ -114,6 +124,7 @@ public:
  bool FactoryOverHUD()const;
  bool HandleFactoryInput(const FInputKeyEventArgs& Params);
  void TickFactory(float Dt);
+ void UpdateFactoryFlowPreview(bool ShowEquipment,bool ShowStation);
  int32 FocusedComputer()const;
  void OpenFactoryComputer(int32 Id);
  UFUNCTION(BlueprintCallable,Category="Factory") void FactoryAction(FName Action);
@@ -163,6 +174,8 @@ public:
 	FName BuildTool;
  EFoundrylineSnap GetPlacementSnap() const;
 	void ChooseTool(FName Tool);
+ int32 OfficePlanningLevel=0;
+ void SetOfficePlanningLevel(int32 Level);
  bool bExactSurface=false,bRotateSurface=false;
  TMap<FName,FIntPoint> SurfaceSizes;
  FIntPoint GetConstructionSizeCm() const;

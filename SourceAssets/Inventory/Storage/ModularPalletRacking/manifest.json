@@ -99,10 +99,7 @@
       "minimum_clear_ceiling_cm": 182.4,
       "maximum_pallet_payload_height_cm": 100,
       "fork_access": "Open front; floor is level1; no front floor crossbeam",
-      "floor_level_included": true,
-      "vertices": 872,
-      "triangles": 1516,
-      "material_slots": 5
+      "floor_level_included": true
     },
     {
       "name": "PalletRack_2Levels",
@@ -154,10 +151,7 @@
       "minimum_clear_ceiling_cm": 334.8,
       "maximum_pallet_payload_height_cm": 100,
       "fork_access": "Open front; floor is level1; no front floor crossbeam",
-      "floor_level_included": true,
-      "vertices": 2108,
-      "triangles": 3360,
-      "material_slots": 5
+      "floor_level_included": true
     },
     {
       "name": "PalletRack_3Levels",
@@ -226,10 +220,7 @@
       "minimum_clear_ceiling_cm": 487.2,
       "maximum_pallet_payload_height_cm": 100,
       "fork_access": "Open front; floor is level1; no front floor crossbeam",
-      "floor_level_included": true,
-      "vertices": 3204,
-      "triangles": 5032,
-      "material_slots": 5
+      "floor_level_included": true
     }
   ]
 }

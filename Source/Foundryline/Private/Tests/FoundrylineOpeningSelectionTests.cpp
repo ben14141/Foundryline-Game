@@ -8,13 +8,13 @@ bool FFoundrylineOpeningSelectionTest::RunTest(const FString&)
 {
  auto* W=UWorld::CreateWorld(EWorldType::Game,false);auto* S=W->SpawnActor<AFoundrylineBuildSite>();S->DispatchBeginPlay();
  S->SelectionOutlines.Reset();S->RecordSelection({390,-940,0},true);
- TestTrue(TEXT("Hover outside wall catches the door rather than empty ground"),S->SelectionOutlines.Num()==1&&S->SelectionOutlines[0].Height==260);
+ TestTrue(TEXT("Hover outside wall catches the door rather than empty ground"),S->SelectionOutlines.Num()==1&&S->SelectionOutlines[0].Height==230);
  TestTrue(TEXT("Door selectable from its physical outside face"),S->BeginEdit(TEXT("Select"),{390,-940,0}));
  if(!TestNotNull(TEXT("Door, not parent shell, is selected"),S->GetSelectedOpening())){W->DestroyWorld(false);return false;}
  const auto DoorId=S->GetSelectedOpening()->OpeningId,BuildingId=S->GetSelectedObject()->ObjectId;
  TestEqual(TEXT("Inspector identifies the item"),S->GetSelectedItemLabel(),FString(TEXT("PERSONNEL DOOR")));
  TestTrue(TEXT("Generic move targets the door"),S->BeginEdit(TEXT("Move"),{390,-940,0}));
- TestTrue(TEXT("Move through validated replacement succeeds"),S->CommitEdit(TEXT("Move"),{390,-940,0},{400,-500,0}));
+ TestTrue(TEXT("Move through validated replacement succeeds: ")+S->Status,S->CommitEdit(TEXT("Move"),{390,-940,0},{400,-500,0}));
  TestTrue(TEXT("Moved door retains identity and shell"),S->GetSelectedOpening()&&S->GetSelectedOpening()->OpeningId==DoorId&&S->GetSelectedObject()->ObjectId==BuildingId);
  TestTrue(TEXT("Relocated opening is selectable"),S->BeginEdit(TEXT("Select"),{400,-540,0}));
  TestTrue(TEXT("Delete only selected opening"),S->CommitEdit(TEXT("Demolish"),{400,-540,0},{400,-540,0}));

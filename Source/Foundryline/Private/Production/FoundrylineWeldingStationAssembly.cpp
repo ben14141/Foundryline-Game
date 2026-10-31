@@ -51,7 +51,7 @@ FString FFoundrylineFactorySimulation::WeldingStationStatus(const FFoundrylineWe
  {int32 Slot,Level;if(!Layout::NextOutSpot(S,State.Pallets,Slot,Level))return StationOutStatus(S,FString::Printf(TEXT("OUT full (%d on %d pallets)"),OutTotal(S),Layout::OutPallets));}
  for(Part P:Catalog::AssemblyParts())if(StationShortfall(S,P)>0){const FString Name=FString(Catalog::AssemblyName(P)).ToLower();
   if(StationRackSupply(P)>0)return TEXT("Requesting ")+Name;
-  return Catalog::Bought(P)?TEXT("Missing ")+Name+TEXT(" / buy parts"):TEXT("Missing ")+Name+TEXT(" / cut more on the plasma table");}
+  return Catalog::Bought(P)?TEXT("Missing ")+Name+TEXT(" / buy parts"):TEXT("Missing ")+Name+(P==Part::BentBracket?TEXT(" / cut bracket blanks, then form on the press brake"):TEXT(" / cut more on the plasma table"));}
  for(Part P:Catalog::AssemblyParts())if(StationStock(S,P,false)<StationTarget(S,P))return TEXT("Receiving ")+FString(Catalog::AssemblyName(P)).ToLower();
  const int Kits=FMath::Min(S.BatchRemaining,2);const FString Ready=FString::Printf(TEXT("Supplies ready for %d %s%s"),Kits,*FString(R.Name).ToLower(),Kits==1?TEXT(""):TEXT("s"));
  return Ready+(!HasWelder?TEXT(" / assign a welder"):!StationWelderReady(S)?TEXT(" / welder walking"):TEXT(""));

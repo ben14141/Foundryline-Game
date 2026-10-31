@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "Construction/FoundrylinePlannerItems.h"
 #include "Production/FoundrylineWorkshopLayout.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Logistics/FoundrylineMaterialHandlingCell.h"
@@ -15,12 +16,18 @@ bool FFoundrylineRackPalletsSeated::RunTest(const FString&){
  for(int L=0;L<3;++L)TestEqual(TEXT("Each shelf's beam tops sit at its slot height"),Layout::ShelfOrigin(L)+Layout::ShelfBearingCm,Layout::SlotHeight(L));
  // Every rack slot in both shops rests on a shelf of the rack it stands in, or on the floor.
  auto Check=[&](const TArray<FFoundrylineWorkshopRack>& Racks,const TArray<FFoundrylineFactorySlot>& Slots,const TCHAR* Shop){
-  for(const auto& S:Slots){const auto* Rack=Racks.FindByPredicate([&](const auto& R){return FVector::Dist2D(R.Center,S.Position)<1;});
+  for(const auto& S:Slots){if(S.bMachineOutput){TestTrue(FString::Printf(TEXT("%s machine slot %d sits on floor or modular shelf"),Shop,S.Id),FMath::IsNearlyEqual(S.Position.Z,20,.01)||FMath::IsNearlyEqual(S.Position.Z,20+152.4,.01));continue;}const auto* Rack=Racks.FindByPredicate([&](const auto& R){return FVector::Dist2D(R.Center,S.Position)<1;});
    if(!Rack){TestTrue(FString::Printf(TEXT("%s slot %d off the racks stands on the floor"),Shop,S.Id),FMath::IsNearlyEqual(S.Position.Z,20,.01));continue;}
    bool OnBeam=false;for(int L=0;L<3;++L)OnBeam|=FMath::IsNearlyEqual(S.Position.Z,Rack->Center.Z+Layout::ShelfOrigin(L)+Layout::ShelfBearingCm,.01);
    TestTrue(FString::Printf(TEXT("%s slot %d pallet underside meets a shelf's beam tops"),Shop,S.Id),OnBeam);}};
  Check(Layout::Racks(),Layout::Slots(),TEXT("Workshop"));
- FFoundrylineFactorySimulation Cut;Cut.SeedCutPartsShop();Check(Layout::CutShopRacks(),Cut.State.Slots,TEXT("Cut-parts shop"));
+ FFoundrylineFactorySimulation Cut;Cut.SeedCutPartsShop();
+ const auto CutRacks=FFoundrylinePlannerItems::FixedRacks(Cut.State);
+ for(const auto& Slot:Cut.State.Slots){const auto* Rack=CutRacks.FindByPredicate([&](const auto& R){return R.Slots.Contains(Slot.Id);});
+  TestNotNull(TEXT("Every current starter slot has a visible rack"),Rack);if(!Rack)continue;
+  TestTrue(TEXT("Starter input/output use the matching modular rack family"),Rack->CompactRack);
+  TestTrue(TEXT("Pallet rests on floor or modular shelf"),FMath::IsNearlyEqual(Slot.Position.Z,20.,.01)||FMath::IsNearlyEqual(Slot.Position.Z,172.4,.01));
+ }
  // The press-brake supply rack (bought in the cut-parts shop): shelves at 20 cm + ShelfOrigin, slots 110/111 at 190/320 cm.
  for(int L=1;L<3;++L)TestEqual(TEXT("Press-brake supply rack slot meets its shelf beams"),20+Layout::ShelfOrigin(L)+Layout::ShelfBearingCm,190.+(L-1)*130);
  // Material-handling cell rack: sheet pallets stand at the rack position; the shelf beam tops are placed there.

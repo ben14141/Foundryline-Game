@@ -1,0 +1,10 @@
+# Office computer animation
+
+Reusable presentation entry point: `UFoundrylineEmployeeVisualComponent::PresentOfficeComputer(DeltaSeconds, EmployeeSeed)`. The employee component's foot root sits on the office floor at the chair centre, with +X facing the keyboard. It uses the current smooth Handyman employee model and its existing outfit/identity selection.
+
+The pose lowers the pelvis to an office chair rather than the forklift's cabin height. Two-bone IK keeps feet on the floor and palms near the actual desktop. The loop alternates typing, reaching for the mouse, small mouse movements and returning to typing. Finger taps, restrained breathing and the existing idle head motion keep it from freezing into a static seated pose. The same body is reused without per-frame entity creation.
+
+`AFoundrylineOperationsTerminal::PreviewOfficeWorker` is a local editor animation review hook. It attaches the presentation component at the bundled chair and follows desk rotation. It does not hire an employee, add a business role, change payroll, reserve a workstation or grant production benefits. Live office-worker hiring/assignment remains separate future gameplay. Dedicated servers do not run the review visual.
+
+Office desks and chairs remain one purchased/placed item. The chair is on the keyboard-facing side in both the hologram and the actual terminal; the compact placement footprint follows this seating side. There is no painted work zone around office furniture.
+Validation: editor build succeeded; 193/193 automation checks passed, including office typing/mouse palm height, grounded feet, rotated-business placement and stable component count. Native animation review passed 12/12 checks with no errors. Typing and mouse screenshots were rendered and visually inspected; the employee sits on the keyboard side with hands over the intended controls. Evidence: Saved/Logs/OfficeComputerAnimationNativeQA.json, OfficeComputerAnimationFinalCheck.log and Saved/Screenshots/Reviews/OfficeComputer_Typing00000.png / OfficeComputer_Mouse00000.png. This verifies local presentation, not a new office-worker job or remote staffing system.

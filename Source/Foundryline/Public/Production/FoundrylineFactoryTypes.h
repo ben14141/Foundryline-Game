@@ -45,11 +45,27 @@ struct FFoundrylineFactorySlot {
  UPROPERTY(SaveGame) FVector Dock=FVector::ZeroVector;
  UPROPERTY(SaveGame) int32 MachineId=0;
  UPROPERTY(SaveGame) bool bInputSupply=false;
+ UPROPERTY(SaveGame) bool bMachineOutput=false;
+};
+USTRUCT()
+struct FFoundrylineMachineBatch {
+ GENERATED_BODY()
+ UPROPERTY(SaveGame) EFoundrylinePart Part=EFoundrylinePart::Bracket;
+ UPROPERTY(SaveGame) int32 Quantity=0;
+ UPROPERTY(SaveGame) int32 OrderId=0;
 };
 USTRUCT()
 struct FFoundrylineFactoryMachine {
  GENERATED_BODY()
  UPROPERTY(SaveGame) int32 Id=0;
+ // Machine identity is independent from equipment type (1 plasma, 2 brake, 3 roller).
+ UPROPERTY(SaveGame) int32 MachineType=0;
+ UPROPERTY(SaveGame) int32 QuarterTurns=0;
+ UPROPERTY(SaveGame) int32 OutputSlot=0;
+ UPROPERTY(SaveGame) int32 ActiveOrderId=0;
+ UPROPERTY(SaveGame) bool bRackOutput=false;
+ UPROPERTY(SaveGame) TArray<FFoundrylineMachineBatch> Queue;
+ int32 Kind()const{return MachineType?MachineType:Id;}
  UPROPERTY(SaveGame) FVector Origin=FVector::ZeroVector;
  UPROPERTY(SaveGame) bool bStored=false;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactorySlot> StoredSlots;
@@ -126,6 +142,7 @@ struct FFoundrylineFactoryJob {
  UPROPERTY(SaveGame) int32 CarryPallet=0;
  UPROPERTY(SaveGame) int32 Priority=0;
  UPROPERTY(SaveGame) EFoundrylineForkTask Task=EFoundrylineForkTask::Storage;
+ UPROPERTY(SaveGame) EFoundrylinePalletPlace SourcePlace=EFoundrylinePalletPlace::Rack;
  UPROPERTY(SaveGame) int32 OrderId=0;
  UPROPERTY(SaveGame) int32 BookingId=0;
  UPROPERTY(SaveGame) FVector Pickup=FVector::ZeroVector;
@@ -141,6 +158,7 @@ struct FFoundrylineFactoryDriver {
  UPROPERTY(SaveGame) FString DisplayName;
  UPROPERTY(SaveGame) int32 Id=0;
  UPROPERTY(SaveGame) int32 Route=1;
+ // Receiving, Production, Shipping: -1 disables a category; 0..2 are displayed as 1..3.
  UPROPERTY(SaveGame) TArray<int32> Priorities={0,1,2};
  UPROPERTY(SaveGame) int32 Job=0;
  UPROPERTY(SaveGame) FVector Position=FVector::ZeroVector;
@@ -222,6 +240,13 @@ struct FFoundrylineFactoryState {
  UPROPERTY(SaveGame) float ReceivedSteelLb=0;
  UPROPERTY(SaveGame) FVector2D FloorMin=FVector2D(-2370,1230);
  UPROPERTY(SaveGame) FVector2D FloorMax=FVector2D(1170,4170);
+ // Shipping preparation follows an owned loading-door preset. Legacy saves keep
+ // their original staging coordinates until all committed freight has cleared.
+ UPROPERTY(SaveGame) bool bPresetPickup=false;
+ UPROPERTY(SaveGame) bool bPickupLayoutPending=false;
+ UPROPERTY(SaveGame) FGuid PickupOpeningId;
+ UPROPERTY(SaveGame) FVector PickupOrigin=FVector(-850,2000,20);
+ UPROPERTY(SaveGame) float PickupYaw=0;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryPallet> Pallets;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactorySlot> Slots;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryMachine> Machines;
@@ -229,6 +254,8 @@ struct FFoundrylineFactoryState {
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryLane> Lanes;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryRoute> Routes;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryDriver> Drivers;
+ // Paid office purchases waiting for a planner parking position.
+ UPROPERTY(SaveGame) int32 UnplacedForklifts=0;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryJob> Jobs;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryWalker> Walkers;
  UPROPERTY(SaveGame) TArray<FFoundrylineFactoryOperator> Operators;
@@ -241,10 +268,11 @@ struct FFoundrylineFactoryState {
  UPROPERTY(SaveGame) TArray<FFoundrylineAssemblySupplyBin> SupplyBins;
  UPROPERTY(SaveGame) TArray<FFoundrylinePartsCollector> Collectors;
  UPROPERTY(SaveGame) TArray<FFoundrylinePlacedStorageRack> StorageRacks;
+ UPROPERTY(SaveGame) TArray<FFoundrylinePlacedOfficeDesk> OfficeDesks;
  UPROPERTY(SaveGame) FString Status;
 };
 
-struct FFoundrylinePartSpec {const TCHAR* Name;int32 Capacity;};
+struct FFoundrylinePartSpec {const TCHAR* Name;int32 Capacity;float UnitLb=0;};
 struct FFoundrylineAssemblyStep {const TCHAR* Name;int32 Prerequisites;float Seconds;TArray<int32> Parts;};
 // Parts bought ready-made: fixed unit weight and supplier price. A delivered bundle or crate holds the part's Capacity.
 struct FFoundrylineBoughtPart {float UnitLb=0;int64 PriceCents=0;};
@@ -254,11 +282,18 @@ struct FFoundrylineAssemblyRecipe {int32 Id=0;const TCHAR* Name=TEXT("");EFoundr
 struct FOUNDRYLINE_API FFoundrylineFactoryCatalog {
  static constexpr int32 PartCount=17;
  static FFoundrylinePartSpec Part(EFoundrylinePart Id);
+ static constexpr double StandardPalletCargoLb=1500;
+ static double PalletCargoLimitLb(EFoundrylinePart Id);
+ static bool FitsPalletWeight(EFoundrylinePart Id,int32 Quantity,double UnitLb);
+ // Stable IDs are retained for old saves and archived development maps.
+ static bool AvailableNow(EFoundrylinePart Id);
+ static TArray<FFoundrylineFactoryProgram> StarterPrograms(bool Brake=false);
+ static TArray<FFoundrylineFactoryProgram> MachinePrograms(int32 Id,int32 Kind,bool Current);
  // Static mesh object path used to show a part on pallets, racks and trucks.
  static FString PartMesh(EFoundrylinePart Id);
  static bool Bought(EFoundrylinePart Id,FFoundrylineBoughtPart* Out=nullptr);
  // The four shared assembly categories, in display order: Steel Plates, Steel Brackets, Frame Sections, Light Kits.
- static TArray<EFoundrylinePart> AssemblyParts(){return {EFoundrylinePart::MountingPlate,EFoundrylinePart::Bracket,EFoundrylinePart::FrameSection,EFoundrylinePart::LightKit};}
+ static TArray<EFoundrylinePart> AssemblyParts(){return {EFoundrylinePart::MountingPlate,EFoundrylinePart::BentBracket,EFoundrylinePart::FrameSection,EFoundrylinePart::LightKit};}
  static const TCHAR* AssemblyName(EFoundrylinePart Id);
  static constexpr int32 RecipeCount=1;
  static bool Recipe(int32 Id,FFoundrylineAssemblyRecipe& Out);

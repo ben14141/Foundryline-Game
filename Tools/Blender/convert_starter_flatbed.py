@@ -38,13 +38,44 @@ source_size=list((hi-lo)*100)
 shift=Vector(((lo.x+hi.x)/2,(lo.y+hi.y)/2,lo.z))
 for o in objects:
  for v in o.data.vertices:v.co-=shift
-# Separate the loading-side drop gate so the forklift has a real opening.
-import bmesh
-side=bpy.data.objects['Cube.069'];gate_faces=[p for p in side.data.polygons if all(side.data.vertices[i].co.y>1.26 and side.data.vertices[i].co.z>1.125 for i in p.vertices)]
-used=sorted({i for p in gate_faces for i in p.vertices});remap={v:i for i,v in enumerate(used)};pivot=Vector((-1.344,1.28,1.129513))
-gmesh=bpy.data.meshes.new('LoadingSideGate');gmesh.from_pydata([side.data.vertices[i].co-pivot for i in used],[],[[remap[i] for i in p.vertices] for p in gate_faces]);gmesh.materials.append(bpy.data.materials['TruckCabPaint']);gate=bpy.data.objects.new('LoadingSideGate',gmesh);bpy.context.collection.objects.link(gate)
-bpy.ops.object.select_all(action='DESELECT');gate.select_set(True);bpy.context.view_layer.objects.active=gate;bpy.ops.export_scene.fbx(filepath=str(out/'LoadingSideGate.fbx'),use_selection=True,object_types={'MESH'},axis_forward='-Y',axis_up='Z',add_leaf_bones=False)
-bm=bmesh.new();bm.from_mesh(side.data);bm.faces.ensure_lookup_table();bmesh.ops.delete(bm,geom=[bm.faces[p.index] for p in gate_faces],context='FACES');bm.to_mesh(side.data);bm.free();bpy.data.objects.remove(gate,do_unlink=True)
+# Separate the loading-side and opposite-side panels with real bottom-edge hinges.
+# Split geometry at the panel/deck seam first, so crossing faces never leave rails
+# welded into the chassis or make the deck disappear with the opening panel.
+import bmesh,math
+side=bpy.data.objects['Cube.069'];split=bmesh.new();split.from_mesh(side.data)
+for point,normal in [((0,1.26,0),(0,1,0)),((0,-1.26,0),(0,1,0)),((0,0,1.125),(0,0,1))]:
+ bmesh.ops.bisect_plane(split,geom=list(split.verts)+list(split.edges)+list(split.faces),dist=.000001,plane_co=Vector(point),plane_no=Vector(normal),clear_outer=False,clear_inner=False)
+
+def panel_side(face):
+ c=face.calc_center_median()
+ return 1 if c.y>1.260001 and c.z>1.125001 else -1 if c.y< -1.260001 and c.z>1.125001 else 0
+
+def discard_faces(bm,faces):
+ bmesh.ops.delete(bm,geom=faces,context='FACES')
+ wires=[e for e in bm.edges if not e.link_faces]
+ if wires:bmesh.ops.delete(bm,geom=wires,context='EDGES')
+ loose=[v for v in bm.verts if not v.link_faces]
+ if loose:bmesh.ops.delete(bm,geom=loose,context='VERTS')
+ # Capping the separation rim keeps both the panel and the deck closed meshes.
+ rim=[e for e in bm.edges if e.is_boundary]
+ if rim:bmesh.ops.holes_fill(bm,edges=rim,sides=0)
+ bm.normal_update()
+
+gates=[];gate_rows=[]
+for name,sign in [('LoadingSideGate',1),('LoadingSideGateLeft',-1)]:
+ bm=split.copy();discard_faces(bm,[f for f in bm.faces if panel_side(f)!=sign])
+ assert len(bm.faces)>8,name+' extraction is empty'
+ pivot=Vector((-1.344,sign*1.28,1.129513))
+ for v in bm.verts:v.co-=pivot
+ mesh=bpy.data.meshes.new(name);bm.to_mesh(mesh);bm.free();mesh.materials.append(bpy.data.materials['TruckCabPaint'])
+ gate=bpy.data.objects.new(name,mesh);bpy.context.collection.objects.link(gate)
+ for face in mesh.polygons:face.material_index=0
+ bpy.ops.object.select_all(action='DESELECT');gate.select_set(True);bpy.context.view_layer.objects.active=gate
+ bpy.ops.export_scene.fbx(filepath=str(out/(name+'.fbx')),use_selection=True,object_types={'MESH'},axis_forward='-Y',axis_up='Z',add_leaf_bones=False)
+ gate.location=pivot;gates.append((gate,sign));gate_rows.append({'name':name,'hinge_source_cm':list(pivot*100),'hinge_unreal_cm':[-pivot.y*100,pivot.x*100+134.4,pivot.z*100],'open_radians':-sign*math.pi,'vertices':len(mesh.vertices),'faces':len(mesh.polygons)})
+# The rear panel (Cube.070) remains fixed. The side panels alone open for loading.
+body_mesh=split.copy();discard_faces(body_mesh,[f for f in body_mesh.faces if panel_side(f)])
+body_mesh.to_mesh(side.data);body_mesh.free();split.free()
 # Complete the thin cab shell behind the source's window and trim pieces. This
 # game-owned wrapper keeps the original bounds and does not resize the vendor cab.
 def block(name,lo,hi):
@@ -81,5 +112,12 @@ bpy.ops.object.select_all(action='DESELECT')
 for o in objects:o.select_set(True)
 bpy.context.view_layer.objects.active=objects[0];bpy.ops.object.join();body=bpy.context.object;body.name='StarterFlatbed';bpy.context.scene.cursor.location=(0,0,0);bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 bpy.ops.export_scene.fbx(filepath=str(out/'StarterFlatbed.fbx'),use_selection=True,object_types={'MESH'},axis_forward='-Y',axis_up='Z',add_leaf_bones=False)
+# Editable hinge preview: both side panels swing outward through horizontal to
+# the hanging-down position. Wheels and deck retain their original transforms.
+for gate,sign in gates:
+ gate.rotation_euler=(0,0,0);gate.keyframe_insert(data_path='rotation_euler',frame=1)
+ gate.rotation_euler.x=-sign*math.pi;gate.keyframe_insert(data_path='rotation_euler',frame=60)
+ gate.rotation_euler.x=0;gate.keyframe_insert(data_path='rotation_euler',frame=120)
+bpy.context.scene.frame_end=120;bpy.context.scene.frame_set(1)
 bpy.ops.wm.save_as_mainfile(filepath=str(out/'StarterFlatbed.blend'))
-(out/'manifest.json').write_text(json.dumps({'size_cm':source_size,'wheels':rows,'parts':parts,'source':'Truck_sidewall Unity prefab local transforms; original dimensions preserved'},indent=2))
+(out/'manifest.json').write_text(json.dumps({'size_cm':source_size,'wheels':rows,'parts':parts,'gates':gate_rows,'source':'Truck_sidewall Unity prefab local transforms; original dimensions preserved'},indent=2))

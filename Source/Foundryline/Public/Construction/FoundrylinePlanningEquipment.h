@@ -13,6 +13,14 @@ struct FFoundrylinePlacedStorageRack {
  UPROPERTY(SaveGame) TArray<int32> Slots;
 };
 
+USTRUCT()
+struct FFoundrylinePlacedOfficeDesk {
+ GENERATED_BODY()
+ UPROPERTY(SaveGame) int32 Id=0;
+ UPROPERTY(SaveGame) FVector Center=FVector::ZeroVector;
+ UPROPERTY(SaveGame) int32 QuarterTurns=0;
+};
+
 struct FOUNDRYLINE_API FFoundrylinePlanningEquipment {
  // 0 fabrication station, 1 parts rack, 2 finished-goods rack, 3 forklift.
  static int64 Price(int32 Item,int32 Levels=1);

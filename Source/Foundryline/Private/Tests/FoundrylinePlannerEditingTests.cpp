@@ -17,7 +17,7 @@ bool FFoundrylinePlannerSafetyTest::RunTest(const FString&){
  const auto Items=FFoundrylinePlannerItems::List(M.State);TestTrue(TEXT("Stored equipment remains listed for placement"),Items.ContainsByPredicate([](const auto& V){return V.Kind==EFoundrylinePlannerItem::Machine&&V.Id==3&&V.Stored;}));
  TestTrue(TEXT("Stored machine can be restored at a valid position: ")+E,M.EditPlanningItem(1,3,Before,false,E));TestFalse(TEXT("Restored machine visible again"),M.State.Machines[2].bStored);
  const auto* OldSlot=M.State.Slots.FindByPredicate([](const auto& V){return V.Id==107;});const FVector OldDock=OldSlot?OldSlot->Dock:FVector::ZeroVector;
- TestTrue(TEXT("Empty rack can relocate: ")+E,M.EditPlanningItem(3,107,{-700,4700,20},false,E));const auto* NewSlot=M.State.Slots.FindByPredicate([](const auto& V){return V.Id==107;});TestTrue(TEXT("Slot dock follows moved rack"),NewSlot&&NewSlot->Dock.Equals(OldDock+FVector(0,3700,0),.1));
+ TestFalse(TEXT("Machine output rack stays attached to its workspace"),M.EditPlanningItem(3,107,{-700,4700,20},false,E));const auto* NewSlot=M.State.Slots.FindByPredicate([](const auto& V){return V.Id==107;});TestTrue(TEXT("Rejected independent rack move preserves forklift dock"),NewSlot&&NewSlot->Dock.Equals(OldDock,.1));
  const int ScrapId=M.State.Pallets[0].Id;const float ScrapBefore=M.State.ScrapLb;TestTrue(TEXT("Unreserved stock can be scrapped"),M.EditPlanningItem(7,ScrapId,{0,0,20},true,E));TestTrue(TEXT("Scrapped stock remains accounted for"),M.State.ScrapLb>ScrapBefore&&M.Valid(E));
  M.State.Running=true;TestFalse(TEXT("Running production blocks layout mutations"),M.EditPlanningItem(1,2,{0,0,20},true,E));return true;
 }

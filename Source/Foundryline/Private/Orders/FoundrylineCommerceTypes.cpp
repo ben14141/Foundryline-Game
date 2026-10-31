@@ -3,7 +3,7 @@
 #include "Economy/FoundrylineEconomyTuning.h"
 FFoundrylineCarrierSpec FFoundrylineCommerceCatalog::Carrier(int32 I){return FFoundrylineEconomyTuning::Carrier(I);}
 int64 FFoundrylineCommerceCatalog::SalePrice(uint8 P){return FFoundrylineEconomyTuning::SalePriceCents(EFoundrylinePart(P));}
-bool FFoundrylineCommerceCatalog::Saleable(uint8 P){return SalePrice(P)>0;}
+bool FFoundrylineCommerceCatalog::Saleable(uint8 P){return FFoundrylineFactoryCatalog::AvailableNow(EFoundrylinePart(P))&&SalePrice(P)>0;}
 // A finished headache rack ships lying flat across two pallets: 6 ft 6 in wide (SM_HeadacheRack bounds).
 double FFoundrylineCommerceCatalog::ItemLengthCm(uint8 P){return EFoundrylinePart(P)==EFoundrylinePart::HeadacheRack?198.12:0;}
 FString FFoundrylineCommerceCatalog::InboundLabel(const FFoundrylineFreightBooking& B){if(!B.Part)return FString::Printf(TEXT("%d sheet%s of steel"),B.Sheets,B.Sheets==1?TEXT(""):TEXT("s"));FString Name=FString(FFoundrylineFactoryCatalog::Part(EFoundrylinePart(B.Part)).Name).ToLower();if(B.Sheets==1)Name.RemoveFromEnd(TEXT("s"));return FString::Printf(TEXT("%d %s"),B.Sheets,*Name);}

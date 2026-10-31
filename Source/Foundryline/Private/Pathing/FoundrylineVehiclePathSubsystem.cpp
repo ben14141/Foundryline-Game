@@ -1,6 +1,6 @@
+#include "Pathing/FoundrylineVehiclePathSubsystem.h"
 #include "Construction/FoundrylineLoadingBayLayout.h"
 #include "Construction/FoundrylinePavementGeometry.h"
-#include "Pathing/FoundrylineVehiclePathSubsystem.h"
 #include "Construction/FoundrylinePlacementSubsystem.h"
 #include "Engine/World.h"
 namespace {

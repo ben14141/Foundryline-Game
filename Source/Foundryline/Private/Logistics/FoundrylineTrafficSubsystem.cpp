@@ -2,14 +2,14 @@
 #include "Construction/FoundrylinePlacementSubsystem.h"
 #include "Engine/World.h"
 namespace {
- double Cross(FVector2D A,FVector2D B){return A.X*B.Y-A.Y*B.X;}
- double PointSegment(FVector2D P,FVector2D A,FVector2D B){const auto D=B-A;return FVector2D::Distance(P,A+D*FMath::Clamp(FVector2D::DotProduct(P-A,D)/FMath::Max(1.,D.SizeSquared()),0.,1.));}
- double SegmentGap(FVector2D A,FVector2D B,FVector2D C,FVector2D D){const auto U=B-A,V=D-C;const double Det=Cross(U,V);if(FMath::Abs(Det)>1.e-6) {const double T=Cross(C-A,V)/Det,S=Cross(C-A,U)/Det;if(T>=0 && T<=1 && S>=0 && S<=1) return 0;}return FMath::Min(FMath::Min(PointSegment(A,C,D),PointSegment(B,C,D)),FMath::Min(PointSegment(C,A,B),PointSegment(D,A,B)));}
+ double TrafficCross(FVector2D A,FVector2D B){return A.X*B.Y-A.Y*B.X;}
+ double TrafficPointSegment(FVector2D P,FVector2D A,FVector2D B){const auto D=B-A;return FVector2D::Distance(P,A+D*FMath::Clamp(FVector2D::DotProduct(P-A,D)/FMath::Max(1.,D.SizeSquared()),0.,1.));}
+ double TrafficSegmentGap(FVector2D A,FVector2D B,FVector2D C,FVector2D D){const auto U=B-A,V=D-C;const double Det=TrafficCross(U,V);if(FMath::Abs(Det)>1.e-6) {const double T=TrafficCross(C-A,V)/Det,S=TrafficCross(C-A,U)/Det;if(T>=0 && T<=1 && S>=0 && S<=1) return 0;}return FMath::Min(FMath::Min(TrafficPointSegment(A,C,D),TrafficPointSegment(B,C,D)),FMath::Min(TrafficPointSegment(C,A,B),TrafficPointSegment(D,A,B)));}
 }
 bool FFoundrylineTrafficLedger::Conflicts(const FFoundrylineTrafficClaim& X,const FFoundrylineTrafficClaim& Y) {
  if(X.From==Y.From || X.From==Y.Via || X.From==Y.To || X.Via==Y.From || X.Via==Y.Via || X.Via==Y.To || X.To==Y.From || X.To==Y.Via || X.To==Y.To) return true;
  const double Gap=(X.Width+Y.Width)/2;
- return SegmentGap(X.A,X.B,Y.A,Y.B)<Gap || SegmentGap(X.A,X.B,Y.B,Y.C)<Gap || SegmentGap(X.B,X.C,Y.A,Y.B)<Gap || SegmentGap(X.B,X.C,Y.B,Y.C)<Gap;
+ return TrafficSegmentGap(X.A,X.B,Y.A,Y.B)<Gap || TrafficSegmentGap(X.A,X.B,Y.B,Y.C)<Gap || TrafficSegmentGap(X.B,X.C,Y.A,Y.B)<Gap || TrafficSegmentGap(X.B,X.C,Y.B,Y.C)<Gap;
 }
 bool FFoundrylineTrafficLedger::Enter(const FFoundrylineRouteNetwork& G,FGuid Vehicle,FGuid From,FGuid Via,FGuid To,const FFoundrylineVehicleProfile& V,float Clear,double Now,FString& Reason) {
  for(float Dimension:{V.Front,V.Rear,V.Width,V.Clearance,V.TurnRadius,V.Hitch,V.TrailerAxle,V.TrailerFront,V.TrailerRear,V.TrailerWidth}) if(!FMath::IsFinite(Dimension) || Dimension<0 || Dimension>10000) {Reason=TEXT("Invalid vehicle profile");return false;}

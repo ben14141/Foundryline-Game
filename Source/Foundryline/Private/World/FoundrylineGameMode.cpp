@@ -29,16 +29,25 @@ AFoundrylineGameMode::AFoundrylineGameMode()
 void AFoundrylineGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+ const bool FirstShop=GetWorld()->GetMapName().Contains(TEXT("L_FirstShopStarter"));
+ if(FirstShop)bCutPartsStarter=true;
  GetWorld()->SpawnActor<AFoundrylineTreeCollision>();
  auto* Businesses=AFoundrylineBusinessRegistry::Find(GetWorld());if(!Businesses)Businesses=GetWorld()->SpawnActor<AFoundrylineBusinessRegistry>();
 	auto* Site=GetWorld()->SpawnActorDeferred<AFoundrylineBuildSite>(AFoundrylineBuildSite::StaticClass(),FTransform::Identity);
-	if(Site) { Site->bCutPartsStarter=bCutPartsStarter;Site->bStarterProperty=!FParse::Param(FCommandLine::Get(),TEXT("FoundrylineShowcase"));Site->bLargeShowcase=!Site->bStarterProperty;Site->bProductionWorkshop=Site->bStarterProperty&&!FParse::Param(FCommandLine::Get(),TEXT("FoundrylineLegacyStarter"));Site->FinishSpawning(FTransform::Identity); }
+	if(Site) { Site->bCutPartsStarter=bCutPartsStarter;Site->bFirstShopStarter=FirstShop;Site->bStarterProperty=!FParse::Param(FCommandLine::Get(),TEXT("FoundrylineShowcase"));Site->bLargeShowcase=!Site->bStarterProperty;Site->bProductionWorkshop=Site->bStarterProperty&&!FParse::Param(FCommandLine::Get(),TEXT("FoundrylineLegacyStarter"));Site->FinishSpawning(FTransform::Identity); }
  if(GetWorld()->GetMapName().Contains(TEXT("L_BasicShopStarter"))){
   // The desk needs an owned operations backend for ERP and validated planning access.
   auto* Plant=GetWorld()->SpawnActorDeferred<AFoundrylineFactoryPlant>(AFoundrylineFactoryPlant::StaticClass(),FTransform::Identity);if(Plant){Plant->bCutPartsStarter=true;Plant->FinishSpawning(FTransform::Identity);}
   const FTransform At(FRotator::ZeroRotator,FVector(-2940,900,22));auto* Desk=GetWorld()->SpawnActorDeferred<AFoundrylineOperationsTerminal>(AFoundrylineOperationsTerminal::StaticClass(),At);if(Desk){Desk->Terminal=1;Desk->FinishSpawning(At);}return;
  }
  if(GetWorld()->GetMapName().Contains(TEXT("L_RoadOnlyStarter"))) return; // No factory, terminals, vehicles or demonstration equipment.
+ if(FirstShop){
+  const FTransform DeskAt(FRotator::ZeroRotator,FVector(-2940,900,22));
+  auto* Desk=GetWorld()->SpawnActorDeferred<AFoundrylineOperationsTerminal>(AFoundrylineOperationsTerminal::StaticClass(),DeskAt);if(Desk){Desk->Terminal=1;Desk->FinishSpawning(DeskAt);}
+  const FTransform CutAt(FRotator::ZeroRotator,AFoundrylineFactoryPlant::MachinePosition(1));
+  auto* Plasma=GetWorld()->SpawnActorDeferred<AFoundrylinePlasmaTable>(AFoundrylinePlasmaTable::StaticClass(),CutAt);if(Plasma){Plasma->bFactoryAutomation=true;Plasma->FinishSpawning(CutAt);}
+  auto* Plant=GetWorld()->SpawnActorDeferred<AFoundrylineFactoryPlant>(AFoundrylineFactoryPlant::StaticClass(),FTransform::Identity);if(Plant){Plant->bCutPartsStarter=true;Plant->FinishSpawning(FTransform::Identity);}return;
+ }
  if(Site && Site->bStarterProperty) {
   const bool New=Site->bProductionWorkshop;
   if(bCutPartsStarter){

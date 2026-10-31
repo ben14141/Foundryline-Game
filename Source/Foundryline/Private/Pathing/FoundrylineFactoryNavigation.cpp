@@ -105,13 +105,23 @@ bool FFoundrylineFactorySimulation::PaintLane(EFoundrylineFloorLane Kind,FVector
  if(State.Lanes.Num()>=64){Error=TEXT("Floor route limit reached (64 sections)");return false;}
  if(A.ContainsNaN()||B.ContainsNaN()||!FMath::IsFinite(Width)||int(Kind)>2||Width<(Kind==EFoundrylineFloorLane::Forklift?300:100)||Width>610||Direction<0||Direction>2){Error=TEXT("Choose a valid lane width and direction");return false;}
  const bool Horizontal=FMath::Abs(A.X-B.X)>=FMath::Abs(A.Y-B.Y);
- FFoundrylineFactoryLane L;L.Id=State.NextId++;L.Kind=Kind;L.Direction=Direction;
+ FFoundrylineFactoryLane L;L.Kind=Kind;L.Direction=Direction;
  if(Kind==EFoundrylineFloorLane::Crossing){L.Min=FVector2D(A.X-100,A.Y-250);L.Max=FVector2D(A.X+100,A.Y+250);}
  else {if(Horizontal)B.Y=A.Y;else B.X=A.X;if(FVector::Dist2D(A,B)<200){Error=TEXT("Drag at least 6 feet 7 inches");return false;}
   L.Min=FVector2D(FMath::Min(A.X,B.X)-(Horizontal?0:Width/2),FMath::Min(A.Y,B.Y)-(Horizontal?Width/2:0));L.Max=FVector2D(FMath::Max(A.X,B.X)+(Horizontal?0:Width/2),FMath::Max(A.Y,B.Y)+(Horizontal?Width/2:0));}
- if(L.Min.X<State.FloorMin.X||L.Min.Y<State.FloorMin.Y||L.Max.X>State.FloorMax.X||L.Max.Y>State.FloorMax.Y){Error=TEXT("Paint lanes inside the shop floor");return false;}
+ return CommitPaintedFloorLane(L,Error);
+}
+bool FFoundrylineFactorySimulation::PaintForkliftArea(FVector A,FVector B,FString& Error){
+ if(A.ContainsNaN()||B.ContainsNaN()){Error=TEXT("Choose two valid corners for the forklift area");return false;}
+ FFoundrylineFactoryLane Area;Area.Kind=EFoundrylineFloorLane::Forklift;Area.Direction=0;Area.Min=FVector2D(FMath::Min(A.X,B.X),FMath::Min(A.Y,B.Y));Area.Max=FVector2D(FMath::Max(A.X,B.X),FMath::Max(A.Y,B.Y));
+ const auto Size=Area.Max-Area.Min;if(Size.X<360||Size.Y<360){Error=TEXT("Forklift areas need at least 11 ft 10 in on each side so two forklifts can pass");return false;}
+ return CommitPaintedFloorLane(Area,Error);
+}
+bool FFoundrylineFactorySimulation::CommitPaintedFloorLane(FFoundrylineFactoryLane L,FString& Error){
+ if(State.Lanes.Num()>=64){Error=TEXT("Forklift area limit reached (64 sections)");return false;}
+ if(L.Min.X<State.FloorMin.X||L.Min.Y<State.FloorMin.Y||L.Max.X>State.FloorMax.X||L.Max.Y>State.FloorMax.Y){Error=TEXT("Keep the complete painted area inside the usable shop floor");return false;}
  for(const auto& S:Solids)if(FFoundrylineFloorPlacement::Overlap(S,FBox2D(L.Min,L.Max))){Error=TEXT("Lane overlaps machinery or racking");return false;}
  for(const auto& Z:State.Zones)if(FFoundrylineFloorPlacement::Overlap(FFoundrylineWorkZoneLayout::Bounds(Z),FBox2D(L.Min,L.Max))){Error=TEXT("Lane overlaps a work zone; connect at its edge");return false;}
  if(OverlapsWeldingStation(FBox2D(L.Min,L.Max),false)){Error=TEXT("Lane overlaps a welding station; paint it along the station edge");return false;}
- State.Lanes.Add(L);for(auto& O:State.Operators){O.Path.Reset();O.Distance=0;O.Retry=0;}for(auto& W:State.Walkers){W.Path.Reset();W.Distance=0;W.Retry=0;}++State.Revision;return true;
+ L.Id=State.NextId++;State.Lanes.Add(L);for(auto& O:State.Operators){O.Path.Reset();O.Distance=0;O.Retry=0;}for(auto& W:State.Walkers){W.Path.Reset();W.Distance=0;W.Retry=0;}++State.Revision;return true;
 }

@@ -13,6 +13,7 @@ struct FOUNDRYLINE_API FFoundrylineOpening
 {
 	GENERATED_BODY()
 	UPROPERTY(SaveGame) FGuid OpeningId;
+ UPROPERTY(SaveGame) uint8 OfficeLevel=0;
 	// South, east, north, west; offset is measured along local X or Y.
 	UPROPERTY(SaveGame) uint8 Edge = 0;
 	UPROPERTY(SaveGame) int32 OffsetCm = 100;
@@ -24,8 +25,8 @@ struct FOUNDRYLINE_API FFoundrylineOpening
 	UPROPERTY(SaveGame) int32 WindowSillCm = 100;
 	UPROPERTY(SaveGame) int32 PanelWidthCm = 200;
 	bool IsGlazing() const { return Kind==EFoundrylineOpeningKind::ShopWindow || Kind==EFoundrylineOpeningKind::OfficeGlassWall; }
-	int32 WidthCm() const { return Kind==EFoundrylineOpeningKind::OfficeGlassWall ? PanelWidthCm : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?400:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 400 : Kind == EFoundrylineOpeningKind::ShopWindow ? 200 : Kind == EFoundrylineOpeningKind::Personnel ? 120 : 100; }
-	int32 HeightCm() const { return Kind==EFoundrylineOpeningKind::OfficeGlassWall ? 270 : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?420:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 420 : Kind == EFoundrylineOpeningKind::ShopWindow ? 180 : 250; }
+	int32 WidthCm() const { return Kind==EFoundrylineOpeningKind::OfficeGlassWall ? PanelWidthCm : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?400:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 400 : Kind == EFoundrylineOpeningKind::ShopWindow ? 200 : Kind == EFoundrylineOpeningKind::Personnel ? 100 : 100; }
+	int32 HeightCm() const { return Kind==EFoundrylineOpeningKind::OfficeGlassWall ? 270 : Kind == EFoundrylineOpeningKind::LoadingDock ? (LoadingTier==3?500:LoadingTier==2?420:350) : Kind == EFoundrylineOpeningKind::TruckGarage ? 500 : Kind == EFoundrylineOpeningKind::Garage ? 420 : Kind == EFoundrylineOpeningKind::ShopWindow ? 180 : 220; }
 	int32 BottomCm() const { return Kind == EFoundrylineOpeningKind::ShopWindow ? WindowSillCm : 0; }
 };
 
@@ -35,6 +36,7 @@ struct FOUNDRYLINE_API FFoundrylineOfficeSpace
 {
 	GENERATED_BODY()
 	UPROPERTY(SaveGame) FGuid SpaceId;
+ UPROPERTY(SaveGame) uint8 OfficeLevel=0;
 	UPROPERTY(SaveGame) FIntPoint Min = FIntPoint::ZeroValue;
 	UPROPERTY(SaveGame) FIntPoint Max = FIntPoint::ZeroValue;
 	UPROPERTY(SaveGame) TArray<FFoundrylineOpening> Openings;
@@ -83,6 +85,10 @@ struct FOUNDRYLINE_API FFoundrylinePlacedObject
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame)
 	bool bAutoFurnished = false;
 	UPROPERTY(VisibleAnywhere, SaveGame) bool bOfficeAnnex = false;
+ UPROPERTY(SaveGame) bool bOfficeSecondFloor=false;
+ UPROPERTY(SaveGame) FIntPoint OfficeStairOrigin=FIntPoint::ZeroValue;
+ UPROPERTY(SaveGame) uint8 OfficeStairQuarter=0;
+ UPROPERTY(SaveGame) uint8 OfficeStairStyle=0; // 0 turning, 1 straight
 	UPROPERTY(VisibleAnywhere, SaveGame)
 	TArray<FFoundrylineOpening> Openings;
 	UPROPERTY(VisibleAnywhere, SaveGame)

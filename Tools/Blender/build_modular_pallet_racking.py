@@ -47,12 +47,23 @@ def frame(height):
  for y in [-.66,.66]:
   for x in [-.033,.033]:box('C channel flange',(x,y,height/2),(.014,.08,height),graphite)
   box('C channel web',(0,y+.033,height/2),(.08,.014,height),graphite)
+  # Bolted foot plates sit directly under each upright, inside the original low-rail envelope.
+  box('Upright foot plate',(0,y,.018),(.15,.16,.036),graphite,.002)
+  for bx in [-.054,.054]:
+   for by in [-.045,.045]:
+    rod('Anchor washer',(bx,y+by,.036),(bx,y+by,.040),.014,steel,12)
+    rod('Anchor hex nut',(bx,y+by,.040),(bx,y+by,.051),.010,steel,6)
+    rod('Anchor stud tip',(bx,y+by,.051),(bx,y+by,.057),.0055,graphite,8)
+
   for z in [.25,.55,.85,1.15,1.45,1.75,2.05,2.35,2.65,2.95,3.25,3.55,3.85,4.15,4.45]:
    if z<height-.1:box('Stamped beam slot',(.041,y-.008,z),(.002,.022,.045),steel,0)
- for y in [-.69,.69]:rod('Anchor bolt',(0,y,.025),(0,y,.041),.014,steel,6)
  for z in [i*.7+.08 for i in range(math.ceil(height/.7))]:
   end=min(z+.7,height-.06)
-  if end>z:rod('Diagonal side brace',(0,-.62,z),(0,.62,end),.014,graphite);rod('Side horizontal',(0,-.62,z),(0,.62,z),.014,graphite)
+  if end>z:
+   rod('Diagonal side brace',(0,-.62,z),(0,.62,end),.014,graphite);rod('Side horizontal',(0,-.62,z),(0,.62,z),.014,graphite)
+   for by,bz in [(-.62,z),(.62,end)]:
+    rod('Brace fastener washer',(.016,by,bz),(.020,by,bz),.014,steel,12)
+    rod('Brace fastener hex head',(.020,by,bz),(.030,by,bz),.008,steel,6)
  box('Side post cap front',(0,-.66,height-.008),(.09,.09,.016),graphite)
  box('Side post cap back',(0,.66,height-.008),(.09,.09,.016),graphite)
  # Low corner guard only outside the fork entry.
@@ -63,7 +74,13 @@ def shelf():
  pieces=[]
  for y in [-.60,.60]:
   box('Orange load beam',(0,y,-.06),(2.82,.12,.12),orange)
-  for x in [-1.40,1.40]:box('Beam hook plate',(x,y,-.065),(.04,.145,.16),orange)
+  for x in [-1.40,1.40]:
+   box('Beam hook plate',(x,y,-.065),(.04,.145,.16),orange)
+   face=-1 if y<0 else 1
+   for z in [-.078,-.122]:rod('Beam connector hex head',(x,y+face*.0725,z),(x,y+face*.0845,z),.008,steel,6)
+   rod('Beam locking pin',(x,y+face*.064,-.027),(x,y+face*.104,-.027),.005,steel,10)
+   bpy.ops.mesh.primitive_torus_add(major_segments=12,minor_segments=6,location=(x,y+face*.103,-.046),rotation=(math.pi/2,0,0),major_radius=.015,minor_radius=.0025)
+   clip=bpy.context.object;clip.name='Beam locking pin retaining ring';clip.data.materials.append(steel);apply(clip);pieces.append(clip)
  for x in [-1.10,-.70,-.35,0,.35,.70,1.10]:box('Depth support',(x,0,-.035),(.035,1.12,.055),graphite)
  for x in [i*.14-1.33 for i in range(20)]:box('Steel mesh deck longitudinal',(x,0,-.004),(.012,1.08,.008),steel,0)
  for y in [-.50,-.25,0,.25,.50]:box('Steel mesh deck crosswire',(0,y,-.009),(2.74,.012,.01),steel,0)

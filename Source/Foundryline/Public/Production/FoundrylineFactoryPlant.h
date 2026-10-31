@@ -6,7 +6,7 @@
 #include "FoundrylineFactoryPlant.generated.h"
 
 UENUM()
-enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,ConfigureSupplyBin,BuyPlanningEquipment,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation,EditPlanningItem};
+enum class EFoundrylineFactoryAction:uint8 {Run,Speed,Order,Collect,ReceiveSteel,ReceiveKits,Program,MachineEnabled,AddDriver,AddWelder,AssignSlot,AddZone,PaintLane,EraseLane,AddRoute,LinkSource,LinkDestination,Save,Load,AddPresetZone,AssignEmployee,HireEmployee,ConfigureSupplyBin,BuyPlanningEquipment,AddWeldingStation,RemoveWeldingStation,ConfigureWeldingStation,EditPlanningItem,QueueMachineJob,CancelMachineBatch,UndoPlanner,RedoPlanner,BuyStoredMachine};
 
 USTRUCT()
 struct FFoundrylineFactoryCommand {
@@ -36,6 +36,12 @@ public:
  FVector ScreenWorldPosition(int32 Id)const;
  void PublishCommerce();
  void EnsureCommerceEquipment();
+ virtual void EndPlay(const EEndPlayReason::Type Reason)override;
+ UPROPERTY() TMap<int32,TObjectPtr<class AFoundrylineOperationsTerminal>> OfficeDeskActors;
+ void EnsureMachineActors();
+ TArray<FFoundrylineFactoryState> PlannerUndoStates,PlannerRedoStates;
+ int32 PlannerHistoryRevision=-1,PlannerHistoryPlayer=INDEX_NONE;
+ UPROPERTY() TMap<int32,TObjectPtr<AActor>> MachineActors;
  UPROPERTY(Replicated) FGuid BusinessCompanyId=FGuid(0xF001,1,1,1);
  UPROPERTY(Replicated) FGuid BusinessPlantId=FGuid(0xF001,2,1,1);
  UPROPERTY(Replicated) bool bCutPartsStarter=false;
@@ -109,6 +115,8 @@ private:
 
 
  void RefreshSnapshot();
+ void RefreshShippingPickup();
+ int64 ShippingPickupPlacementRevision=-1;
  void SetupVisuals();
  void RebuildVisuals();
  void RebuildPlanningLayout();

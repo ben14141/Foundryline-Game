@@ -1,5 +1,9 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
+#include "FoundrylineWeldingStationTestHelpers.h"
+#include "Construction/FoundrylineBuildSite.h"
+#include "Construction/FoundrylinePlannerItems.h"
+#include "Engine/World.h"
 #include "Production/FoundrylineFactorySimulation.h"
 #include "Production/FoundrylineWeldingStationLayout.h"
 #include "Production/FoundrylineWorkZoneLayout.h"
@@ -99,13 +103,23 @@ bool FWeldingStationPlacement::RunTest(const FString&){
   FFoundrylineFactorySimulation NoB;OpenFloor(NoB,Q,false);TestTrue(TEXT("Welder B is reached around the access ring from the Welder A walkway: ")+E,NoB.AddWeldingStation({0,0,20},Q,Swap,E));
   if(NoB.State.WeldingStations.Num()){const auto Route=NoB.Path(NoB.State.UnassignedEmployees[0].Home,Layout::WorkPoint(NoB.State.WeldingStations[0],1),true);TestTrue(TEXT("Welder B walk goes around the ring"),Route.Num()>1);}
   FFoundrylineFactorySimulation Cut;OpenFloor(Cut,Q,false);Cut.State.Lanes.RemoveAll([&](const auto& L){return L.Kind==EFoundrylineFloorLane::Pedestrian&&FBox2D(L.Min,L.Max).GetSize().X>FBox2D(L.Min,L.Max).GetSize().Y==(Q%2==0);});
-  TestFalse(TEXT("A station no walkway reaches is rejected"),Cut.AddWeldingStation({0,0,20},Q,Swap,E));TestTrue(TEXT("Reason says the welders cannot walk there: ")+E,E.Contains(TEXT("reached on foot")));
-  FFoundrylineFactorySimulation NoSpur;OpenFloor(NoSpur,Q,true,false);TestFalse(TEXT("Unreachable port end is rejected"),NoSpur.AddWeldingStation({0,0,20},Q,Swap,E));TestTrue(TEXT("Reason names the unreachable port: ")+E,E.Contains(Swap?TEXT("IN end"):TEXT("OUT end")));
+  TestTrue(TEXT("Clear station can be placed before its employee access is connected"),Cut.AddWeldingStation({0,0,20},Q,Swap,E));
+  if(!Cut.State.WeldingStations.IsEmpty()){auto Unconnected=Cut.State.WeldingStations[0];TestFalse(TEXT("Placement does not invent a missing employee route"),Cut.WeldingStationAccess(Unconnected,E));}
+  FFoundrylineFactorySimulation NoSpur;OpenFloor(NoSpur,Q,true,false);TestTrue(TEXT("Clear station can be placed before forklift areas are connected"),NoSpur.AddWeldingStation({0,0,20},Q,Swap,E));
+  if(!NoSpur.State.WeldingStations.IsEmpty()){auto Unconnected=NoSpur.State.WeldingStations[0];
+   TestFalse(TEXT("Disconnected station remains operationally unreachable"),NoSpur.WeldingStationAccess(Unconnected,E));
+   const FVector MissingDock=Swap?Layout::InPalletDock(Unconnected,0):Layout::OutPalletDock(Unconnected,0);
+   TestTrue(TEXT("Forklift cannot haul through the unpainted missing connection"),NoSpur.Path(NoSpur.State.Drivers[0].Parking,MissingDock).IsEmpty());
+   const FRotator Rotation(0,Q*90,0);FBox2D Area(ForceInit);for(const auto P:{FVector(340,-100,20),FVector(700,-100,20),FVector(340,760,20),FVector(700,760,20)})Area+=FVector2D(Rotation.RotateVector(P));
+   TestTrue(TEXT("Player connects a legal two-forklift-wide rectangle afterward"),NoSpur.PaintForkliftArea(FVector(Area.Min,20),FVector(Area.Max,20),E));
+   TestTrue(TEXT("The actual hauling route becomes available after painting"),!NoSpur.Path(NoSpur.State.Drivers[0].Parking,MissingDock).IsEmpty());
+   TestTrue(TEXT("Connected station now passes the operational access check"),NoSpur.WeldingStationAccess(Unconnected,E));
+  }
  }
  FFoundrylineFactorySimulation M;OpenFloor(M,0);FString E;if(!TestTrue(TEXT("Base station places: ")+E,M.AddWeldingStation({0,0,20},0,false,E)))return false;const int Id=M.State.WeldingStations[0].Id;
  TestFalse(TEXT("Painting a lane through the station is rejected"),M.PaintLane(EFoundrylineFloorLane::Forklift,{-1000,0,20},{1000,0,20},365.76f,0,E));
  TestFalse(TEXT("A work zone on top of the station is rejected"),M.AddPresetZone({0,0,20},0,0,1,1,E));
- FFoundrylineFactorySimulation Busy;OpenFloor(Busy,0);AddStock(Busy,EFoundrylinePart::Bracket,5,EFoundrylinePalletPlace::Receiving,10,{100,0,20});TestFalse(TEXT("Stored pallets inside the footprint block placement"),Busy.AddWeldingStation({0,0,20},0,false,E));
+ FFoundrylineFactorySimulation Busy;OpenFloor(Busy,0);AddStock(Busy,EFoundrylinePart::BentBracket,5,EFoundrylinePalletPlace::Receiving,10,{100,0,20});TestFalse(TEXT("Stored pallets inside the footprint block placement"),Busy.AddWeldingStation({0,0,20},0,false,E));
  FFoundrylineFactorySimulation Edge;OpenFloor(Edge,0);Edge.State.FloorMax={250,6000};TestFalse(TEXT("Station must fit inside the shop with outside access"),Edge.AddWeldingStation({0,0,20},0,false,E));
  FFoundrylineFactorySimulation Tight;OpenFloor(Tight,0);Tight.Solids={FBox2D({-330,-60},{-280,60})};TestFalse(TEXT("Equipment in the forklift approach blocks placement"),Tight.AddWeldingStation({0,0,20},0,false,E));
  // Save/load round trip keeps the exact station record; tampered records are rejected.
@@ -118,14 +132,17 @@ bool FWeldingStationPlacement::RunTest(const FString&){
  {auto T=M;auto Copy=T.State.WeldingStations[0];Copy.Id=T.State.NextId++;Copy.Center.X+=2000;T.State.WeldingStations.Add(Copy);TestFalse(TEXT("Duplicate station number rejected"),T.Valid(E));}
  {auto T=M;T.State.Version=9;T.State.WeldingStations.Reset();T.State.SupplyBins.Reset();for(auto& Route:T.State.Routes){Route.Destinations.Remove(Id);Route.Sources.Remove(Id);}T.MigrateWeldingStations();TestEqual(TEXT("Schema 9 plant migrates to 14"),T.State.Version,15);TestTrue(TEXT("Migrated schema 9 plant validates: ")+E,T.Valid(E));}
  // Removal is only for an empty station; real supplies keep it in place.
- AddStock(M,EFoundrylinePart::Bracket,4,EFoundrylinePalletPlace::Buffer,Id,Layout::PortCenter(M.State.WeldingStations[0],false));TestFalse(TEXT("Station holding supplies cannot be removed"),M.RemoveWeldingStation(Id,E));
+ AddStock(M,EFoundrylinePart::BentBracket,4,EFoundrylinePalletPlace::Buffer,Id,Layout::PortCenter(M.State.WeldingStations[0],false));TestFalse(TEXT("Station holding supplies cannot be removed"),M.RemoveWeldingStation(Id,E));
  M.State.Pallets.RemoveAll([&](const auto& P){return P.Owner==Id;});TestTrue(TEXT("Empty station removes: ")+E,M.RemoveWeldingStation(Id,E));TestTrue(TEXT("No station remains"),M.State.WeldingStations.IsEmpty());TestFalse(TEXT("Unknown station removal rejected"),M.RemoveWeldingStation(Id,E));
  return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWeldingStationStarterShop,"Foundryline.Factory.WeldingStation.StarterShop",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FWeldingStationStarterShop::RunTest(const FString&){
  FFoundrylineFactorySimulation M;M.SeedCutPartsShop(true);FString E;TestTrue(TEXT("Starter validates before stations: ")+E,M.Valid(E));
- TestFalse(TEXT("Station on the truck apron outside the shop is rejected"),M.AddWeldingStation({1000,800,20},0,false,E));
+ // The simulation envelope includes the outdoor carrier apron. Live planner
+ // placement additionally requires actual owned building coverage.
+ auto* FloorWorld=UWorld::CreateWorld(EWorldType::Game,false);auto* FloorSite=FloorWorld->SpawnActor<AFoundrylineBuildSite>();FloorSite->bStarterProperty=true;FloorSite->bCutPartsStarter=true;FloorSite->DispatchBeginPlay();auto FloorCandidate=M.State;
+ TestFalse(TEXT("Station on the truck apron outside the real shop floor is rejected"),FFoundrylinePlannerItems::PrepareOwnedBuildingFloor(FloorCandidate,FloorWorld,FTransform::Identity,FFoundrylinePlannerItems::StationWorkspaceBounds({1000,800,20},0),E));FloorWorld->DestroyWorld(false);
  TestFalse(TEXT("Station over the burn table is rejected"),M.AddWeldingStation({-1300,800,20},0,false,E));
  TestFalse(TEXT("Station across the main forklift aisle is rejected"),M.AddWeldingStation({-300,1100,20},1,false,E));
  int Valid=0;FString First;TMap<FString,int> Reasons;for(int Q=0;Q<2;++Q)for(double X=M.State.FloorMin.X;X<M.State.FloorMax.X;X+=60.96)for(double Y=M.State.FloorMin.Y;Y<M.State.FloorMax.Y;Y+=60.96){FFoundrylineWeldingStationRecord S;S.Center={X,Y,20};S.QuarterTurns=Q;if(M.CanPlaceWeldingStation(S,E)){++Valid;if(First.IsEmpty())First=S.Center.ToString()+FString::Printf(TEXT(" turn %d"),Q);}else ++Reasons.FindOrAdd(E);}
@@ -134,14 +151,15 @@ bool FWeldingStationStarterShop::RunTest(const FString&){
  TestTrue(TEXT("Starter state is unchanged by placement checks: ")+E,M.Valid(E)&&M.State.WeldingStations.IsEmpty());
  // The unmodified starter has no second forklift aisle, so the player paints one fork lane along the west wall,
  // a walkway from the plasma operator path and a crossing over the burn-table aisle, then places the station north of it.
- TestTrue(TEXT("Paint the west fork lane: ")+E,M.PaintLane(EFoundrylineFloorLane::Forklift,{-2217.6,1275,20},{-2217.6,2170,20},304.8f,0,E));
+ TestTrue(TEXT("Paint the west fork lane: ")+E,M.PaintForkliftArea({-2370,1275,20},{-2010,2170,20},E));
  TestTrue(TEXT("Paint the walkway from the operator path: ")+E,M.PaintLane(EFoundrylineFloorLane::Pedestrian,{-1455,1214.04,20},{-810,1214.04,20},121.92f,0,E));
- // The 17 ft station's crossing (x -1394) sits under the 19 ft 6 in station's OUT corner; it moves 2 ft east instead.
- {auto Old=M;FFoundrylineWeldingStationRecord S;S.Center={-1768.02,1823.12,20};const FBox2D B=Layout::Bounds(S);
+ // The old crossing sits under the OUT corner; move the crossing east so the
+ // 360cm forklift area and full station footprint both remain unobstructed.
+ {auto Old=M;FFoundrylineWeldingStationRecord S;S.Center=FoundrylineWeldingTestHelpers::StarterStationCenter();const FBox2D B=Layout::Bounds(S);
   TestTrue(TEXT("Old crossing stroke still paints: ")+E,Old.PaintLane(EFoundrylineFloorLane::Crossing,{-1394,1450,20},{-1394,1450,20},200,0,E));TestFalse(TEXT("With the old crossing the station does not fit"),Old.AddWeldingStation(S.Center,0,false,E));
   AddInfo(FString::Printf(TEXT("Starter fit: with the Phase 1-4 crossing at x -1394 the station overlaps it by %.2f cm along X (%s); station %s..%s, interior %s..%s"),B.Max.X-(-1494.),*E,*B.Min.ToString(),*B.Max.ToString(),*FFoundrylineWorkshopLayout::CutShopInterior().Min.ToString(),*FFoundrylineWorkshopLayout::CutShopInterior().Max.ToString()));}
- TestTrue(TEXT("Paint the aisle crossing: ")+E,M.PaintLane(EFoundrylineFloorLane::Crossing,{-1370,1450,20},{-1370,1450,20},200,0,E));
- const int Before=M.State.Lanes.Num();TestTrue(TEXT("Station places in the starter after three paint strokes: ")+E,M.AddWeldingStation({-1768.02,1823.12,20},0,false,E));
+ TestTrue(TEXT("Paint the aisle crossing: ")+E,M.PaintLane(EFoundrylineFloorLane::Crossing,{-1310,1450,20},{-1310,1450,20},200,0,E));
+ const int Before=M.State.Lanes.Num();TestTrue(TEXT("Station places in the starter after three paint strokes: ")+E,M.AddWeldingStation(FoundrylineWeldingTestHelpers::StarterStationCenter(),0,false,E));
  TestEqual(TEXT("Placing the station paints no extra lanes"),M.State.Lanes.Num(),Before);
  if(M.State.WeldingStations.Num()){const auto& S=M.State.WeldingStations[0];TestTrue(TEXT("Reorganized starter validates: ")+E,M.Valid(E));AddInfo(FString::Printf(TEXT("Starter station docks: IN offset %d ft, OUT offset %d ft"),S.InDockOffsetFt,S.OutDockOffsetFt));
   const FVector Park=M.State.Drivers[0].Parking;TestTrue(TEXT("Forklift still reaches the burn-table output"),M.Path(Park,M.State.Machines[0].OutputDock).Num()>1);TestTrue(TEXT("Forklift still reaches the burn-table input"),M.Path(Park,M.State.Machines[0].InputDock).Num()>1);

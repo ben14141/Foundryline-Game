@@ -6,7 +6,7 @@ const FFoundrylinePlacedObject* AFoundrylineBuildSite::PickOffice(FIntVector Cur
 	const auto Local=LocalContext();
 	return Placement->GetObjects().FindByPredicate([&](const auto& O)
 	{
-		if(!O.bOfficeAnnex || O.CompanyId!=Local.CompanyId || O.PlantId!=Local.PlantId) return false;
+		if(!O.bOfficeAnnex || Cursor.Z>=320&&!O.bOfficeSecondFloor || O.CompanyId!=Local.CompanyId || O.PlantId!=Local.PlantId) return false;
 		const auto* D=Placement->FindDefinition(O.DefinitionId);if(!D) return false;
 		const auto P=FRotator(0,O.QuarterTurns*90,0).UnrotateVector(FVector(Cursor-O.Anchor));
 		return P.X>=-100 && P.Y>=-100 && P.X<=D->Footprint.Max.X+100 && P.Y<=D->Footprint.Max.Y+100;
@@ -25,7 +25,7 @@ bool AFoundrylineBuildSite::OfficeRectangle(FName Tool,FIntVector Start,FIntVect
 	if(!Host || !Host->bOfficeAnnex) {Status=TEXT("Draw rooms inside an exterior office annex");if(bPreview) HidePreview();DraftBlocked(Status,!bPreview);return false;}
 	const FRotator Rot(0,Host->QuarterTurns*90,0);
 	const FVector A=Rot.UnrotateVector(FVector(Start-Host->Anchor)),B=Rot.UnrotateVector(FVector(End-Host->Anchor));
-	FFoundrylineOfficeSpace Space;Space.SpaceId=FGuid::NewGuid();
+	FFoundrylineOfficeSpace Space;Space.SpaceId=FGuid::NewGuid();Space.OfficeLevel=Start.Z>=320?1:0;
 	Space.Min={FMath::RoundToInt32(FMath::Min(A.X,B.X)/100)*100,FMath::RoundToInt32(FMath::Min(A.Y,B.Y)/100)*100};
 	Space.Max={FMath::RoundToInt32(FMath::Max(A.X,B.X)/100)*100,FMath::RoundToInt32(FMath::Max(A.Y,B.Y)/100)*100};
 	const auto* Def=Placement->FindDefinition(Host->DefinitionId);
@@ -54,10 +54,10 @@ bool AFoundrylineBuildSite::OfficeOpening(FName Tool,FIntVector Cursor,bool bPre
 	const auto* Host=PickOffice(Cursor);if(!Host) {if(bPreview) HidePreview();DraftBlocked(Status,!bPreview);return false;}
 	const FVector P=FRotator(0,Host->QuarterTurns*90,0).UnrotateVector(FVector(Cursor-Host->Anchor));
 	int32 RoomIndex=INDEX_NONE;FFoundrylineOpening Opening;double Best=151;
-	Opening.OpeningId=FGuid::NewGuid();Opening.Kind=Tool==TEXT("RoomDoor")?EFoundrylineOpeningKind::OfficeDoor:EFoundrylineOpeningKind::ShopWindow;
+	Opening.OpeningId=FGuid::NewGuid();Opening.OfficeLevel=Cursor.Z>=320?1:0;Opening.Kind=Tool==TEXT("RoomDoor")?EFoundrylineOpeningKind::OfficeDoor:EFoundrylineOpeningKind::ShopWindow;
 	for(int32 I=0;I<Host->OfficeRooms.Num();++I)
 	{
-		const auto& Room=Host->OfficeRooms[I];
+		const auto& Room=Host->OfficeRooms[I];if(Room.OfficeLevel!=Opening.OfficeLevel)continue;
 		if(P.X<Room.Min.X-150 || P.Y<Room.Min.Y-150 || P.X>Room.Max.X+150 || P.Y>Room.Max.Y+150) continue;
 		const double Dist[]={FMath::Abs(P.Y-Room.Min.Y),FMath::Abs(P.X-Room.Max.X),FMath::Abs(P.Y-Room.Max.Y),FMath::Abs(P.X-Room.Min.X)};
 		for(uint8 Edge=0;Edge<4;++Edge) if(Dist[Edge]<Best)
@@ -87,7 +87,8 @@ bool AFoundrylineBuildSite::OfficeOpening(FName Tool,FIntVector Cursor,bool bPre
 	for(int32 I=0;I<R.Replacement.OfficeRooms.Num();++I)
 	{
 		if(I==RoomIndex) continue;auto& Neighbour=R.Replacement.OfficeRooms[I];
-		const bool Touch=Opening.Edge==0?Source.Min.Y==Neighbour.Max.Y:Opening.Edge==1?Source.Max.X==Neighbour.Min.X:Opening.Edge==2?Source.Max.Y==Neighbour.Min.Y:Source.Min.X==Neighbour.Max.X;
+		if(Neighbour.OfficeLevel!=Opening.OfficeLevel)continue;
+  const bool Touch=Opening.Edge==0?Source.Min.Y==Neighbour.Max.Y:Opening.Edge==1?Source.Max.X==Neighbour.Min.X:Opening.Edge==2?Source.Max.Y==Neighbour.Min.Y:Source.Min.X==Neighbour.Max.X;
 		const int32 Along=(Opening.Edge%2==0?Source.Min.X:Source.Min.Y)+Opening.OffsetCm;
 		const int32 Low=Opening.Edge%2==0?Neighbour.Min.X:Neighbour.Min.Y,High=Opening.Edge%2==0?Neighbour.Max.X:Neighbour.Max.Y;
 		if(Touch && Along<High && Along+Opening.WidthCm()>Low)

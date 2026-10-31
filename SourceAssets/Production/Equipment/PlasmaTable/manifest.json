@@ -198,5 +198,19 @@
       "domain": "Production/Equipment/PlasmaTable"
     }
   ],
-  "status": "Independent components for the runtime cutting demonstration"
+  "status": "Independent components for the runtime cutting demonstration",
+  "rail_supports": {
+    "revision": 1,
+    "main_beam_top_cm": 84,
+    "rail_underside_cm": 106.25,
+    "support_web_z_cm": [
+      83.8,
+      105.6
+    ],
+    "machined_cap_z_cm": [
+      104.4,
+      106.4
+    ],
+    "gantry_pivots_changed": false
+  }
 }

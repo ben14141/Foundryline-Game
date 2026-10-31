@@ -24,6 +24,8 @@ public:
  // Call after the zone gun has moved, using its real grip and barrel-support points.
  void PresentWeldingGrip(FVector WorldGrip,FVector WorldSupport);
  void PresentCollectorGrip(FVector WorldLeft,FVector WorldRight);
+ // Presentation clip for an office chair: foot root at floor, +X faces keyboard.
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Employees") void PresentOfficeComputer(float DeltaSeconds,int32 EmployeeSeed=1);
  UFUNCTION(BlueprintPure) FString GetPresentationReport() const;
  static FVector LegAngles(float HipHeight,float FootX,float FootHeight);
  // Measured seat cushion top141cm, cabin floor83cm in authored forklift.

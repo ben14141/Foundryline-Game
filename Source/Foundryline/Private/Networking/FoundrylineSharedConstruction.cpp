@@ -63,5 +63,6 @@ FFoundrylinePlanResult AFoundrylineBuildSite::ApplyRemoteConstruction(APlayerCon
  // ValidateAgainst checks every target against that trusted Context and revision.
  // Execution stages the whole action before broadcasting any visual changes.
  FFoundrylinePlacementContext Trusted=Context;if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld()))if(!R->ConstructionContext(Player,Trusted))return Result;
+ FString StoreyError;if(!OfficeStoreyRequestsClear(Requests,StoreyError)){Status=StoreyError;Result.Error=EFoundrylinePlacementError::Occupied;return Result;}
  return Placement->ExecuteBatch(Requests,Trusted,MAX_int64);
 }

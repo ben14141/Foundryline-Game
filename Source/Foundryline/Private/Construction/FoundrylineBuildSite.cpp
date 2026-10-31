@@ -1,9 +1,13 @@
+#include "Construction/FoundrylineBuildSite.h"
+#include "Components/BoxComponent.h"
 #include "Buildings/FoundrylineRoofLayout.h"
+#include "Buildings/FoundrylineOfficeStairLayout.h"
+#include "Buildings/FoundrylineOfficeStairComponent.h"
+#include "Buildings/FoundrylineOfficeStoreyLink.h"
 #include "Buildings/FoundrylineExteriorKit.h"
 #include "Logistics/FoundrylineCarrierSceneActor.h"
 #include "Construction/FoundrylineLoadingBayLayout.h"
 #include "Construction/FoundrylinePavementGeometry.h"
-#include "Construction/FoundrylineBuildSite.h"
 #include "Construction/FoundrylineEquipmentCollision.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "Construction/FoundrylineFacadeLayout.h"
@@ -126,7 +130,7 @@ bool AFoundrylineBuildSite::RectangleRequest(FName Tool,FIntVector Start,FIntVec
 {
 	bConnected=false;
 
- if(Tool==TEXT("Sign")&&bReady){if(!Placement->EnsureGeneratedDefinition(TEXT("ManufacturingSign")))return false;Out.DefinitionId=TEXT("ManufacturingSign");FFoundrylineGrid::SnapWorld(FVector(Start),EFoundrylineSnap::Fine25cm,Out.Anchor);Out.QuarterTurns=DraftAreaRotation;Out.Anchor-=FIntVector(FRotator(0,Out.QuarterTurns*90,0).RotateVector(FVector(200,200,0)));Out.ExpectedRevision=Placement->GetRevision();Out.SignName=TEXT("YOUR COMPANY");if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld())){const auto C=LocalContext();const auto Name=R->GetCompanyName(C.CompanyId);if(!Name.IsEmpty())Out.SignName=Name.Left(40);}Out.Colors.Exterior=FLinearColor(FColor::FromHex(TEXT("30373D")));Out.Colors.Trim=FLinearColor(FColor::FromHex(TEXT("ED7B2D")));return true;}
+ if(Tool==TEXT("Sign")&&bReady){if(!Placement->EnsureGeneratedDefinition(TEXT("ManufacturingSign")))return false;Out.DefinitionId=TEXT("ManufacturingSign");Out.QuarterTurns=DraftAreaRotation;FFoundrylineGrid::SnapWorld(FVector(Start)-FRotator(0,Out.QuarterTurns*90,0).RotateVector(FVector(200,37.5,0)),EFoundrylineSnap::Fine25cm,Out.Anchor);Out.ExpectedRevision=Placement->GetRevision();Out.SignName=TEXT("YOUR COMPANY");if(auto* R=AFoundrylineBusinessRegistry::Find(GetWorld())){const auto C=LocalContext();const auto Name=R->GetCompanyName(C.CompanyId);if(!Name.IsEmpty())Out.SignName=Name.Left(40);}Out.Colors.Exterior=FLinearColor(FColor::FromHex(TEXT("30373D")));Out.Colors.Trim=FLinearColor(FColor::FromHex(TEXT("ED7B2D")));return true;}
 	if(!bReady || (!IsBuilding(Tool) && Tool!=TEXT("Parking") && Tool!=TEXT("FreightYard") && Tool!=TEXT("Walkway") && !IsRoad(Tool))) return false;
 	if(!FFoundrylineGrid::SnapWorld(FVector(Start),EFoundrylineSnap::Structural100cm,Start) || !FFoundrylineGrid::SnapWorld(FVector(End),EFoundrylineSnap::Structural100cm,End)) {Status=TEXT("Outside the supported grid range");return false;}
 	int32 W=0,D=0;
@@ -359,7 +363,7 @@ bool AFoundrylineBuildSite::DoorRequest(FName Tool,FIntVector Cursor,FFoundrylin
 	for(const auto& O:Placement->GetObjects())
 	{
 		const auto* Def=Placement->FindDefinition(O.DefinitionId);
-		if(!Def || Def->FunctionId!=TEXT("BuildingShell") || (Tool==TEXT("OfficeGlass")&&!O.bOfficeAnnex) || (O.bOfficeAnnex && (Tool==TEXT("LoadingDock")||Tool==TEXT("LoadingBay")))) continue;
+		if(!Def || Def->FunctionId!=TEXT("BuildingShell") || (Tool==TEXT("OfficeGlass")&&!O.bOfficeAnnex) || (Cursor.Z>=320&&(!O.bOfficeSecondFloor||Tool!=TEXT("OfficeGlass"))) || (O.bOfficeAnnex && (Tool==TEXT("LoadingDock")||Tool==TEXT("LoadingBay")))) continue;
 		const FVector P=FRotator(0,O.QuarterTurns*90,0).UnrotateVector(FVector(Cursor-O.Anchor));
 		const int32 W=Def->Footprint.Max.X,D=Def->Footprint.Max.Y;
 		if(P.X < -150 || P.Y < -150 || P.X>W+150 || P.Y>D+150) continue;
@@ -368,7 +372,7 @@ bool AFoundrylineBuildSite::DoorRequest(FName Tool,FIntVector Cursor,FFoundrylin
 		{
 			if(Distances[Edge]>=Closest) continue;
 			Closest=Distances[Edge]; Out.ObjectId=O.ObjectId;
-			Out.Opening.Edge=Edge; Out.Opening.Kind=Tool==TEXT("OfficeGlass")?EFoundrylineOpeningKind::OfficeGlassWall:(Tool==TEXT("LoadingDock")||Tool==TEXT("LoadingBay"))?EFoundrylineOpeningKind::LoadingDock:Tool==TEXT("TruckDoor")?EFoundrylineOpeningKind::TruckGarage:Tool==TEXT("Garage")?EFoundrylineOpeningKind::Garage:O.bOfficeAnnex?EFoundrylineOpeningKind::OfficeDoor:EFoundrylineOpeningKind::Personnel;
+			Out.Opening.OfficeLevel=Cursor.Z>=320?1:0;Out.Opening.Edge=Edge; Out.Opening.Kind=Tool==TEXT("OfficeGlass")?EFoundrylineOpeningKind::OfficeGlassWall:(Tool==TEXT("LoadingDock")||Tool==TEXT("LoadingBay"))?EFoundrylineOpeningKind::LoadingDock:Tool==TEXT("TruckDoor")?EFoundrylineOpeningKind::TruckGarage:Tool==TEXT("Garage")?EFoundrylineOpeningKind::Garage:O.bOfficeAnnex?EFoundrylineOpeningKind::OfficeDoor:EFoundrylineOpeningKind::Personnel;
 			Out.Opening.LoadingTier=Tool==TEXT("LoadingBay")?1:0;
 			const double U=Edge%2==0?P.X:P.Y;
 			Out.Opening.OffsetCm=FMath::RoundToInt((U-Out.Opening.WidthCm()/2)/100)*100;
@@ -458,10 +462,10 @@ bool AFoundrylineBuildSite::AdjustColumns(FIntVector Cursor,int32 SpacingCm)
 
 void AFoundrylineBuildSite::ShowPreview(const FFoundrylinePlacedObject& O,bool Valid,const FString& Key)
 {
-	const FString StateKey=Key+(Valid?TEXT("_Ready"):TEXT("_Blocked"));
+	const FString StateKey=Key+FString::FromInt(OfficeViewLevel)+(Valid?TEXT("_Ready"):TEXT("_Blocked"));
  if(PreviewActor && PreviewKey==StateKey) return;
 	const bool HadFeedback=bHasPreviewFeedback;const auto Error=PreviewError;const FString Reason=DraftReason;
- HidePreview();if(!O.Pavement.Polygons.IsEmpty()){LastPavementPreview=O;bPavementPreviewActive=true;}bHasPreviewFeedback=HadFeedback;PreviewError=Error;DraftReason=Reason; PreviewActor=Render(O,true,Valid,Key.StartsWith(TEXT("Door_"))||Key.StartsWith(TEXT("PavePaint_")),Key.StartsWith(TEXT("Columns_")),Key.StartsWith(TEXT("Office_Office")) || Key.StartsWith(TEXT("OfficeOpening_"))); PreviewKey=StateKey;
+ HidePreview();if(!O.Pavement.Polygons.IsEmpty()){LastPavementPreview=O;bPavementPreviewActive=true;}bHasPreviewFeedback=HadFeedback;PreviewError=Error;DraftReason=Reason; auto Display=O;const bool Upper=OfficeViewLevel==1&&(Key.StartsWith(TEXT("Door_"))||Key.StartsWith(TEXT("Office_"))||Key.StartsWith(TEXT("OfficeOpening_")));if(Upper)Display.Anchor.Z+=320;PreviewActor=Render(Display,true,Valid,Key.StartsWith(TEXT("Door_"))||Key.StartsWith(TEXT("PavePaint_")),Key.StartsWith(TEXT("Columns_")),Key.StartsWith(TEXT("Office_Office")) || Key.StartsWith(TEXT("OfficeOpening_")),Upper); PreviewKey=StateKey;
  if(const auto* D=Placement->FindDefinition(O.DefinitionId)) {PreviewBounds=FFoundrylineGrid::RotateBounds(D->Footprint,O.Anchor,O.QuarterTurns);bHasPreviewBounds=true;}
 }
 
@@ -472,8 +476,9 @@ void AFoundrylineBuildSite::HidePreview()
 	bHasPreviewBounds=false;PreviewActor=nullptr; PreviewKey.Reset();bHasPreviewFeedback=false;DraftReason.Empty();
 }
 
-AActor* AFoundrylineBuildSite::Render(const FFoundrylinePlacedObject& O,bool bPreview,bool bValid,bool bOpeningOnly,bool bColumnsOnly,bool bOfficeOnly)
+AActor* AFoundrylineBuildSite::Render(const FFoundrylinePlacedObject& Original,bool bPreview,bool bValid,bool bOpeningOnly,bool bColumnsOnly,bool bOfficeOnly,bool UpperOffice)
 {
+ auto O=Original;O.Openings.RemoveAll([&](const auto& V){return V.OfficeLevel!=(UpperOffice?1:0);});O.OfficeRooms.RemoveAll([&](const auto& V){return V.OfficeLevel!=(UpperOffice?1:0);});
 	const auto* Def=Placement->FindDefinition(O.DefinitionId);
 	if(!Def) return nullptr;
  if(Def->FunctionId==TEXT("Pavement"))return RenderPavement(O,bPreview,bValid,bOpeningOnly);
@@ -556,18 +561,19 @@ auto Grass=[&](FVector Position)
 	};
 	auto DoorLeaf=[&](uint8 Edge,float A,float B,FVector2D Min,FVector2D Max,bool Office,FGuid OpeningId,bool Inward=false)
 	{
-		const TCHAR* Path=Office?TEXT("/Game/Factory/Meshes/Wall_Outer(Door)/SM_Door_B2_Right.SM_Door_B2_Right"):TEXT("/Game/Factory/Meshes/Wall_Outer(Door)/SM_Door_A1.SM_Door_A1");
-		auto* Mesh=LoadObject<UStaticMesh>(nullptr,Path);if(!Mesh) return;
-		const float U=Office?A+5:B-5;
-		const FVector Hinge=Edge==0?FVector(Min.X+U,Min.Y,20):Edge==1?FVector(Max.X,Min.Y+U,20):Edge==2?FVector(Min.X+U,Max.Y,20):FVector(Min.X,Min.Y+U,20);
-		const float BaseYaw=Edge%2==0?0:90;
-		const float Swing=(Edge==0 || Edge==1?1.f:-1.f)*(Office?-90.f:90.f)*(Inward?-1.f:1.f);
-		auto* C=NewObject<UFoundrylinePersonnelDoorComponent>(Actor);Actor->AddInstanceComponent(C);C->SetupAttachment(Root);C->SetStaticMesh(Mesh);
-		if(bPreview) for(int32 Slot=0;Slot<Mesh->GetStaticMaterials().Num();++Slot) C->SetMaterial(Slot,GhostMat);
-		C->SetCollisionEnabled(bPreview?ECollisionEnabled::NoCollision:ECollisionEnabled::QueryAndPhysics);C->SetCollisionResponseToAllChannels(ECR_Block);C->SetCastShadow(!bPreview);C->RegisterComponent();
-		const float Bottom=Mesh->GetBoundingBox().Min.Z;
-		C->SetRelativeLocation(Hinge-FVector(0,0,Bottom));C->BuildingObjectId=O.ObjectId;C->InitializeSwing(BaseYaw,Swing,OpeningId,DoorStates.Contains(OpeningId)?DoorStates[OpeningId]:true);
-  if(bPreview) C->SetIsReplicated(false);
+  const FString Base=TEXT("/Game/Foundryline/Buildings/Doors/Personnel/SM_PersonnelDoor_");
+  auto* Mesh=LoadObject<UStaticMesh>(nullptr,*(Base+(Office?TEXT("OfficeLeaf"):TEXT("ShopLeaf"))));if(!Mesh)return;
+  const float BaseYaw=Edge%2==0?0:90;const FRotator Along(0,BaseYaw,0);const float Desired=(Edge<2?1.f:-1.f)*(Office?-1.f:1.f)*(Inward?-1.f:1.f);const FRotator FrameRotation(0,BaseYaw+(Desired<0?180:0),0);
+  const FVector Opening=Edge==0?FVector(Min.X+A,Min.Y,20):Edge==1?FVector(Max.X,Min.Y+A,20):Edge==2?FVector(Min.X+A,Max.Y,20):FVector(Min.X,Min.Y+A,20);
+  const FVector FrameOrigin=Opening+(Desired<0?Along.RotateVector(FVector(100,0,0)):FVector::ZeroVector);
+  auto* Frame=NewObject<UStaticMeshComponent>(Actor);Actor->AddInstanceComponent(Frame);Frame->SetupAttachment(Root);Frame->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*(Base+(Office?TEXT("OfficeFrame"):TEXT("ShopFrame")))));Frame->SetCollisionEnabled(ECollisionEnabled::NoCollision);Frame->RegisterComponent();Frame->SetRelativeLocationAndRotation(FrameOrigin,FrameRotation);
+  if(bPreview)for(int Slot=0;Slot<Frame->GetNumMaterials();++Slot)Frame->SetMaterial(Slot,GhostMat);
+  if(!bPreview){for(int Part=0;Part<3;++Part){const FVector Center=Part==0?FVector(1.9,0,110):Part==1?FVector(98.1,0,110):FVector(50,0,217.15);auto* Jamb=NewObject<UBoxComponent>(Actor);Actor->AddInstanceComponent(Jamb);Jamb->SetupAttachment(Root);Jamb->SetBoxExtent(Part<2?FVector(1.9,Office?10:15,110):FVector(50,Office?10:15,2.85));Jamb->SetCollisionProfileName(TEXT("BlockAllDynamic"));Jamb->RegisterComponent();Jamb->SetRelativeLocationAndRotation(Opening+Along.RotateVector(Center),Along);}}
+  auto* C=NewObject<UFoundrylinePersonnelDoorComponent>(Actor);Actor->AddInstanceComponent(C);C->SetupAttachment(Root);C->SetStaticMesh(Mesh);
+  if(bPreview)for(int Slot=0;Slot<Mesh->GetStaticMaterials().Num();++Slot)C->SetMaterial(Slot,GhostMat);
+  C->SetCollisionEnabled(bPreview?ECollisionEnabled::NoCollision:ECollisionEnabled::QueryAndPhysics);C->SetCollisionResponseToAllChannels(ECR_Block);C->SetCastShadow(!bPreview);C->RegisterComponent();
+  C->SetRelativeLocation(FrameOrigin+FrameRotation.RotateVector(FVector(4.28,2.55,.64)));C->BuildingObjectId=O.ObjectId;C->InitializeSwing(FrameRotation.Yaw,90,OpeningId,DoorStates.Contains(OpeningId)?DoorStates[OpeningId]:true);if(bPreview)C->SetIsReplicated(false);
+
 	};
 	auto OccupiedOutside=[&](FVector Local,bool RoadOnly=false)
 	{
@@ -576,7 +582,7 @@ auto Grass=[&](FVector Position)
 		{
 			if(Other.ObjectId==O.ObjectId) continue;
 			const auto* OD=Placement->FindDefinition(Other.DefinitionId); if(!OD) continue;
-			if(RoadOnly && !FFoundrylineDrivingLayout::IsPaved(OD->FunctionId)) continue;
+			if(OD->FunctionId==TEXT("ManufacturingSign"))continue;
 			const FVector P=FRotator(0,Other.QuarterTurns*90,0).UnrotateVector(World-FVector(Other.Anchor));
 			if(P.X>=0 && P.Y>=0 && P.X<OD->Footprint.Max.X && P.Y<OD->Footprint.Max.Y && (Other.Pavement.Polygons.IsEmpty()||FFoundrylinePavementGeometry::Contains(Other.Pavement.Polygons,FVector2D(P)))) return true;
 		}
@@ -604,7 +610,8 @@ auto Grass=[&](FVector Position)
 			}
 		}
 	}
-	else if(!bOfficeOnly && (!bPreview || !bOpeningOnly)) Box({W/2,D/2,10},{W,D,20},(Building || Def->FunctionId==TEXT("Walkway"))?TEXT("Concrete"):TEXT("Asphalt"));
+	else if(UpperOffice){for(const auto& Panel:FFoundrylineOfficeStairLayout::FloorPanels(W,D,O.OfficeStairOrigin,O.OfficeStairQuarter,O.OfficeStairStyle)){Box(FVector(Panel.GetCenter(),10),FVector(Panel.GetSize(),20),TEXT("Concrete"));Box(FVector(Panel.GetCenter(),21),FVector(Panel.GetSize(),2),TEXT("OfficeFloor"),false);}}
+ else if(!bOfficeOnly && (!bPreview || !bOpeningOnly)) Box({W/2,D/2,10},{W,D,20},(Building || Def->FunctionId==TEXT("Walkway"))?TEXT("Concrete"):TEXT("Asphalt"));
     if(Def->FunctionId==TEXT("Walkway")) return Actor;
 
 	if(!Building)
@@ -800,6 +807,7 @@ auto Grass=[&](FVector Position)
     };
 	for(const auto& Zone:O.OfficeAreas)
 	{
+  if(UpperOffice)continue;
 		Box({(Zone.Min.X+Zone.Max.X)/2.,(Zone.Min.Y+Zone.Max.Y)/2.,21},{double(Zone.Max.X-Zone.Min.X),double(Zone.Max.Y-Zone.Min.Y),2},TEXT("OfficeFloor"),false);
 	}
 	auto Furniture=[&](const TCHAR* Path,FVector Center,float Yaw=0.f)
@@ -869,7 +877,7 @@ auto Grass=[&](FVector Position)
 			{
 				const float A=V.OffsetCm,B=A+V.WidthCm(),Bottom=V.BottomCm(),Top=Bottom+V.HeightCm();
 				Partition(Edge,Cursor,A,0,300);Partition(Edge,A,B,0,Bottom);Partition(Edge,A,B,Top,300);Cursor=B;
-				Partition(Edge,A-6,A,Bottom,Top,TEXT("Metal"),20);Partition(Edge,B,B+6,Bottom,Top,TEXT("Metal"),20);Partition(Edge,A-6,B+6,Top,Top+6,TEXT("Metal"),20);
+				if(V.IsGlazing()){Partition(Edge,A-6,A,Bottom,Top,TEXT("Metal"),20);Partition(Edge,B,B+6,Bottom,Top,TEXT("Metal"),20);Partition(Edge,A-6,B+6,Top,Top+6,TEXT("Metal"),20);}
 				if(V.Kind==EFoundrylineOpeningKind::ShopWindow)
 				{
 					Partition(Edge,A,B,Bottom,Bottom+6,TEXT("Metal"),20);Partition(Edge,A,B,Bottom+6,Top-6,TEXT("Glass"),2,false);Partition(Edge,(A+B)/2-2,(A+B)/2+2,Bottom,Top,TEXT("Metal"),18);
@@ -930,9 +938,11 @@ auto Grass=[&](FVector Position)
 			Cursor=B;
 			const bool IsWindow=Opening.IsGlazing();
 			const float Frame=IsWindow || O.bOfficeAnnex?6:12,FrameDepth=O.bOfficeAnnex?36:42;
+			if(Opening.Kind!=EFoundrylineOpeningKind::Personnel&&Opening.Kind!=EFoundrylineOpeningKind::OfficeDoor){
 			EdgeBox(Edge,A-Frame,A+(IsWindow?Frame:0),Bottom,Top,TEXT("Metal"),FrameDepth);
 			EdgeBox(Edge,B-(IsWindow?Frame:0),B+Frame,Bottom,Top,TEXT("Metal"),FrameDepth);
 			EdgeBox(Edge,A-Frame,B+Frame,Top-(IsWindow?Frame:0),Top+Frame,TEXT("Metal"),FrameDepth);
+            }
 			if(Opening.IsGlazing())
 			{
 				EdgeBox(Edge,A-6,B+6,Bottom-6,Bottom+6,TEXT("Metal"),42);
@@ -1072,7 +1082,7 @@ auto Grass=[&](FVector Position)
    }
   }
  }
- if(!bPreview && Building)
+ if(!bPreview && Building && (!O.bOfficeSecondFloor||UpperOffice))
  {
   const float RoofZ=Def->Footprint.Max.Z;
   auto* RoofParent=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Foundryline/Buildings/Roofs/M_RoofFinish.M_RoofFinish"));
@@ -1104,6 +1114,12 @@ auto Grass=[&](FVector Position)
   }
   AddCeilingLights(Actor,O,FVector(W,D,RoofZ));
  }
+ if(O.bOfficeSecondFloor&&!UpperOffice&&!bOpeningOnly&&!bColumnsOnly&&!bOfficeOnly){
+  auto* Stair=NewObject<UFoundrylineOfficeStairComponent>(Actor);Actor->AddInstanceComponent(Stair);Stair->SetupAttachment(Root);Stair->RegisterComponent();Stair->Build(O.OfficeStairOrigin,O.OfficeStairQuarter,Painted.Contains(TEXT("Concrete"))?Painted[TEXT("Concrete")]:Materials.FindRef(TEXT("Concrete")).Get(),Painted.Contains(TEXT("Metal"))?Painted[TEXT("Metal")]:Materials.FindRef(TEXT("Metal")).Get(),bPreview,GhostMat,O.OfficeStairStyle);
+  auto Top=Original;Top.Anchor.Z+=320;auto* Upper=Render(Top,bPreview,bValid,false,false,false,true);
+  auto* Link=NewObject<UFoundrylineOfficeStoreyLink>(Actor);Actor->AddInstanceComponent(Link);Link->UpperActor=Upper;Link->RegisterComponent();if(Upper)Upper->SetOwner(Actor);Link->Show(bPreview||bRoofsVisible||OfficeViewLevel==1,bRoofsVisible);
+  if(!bPreview)AddCeilingLights(Actor,O,FVector(W,D,320));
+ }
 	return Actor;
 }
 
@@ -1114,6 +1130,7 @@ void AFoundrylineBuildSite::SetRoofsVisible(bool Visible)
  {
   TInlineComponentArray<USceneComponent*> Components;Pair.Value->GetComponents(Components);
   for(auto* C:Components) if(C->ComponentHasTag(TEXT("FoundrylineRoof"))) C->SetVisibility(Visible);
+  if(auto* Link=Pair.Value->FindComponentByClass<UFoundrylineOfficeStoreyLink>())Link->Show(Visible||OfficeViewLevel==1,Visible);
  }
 }
 
@@ -1124,7 +1141,7 @@ void AFoundrylineBuildSite::Changed(const FFoundrylinePlacementChange& Change)
   if(FFoundrylinePlacedObject::StaticStruct()->CompareScriptStruct(&WithoutZones,&Change.Previous,0)) {PublishNetworkState();return;}
  }
 
-	if(auto* Existing=Visuals.Find(Change.ObjectId)) {if(IsValid(*Existing)) {TInlineComponentArray<UFoundrylinePersonnelDoorComponent*> Doors;(*Existing)->GetComponents(Doors);if(HasAuthority()) for(auto* Door:Doors) DoorStates.Add(Door->OpeningId,Door->IsOpen());(*Existing)->Destroy();} Visuals.Remove(Change.ObjectId);}
+	if(auto* Existing=Visuals.Find(Change.ObjectId)) {if(IsValid(*Existing)) {auto Doors=UFoundrylineOfficeStoreyLink::Doors(*Existing);if(HasAuthority()) for(auto* Door:Doors) DoorStates.Add(Door->OpeningId,Door->IsOpen());(*Existing)->Destroy();} Visuals.Remove(Change.ObjectId);}
 	if(Change.bHasCurrent)
 	{
 		Visuals.Add(Change.ObjectId,Render(Change.Current));
@@ -1148,7 +1165,7 @@ void AFoundrylineBuildSite::Changed(const FFoundrylinePlacementChange& Change)
 		if(!OD) continue;
 		const auto B=FFoundrylineGrid::RotateBounds(OD->Footprint,Other.Anchor,Other.QuarterTurns);
 		if(B.Max.X<Affected.Min.X-250 || B.Min.X>Affected.Max.X+250 || B.Max.Y<Affected.Min.Y-250 || B.Min.Y>Affected.Max.Y+250) continue;
-		if(auto* Visual=Visuals.Find(Other.ObjectId)) {if(IsValid(*Visual)) {TInlineComponentArray<UFoundrylinePersonnelDoorComponent*> Doors;(*Visual)->GetComponents(Doors);if(HasAuthority()) for(auto* Door:Doors) DoorStates.Add(Door->OpeningId,Door->IsOpen());(*Visual)->Destroy();}}
+		if(auto* Visual=Visuals.Find(Other.ObjectId)) {if(IsValid(*Visual)) {auto Doors=UFoundrylineOfficeStoreyLink::Doors(*Visual);if(HasAuthority()) for(auto* Door:Doors) DoorStates.Add(Door->OpeningId,Door->IsOpen());(*Visual)->Destroy();}}
 		Visuals.Add(Other.ObjectId,Render(Other));
 	}
  PublishNetworkState();
