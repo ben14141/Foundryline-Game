@@ -1,4 +1,4 @@
-"""Fresh unsaved starter business: three real jobs, paid steel, physical terminal, freight.
+"""Fresh unsaved starter business: four real jobs, paid steel, physical terminal, freight.
 
 No free cash, inventory, edited orders, save writes or simulation replacement. Uses
 the ordinary queued UI commands and AdvanceCommerceTest (real plant ticks/account
@@ -79,7 +79,7 @@ def steel_asset(state):
 
 def financial_delta(before, after):
     return {key: after[key] - before[key] for key in
-            ('cash', 'cost', 'revenue', 'wages_paid', 'clock')}
+            ('cash', 'cost', 'revenue', 'wages_paid', 'wages_accrued', 'clock')}
 
 
 def run_sim():
@@ -111,7 +111,7 @@ def flow():
     check('unaffordable_purchase_no_charge', stable_cash() == before)
     check('unaffordable_purchase_visible_error', bool(ui().get('status')))
     shot('Business_UnaffordablePurchase')
-    for index, (part, quantity, pounds) in enumerate(((1, 40, 5), (10, 60, 2), (10, 60, 2))):
+    for index, (part, quantity, pounds) in enumerate(((1, 40, 5), (10, 60, 2), (10, 60, 2), (1, 50, 5))):
         job = {'index': index + 1, 'part': part, 'expected_quantity': quantity}
         RESULT['jobs'].append(job)
         N.setup_operations_review(player(), 1)
@@ -153,12 +153,16 @@ def flow():
             m['queue_count'] or m['batch_remaining'] or m['remaining'] for m in report()['machines']))
         shot('Business_Job%d_PlasmaQueue' % (index + 1))
         if index == 0:
-            factory('Run')
-            yield 1
+            if not report()['running']:
+                factory('Run')
+                yield 1
+            no_steel_before = report()
             run_sim()
             yield .5
             check('empty_steel_wait_does_not_create_parts', not report()['pallets'] and
                   report()['machines'][0]['remaining'] == 0)
+            check('empty_steel_wait_actually_runs_and_pays_wages',
+                  report()['clock'] > no_steel_before['clock'] and report()['wages_paid'] + report()['wages_accrued'] > no_steel_before['wages_paid'] + no_steel_before['wages_accrued'])
             job['no_steel_wait'] = report()
             factory('Run')
             yield 1
@@ -211,12 +215,12 @@ def flow():
             yield 1
         for _ in range(80):
             state = report()
-            staged = [p for p in state['pallets'] if p['place'] == 6 and p['order'] == order_id]
+            staged = [p for p in state['pallets'] if p['place'] == 1 and p['order'] == order_id and any(s['id'] == p['owner'] and s['machine'] == 0 and s['id'] != 100 for s in state['slots'])]
             if sum(p['quantity'] for p in staged) == quantity:
                 break
             run_sim()
             yield .2
-        check('job%d_forklift_physically_staged_exact_order' % index,
+        check('job%d_forklift_stored_exact_order_in_finished_goods' % index,
               sum(p['quantity'] for p in staged) == quantity)
         check('job%d_smallest_carrier_van_fits' % index,
               len(staged) == 1 and sum(p['quantity'] * p['unit_lb'] + 60 for p in staged) <= 900)
@@ -272,13 +276,29 @@ def flow():
     yield 1
     action('Page11')
     yield 1
-    shot('Business_ThreeJobs_FinalInventory')
+    shot('Business_FourJobs_FinalInventory')
     final = snapshot('final')
     RESULT['whole_run_delta'] = financial_delta(initial, final)
-    check('three_jobs_done_more_orders_available', len(RESULT['jobs']) == 3 and
+    check('four_jobs_done_more_orders_available', len(RESULT['jobs']) == 4 and
           any(o['status'] == 0 and o['part'] in (1, 10) for o in final['orders']))
     check('business_positive_cash_survives', final['cash'] > 0)
     RESULT['cash_gain_positive'] = final['cash'] > initial['cash']
+    check('four_jobs_fund_brake_with_1000_reserve', final['cash'] - final['wages_accrued'] >= 550000)
+    action('Page10')
+    yield 1
+    action('Workspace1')
+    yield 1
+    before_upgrade = report()
+    action('BuyEquipment2')
+    yield 1
+    upgraded = snapshot('after_brake_purchase')
+    check('earned_cash_buys_press_brake_once', upgraded['cash'] == before_upgrade['cash'] - 450000)
+    check('purchased_brake_waits_for_planning_placement',
+          sum(m['kind'] == 2 for m in upgraded['machines']) == 1 and
+          not any(s['machine'] == 2 for s in upgraded['slots']))
+    check('upgrade_preserves_ledger_and_cash', upgraded['authoritative_valid'] and upgraded['cash_matches_registry'])
+    shot('Business_EarnedPressBrakePurchase')
+    yield 1  # Let the queued screenshot finish before an unattended editor exits.
     RESULT['completed'] = True
 
 
@@ -293,6 +313,8 @@ def tick(_dt):
     except StopIteration:
         OUT.write_text(json.dumps(RESULT, indent=2), encoding='utf-8')
         unreal.unregister_slate_post_tick_callback(HANDLE)
+        if '-StarterReviewQuit' in unreal.SystemLibrary.get_command_line():
+            unreal.SystemLibrary.execute_console_command(player(), 'QUIT_EDITOR')
     except Exception:
         RESULT['errors'].append(traceback.format_exc())
         if player():
@@ -301,6 +323,8 @@ def tick(_dt):
         OUT.parent.mkdir(parents=True, exist_ok=True)
         OUT.write_text(json.dumps(RESULT, indent=2), encoding='utf-8')
         unreal.unregister_slate_post_tick_callback(HANDLE)
+        if '-StarterReviewQuit' in unreal.SystemLibrary.get_command_line():
+            unreal.SystemLibrary.execute_console_command(player(), 'QUIT_EDITOR')
 
 
 unreal.EditorPythonScripting.set_keep_python_script_alive(True)

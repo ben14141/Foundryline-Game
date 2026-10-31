@@ -75,6 +75,8 @@ USTRUCT() struct FFoundrylineCommerceState {
  // installed (game minutes left; times in FFoundrylineEconomyTuning).
  UPROPERTY(SaveGame) double WageFraction=0;
  UPROPERTY(SaveGame) int64 WagesPaidCents=0;
+ // Whole cents earned this calendar day, settled at midnight; absent in old saves defaults to zero.
+ UPROPERTY(SaveGame) int64 PayrollAccruedCents=0;
  UPROPERTY(SaveGame) float BrakeInstallMinutes=0;
  UPROPERTY(SaveGame) float ForkliftInstallMinutes=0;
  UPROPERTY(SaveGame) int32 ForkliftInstallDriver=0;

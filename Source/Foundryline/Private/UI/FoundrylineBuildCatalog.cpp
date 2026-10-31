@@ -118,7 +118,7 @@ bool HandleFoundrylineBuildCatalogAction(AFoundrylineBuildHUD* H,AFoundrylinePla
  if(A.StartsWith(TEXT("CatalogItem"))){const int I=FCString::Atoi(*A.RightChop(11));S.Items=Entries(P);if(S.Items.IsValidIndex(I))Activate(H,P,S.Items[I]);return true;}
  if(A.StartsWith(TEXT("CatalogLevel"))){S.Levels=FMath::Clamp(FCString::Atoi(*A.RightChop(12)),1,3);return true;}
  if(A==TEXT("CatalogNext")){++S.Page;S.PreviewAction.Reset();return true;}if(A==TEXT("CatalogPrev")){S.Page=FMath::Max(0,S.Page-1);S.PreviewAction.Reset();return true;}
- if(A==TEXT("CatalogSave")){if(auto* B=Site(P))B->SaveProperty();if(P->FactoryPlant())P->FactoryAction(TEXT("Save"));return true;}
+ if(A==TEXT("CatalogSave")){if(P->FactoryPlant())P->FactoryAction(TEXT("Save"));else if(auto* B=Site(P))B->SaveProperty();return true;}
  if(A==TEXT("CatalogOffice")){P->FactoryAction(TEXT("ReturnOffice"));return true;}
  if(A==TEXT("CatalogRun")){P->FactoryAction(TEXT("Run"));return true;}
  if(A.StartsWith(TEXT("CatalogRoute"))){P->LogisticsAction(FName(*A.RightChop(12)));return true;}

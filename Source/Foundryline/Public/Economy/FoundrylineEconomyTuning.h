@@ -32,10 +32,10 @@ struct FOUNDRYLINE_API FFoundrylineEconomyTuning {
  static constexpr int32 RackOffersOnSale=2;
  // Carriers that collect customer pallets: fee, lead and transit minutes, deck length.
  static FFoundrylineCarrierSpec Carrier(int32 Id);
- // Wages per game hour while a person holds a job (hiring is free; a hire without a job is not paid).
- static constexpr int64 WelderWageCentsPerHour=1800;
- static constexpr int64 OperatorWageCentsPerHour=1500;
- static constexpr int64 DriverWageCentsPerHour=1500;
+ // Fixed daily testing salaries. Every hired employee is paid, even idle or unassigned.
+ static constexpr int64 WelderWageCentsPerDay=12000;
+ static constexpr int64 OperatorWageCentsPerDay=12000;
+ static constexpr int64 DriverWageCentsPerDay=12000;
  // Running costs per game minute: a machine while it cuts or forms, a forklift while it is on a job.
  static constexpr int64 MachineRunningCentsPerMinute=1;
  static constexpr int64 ForkliftJobCentsPerMinute=3;

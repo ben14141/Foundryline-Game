@@ -44,7 +44,7 @@ bool FWeldingStationCommerce::RunTest(const FString&){using namespace WeldingCom
  TestTrue(TEXT("Overview asks for a welder first: ")+Guide.Title,Guide.Step==WeldingGuideG::StaffWork&&Guide.Title.Contains(TEXT("welder"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("No welder"));}));
  TestTrue(TEXT("No steel is asked for a rack order"),Guide.bStepDone[int(WeldingGuideG::BuySteel)]&&!Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.Contains(TEXT("steel"));}));
  if(!TestTrue(TEXT("Hire and assign a welder: ")+E,Welder(M,E)))return false;Guide=FFoundrylineERPViewModel::Guide(M.State);
- TestTrue(TEXT("Paid welder with an idle station: the Overview says payroll is running and points at Orders"),Guide.PayrollCentsPerHour>0&&Guide.IdleWhilePaid.Contains(TEXT("welding station"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.StartsWith(TEXT("Payroll"))&&P.Action==TEXT("Page0");}));
+ TestTrue(TEXT("Paid welder with an idle station: the Overview says payroll is running and points at Orders"),Guide.PayrollCentsPerDay>0&&Guide.IdleWhilePaid.Contains(TEXT("welding station"))&&Guide.Problems.ContainsByPredicate([](const auto& P){return P.Text.StartsWith(TEXT("Payroll"))&&P.Action==TEXT("Page0");}));
  TestTrue(TEXT("Then it asks to set the station for the order: ")+Guide.Title,Guide.Step==WeldingGuideG::ProgramPlasma&&Guide.PartsToMake==Quantity&&Guide.Action==FString::Printf(TEXT("StationOrder%d"),OrderId));
  // Build exactly the order. Each finished rack is wanted by the order, so its OUT pallet goes whole to the pickup zone.
  TestTrue(TEXT("Batch for the order: ")+E,M.ConfigureWeldingStation(Id,1,Guide.PartsToMake,E));TopUpBins(M);Guide=FFoundrylineERPViewModel::Guide(M.State);

@@ -18,6 +18,7 @@
 #include "Inventory/FoundrylineRawSteelReceivingArea.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Kismet/GameplayStatics.h"
 
 AFoundrylineGameMode::AFoundrylineGameMode()
 {
@@ -46,7 +47,12 @@ void AFoundrylineGameMode::BeginPlay()
   auto* Desk=GetWorld()->SpawnActorDeferred<AFoundrylineOperationsTerminal>(AFoundrylineOperationsTerminal::StaticClass(),DeskAt);if(Desk){Desk->Terminal=1;Desk->FinishSpawning(DeskAt);}
   const FTransform CutAt(FRotator::ZeroRotator,AFoundrylineFactoryPlant::MachinePosition(1));
   auto* Plasma=GetWorld()->SpawnActorDeferred<AFoundrylinePlasmaTable>(AFoundrylinePlasmaTable::StaticClass(),CutAt);if(Plasma){Plasma->bFactoryAutomation=true;Plasma->FinishSpawning(CutAt);}
-  auto* Plant=GetWorld()->SpawnActorDeferred<AFoundrylineFactoryPlant>(AFoundrylineFactoryPlant::StaticClass(),FTransform::Identity);if(Plant){Plant->bCutPartsStarter=true;Plant->FinishSpawning(FTransform::Identity);}return;
+  auto* Plant=GetWorld()->SpawnActorDeferred<AFoundrylineFactoryPlant>(AFoundrylineFactoryPlant::StaticClass(),FTransform::Identity);if(Plant){Plant->bCutPartsStarter=true;Plant->FinishSpawning(FTransform::Identity);
+   if(UGameplayStatics::HasOption(OptionsString,TEXT("ResumeStarter"))){FString Error;if(!Plant->LoadFactory(Error)){
+    UE_LOG(LogTemp,Error,TEXT("Starter resume rejected: %s"),*Error);
+    UGameplayStatics::OpenLevel(this,TEXT("/Game/Foundryline/Maps/L_MainMenu"),true,TEXT("ResumeFailed=1"));
+   }}
+  }return;
  }
  if(Site && Site->bStarterProperty) {
   const bool New=Site->bProductionWorkshop;

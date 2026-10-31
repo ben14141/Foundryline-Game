@@ -92,7 +92,7 @@ void AFoundrylineBuildHUD::NotifyHitBoxClick(FName BoxName)
  if(BoxName==TEXT("Demolish")&&Site&&Site->GetSelectedObject()){Site->CommitEdit(TEXT("Demolish"),FIntVector::ZeroValue,FIntVector::ZeroValue);PC->ChooseTool(TEXT("Select"));return;}
  if(PC->SurfaceSizingAction(BoxName)) return;
  if(BoxName.ToString().StartsWith(TEXT("Net")) || BoxName.ToString().StartsWith(TEXT("Traffic")) || BoxName.ToString().StartsWith(TEXT("Trip")) || BoxName==TEXT("TruckLayer") || BoxName==TEXT("ParkingLayer") || BoxName==TEXT("ShowBothRoutes") || BoxName==TEXT("ShowArrival") || BoxName==TEXT("ShowDeparture") || BoxName==TEXT("RoutePaint") || BoxName==TEXT("RouteErase")) {PC->LogisticsAction(BoxName);return;}
- if(BoxName==TEXT("SaveProperty")) {bConfirmLoad=false;PC->ChooseTool(NAME_None);if(Site) Site->SaveProperty();return;}
+ if(BoxName==TEXT("SaveProperty")) {bConfirmLoad=false;PC->ChooseTool(NAME_None);if(PC->FactoryPlant())PC->FactoryAction(TEXT("Save"));else if(Site)Site->SaveProperty();return;}
     if(BoxName==TEXT("LoadProperty"))
     {
         if(Site && Site->HasUnsavedChanges() && !bConfirmLoad) {bConfirmLoad=true;Site->Status=TEXT("Load replaces unsaved changes. Click Confirm Load to continue.");return;}

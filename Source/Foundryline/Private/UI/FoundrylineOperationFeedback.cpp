@@ -18,8 +18,10 @@ struct FLocalFeedback {FString Message,SeenError,SeenConfirm;double At=-100,Seen
 TMap<TWeakObjectPtr<AFoundrylinePlayerController>,FLocalFeedback> LocalFeedback;
 const TCHAR* Equipment(int Kind){return Kind==1?TEXT("plasma cutter"):Kind==2?TEXT("press brake"):Kind==3?TEXT("sheet roller"):TEXT("forklift");}
 }
-bool FactoryHasReceipt(const FFoundrylineFactoryCommand& C){return C.Action==FactoryAction::AssignOffice||C.Action==FactoryAction::ReleaseOffice||C.Action==FactoryAction::BuyStoredMachine||C.Action==FactoryAction::BuyPlanningEquipment||C.Action==FactoryAction::AddWeldingStation||C.Action==FactoryAction::EditPlanningItem||C.Action==FactoryAction::HireEmployee||C.Action==FactoryAction::AssignEmployee;}
+bool FactoryHasReceipt(const FFoundrylineFactoryCommand& C){return C.Action==FactoryAction::Save||C.Action==FactoryAction::Load||C.Action==FactoryAction::AssignOffice||C.Action==FactoryAction::ReleaseOffice||C.Action==FactoryAction::BuyStoredMachine||C.Action==FactoryAction::BuyPlanningEquipment||C.Action==FactoryAction::AddWeldingStation||C.Action==FactoryAction::EditPlanningItem||C.Action==FactoryAction::HireEmployee||C.Action==FactoryAction::AssignEmployee;}
 FString FactoryReceipt(const FFoundrylineFactoryCommand& C,const FFoundrylineFactoryState& S){
+ if(C.Action==FactoryAction::Save)return TEXT("Shop saved: building, money, orders, stock and employees. Use Continue next time.");
+ if(C.Action==FactoryAction::Load)return TEXT("Saved shop restored.");
  if(C.Action==FactoryAction::AssignOffice)return TEXT("Office assigned. Computer, chair and role decorations are ready / free while testing.");
  if(C.Action==FactoryAction::ReleaseOffice)return TEXT("Office released. Role decorations removed; the computer remains available.");
  if(C.Action==FactoryAction::HireEmployee&&C.Count==5)return TEXT("Engineer hired. Assign an office in Team > Offices. Engineering duties will be added later.");

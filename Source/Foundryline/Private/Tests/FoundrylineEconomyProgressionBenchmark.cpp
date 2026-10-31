@@ -13,10 +13,10 @@
 namespace EconomyBenchmark {
 using Part=EFoundrylinePart;using Place=EFoundrylinePalletPlace;using Act=EFoundrylineCommerceAction;
 using Obj=TSharedPtr<FJsonObject>;
-struct Mark {int64 Cash,Cost,Revenue,Wages;double Clock;};
-Mark At(const FFoundrylineFactorySimulation& M){const auto& C=M.State.Commerce;return {C.CashCents,C.CostCents,C.EarnedRevenueCents,C.WagesPaidCents,C.Clock};}
+struct Mark {int64 Cash,Cost,Revenue,Wages,Accrued;double Clock;};
+Mark At(const FFoundrylineFactorySimulation& M){const auto& C=M.State.Commerce;return {C.CashCents,C.CostCents,C.EarnedRevenueCents,C.WagesPaidCents,C.PayrollAccruedCents,C.Clock};}
 double RawLb(const FFoundrylineFactorySimulation& M){double N=0;for(const auto& P:M.State.Pallets)if(P.Part==Part::Sheet)N+=P.Quantity*P.UnitLb;for(const auto& A:M.State.Machines)N+=A.BedLb;return N;}
-Obj Delta(const FFoundrylineFactorySimulation& M,Mark B){auto J=MakeShared<FJsonObject>();const auto A=At(M);J->SetNumberField(TEXT("cash_before_cents"),B.Cash);J->SetNumberField(TEXT("cash_after_cents"),A.Cash);J->SetNumberField(TEXT("cash_gain_cents"),A.Cash-B.Cash);J->SetNumberField(TEXT("cost_cents"),A.Cost-B.Cost);J->SetNumberField(TEXT("revenue_cents"),A.Revenue-B.Revenue);J->SetNumberField(TEXT("wages_cents"),A.Wages-B.Wages);J->SetNumberField(TEXT("game_minutes"),A.Clock-B.Clock);J->SetNumberField(TEXT("raw_steel_left_lb"),RawLb(M));J->SetNumberField(TEXT("raw_steel_asset_cents"),FMath::RoundToInt64(RawLb(M)*FFoundrylineEconomyTuning::SteelCentsPerLb));J->SetNumberField(TEXT("unpaid_cents"),M.State.Commerce.UnpaidCents);return J;}
+Obj Delta(const FFoundrylineFactorySimulation& M,Mark B){auto J=MakeShared<FJsonObject>();const auto A=At(M);J->SetNumberField(TEXT("cash_before_cents"),B.Cash);J->SetNumberField(TEXT("cash_after_cents"),A.Cash);J->SetNumberField(TEXT("cash_gain_cents"),A.Cash-B.Cash);J->SetNumberField(TEXT("cost_cents"),A.Cost-B.Cost);J->SetNumberField(TEXT("revenue_cents"),A.Revenue-B.Revenue);J->SetNumberField(TEXT("wages_cents"),A.Wages-B.Wages);J->SetNumberField(TEXT("wages_earned_cents"),A.Wages-B.Wages+A.Accrued-B.Accrued);J->SetNumberField(TEXT("economic_cost_cents"),A.Cost-B.Cost+A.Accrued-B.Accrued);J->SetNumberField(TEXT("game_minutes"),A.Clock-B.Clock);J->SetNumberField(TEXT("raw_steel_left_lb"),RawLb(M));J->SetNumberField(TEXT("raw_steel_asset_cents"),FMath::RoundToInt64(RawLb(M)*FFoundrylineEconomyTuning::SteelCentsPerLb));J->SetNumberField(TEXT("payroll_accrued_cents"),A.Accrued);J->SetNumberField(TEXT("net_after_payroll_accrual_cents"),A.Cash-B.Cash-(A.Accrued-B.Accrued));J->SetNumberField(TEXT("unpaid_cents"),M.State.Commerce.UnpaidCents);return J;}
 struct Runner {
  FAutomationTestBase& T;FFoundrylineFactorySimulation M;FString Error;TSet<int> Seen;int BlankTrips=0,BlankUnits=0,MaxBlankBatch=0;
  explicit Runner(FAutomationTestBase& In):T(In){M.SeedCutPartsShop();M.State.Running=true;M.State.Speed=8;}
@@ -58,16 +58,16 @@ bool FEconomyProgressionBenchmark::RunTest(const FString&){
   }
   const int Id=Serial.Accept(Next,I==0?40:I<3?60:0);if(!Id){Ok=false;break;}SerialIds.Add(Id);const auto Order=*Serial.Order(Id);const double Steel=Order.Quantity*(Order.Part==uint8(Part::MountingPlate)?2:5);
   if(!Serial.Steel(Steel)||!Serial.Queue(Id)||!Serial.Ship(Id)){Ok=false;break;}auto J=Serial.Report(Before);J->SetNumberField(TEXT("quantity"),Order.Quantity);J->SetNumberField(TEXT("part"),Order.Part);J->SetNumberField(TEXT("order_id"),Id);Jobs.Add(MakeShared<FJsonValueObject>(J));
-  if(!FirstAffordable&&Serial.M.State.Commerce.CashCents>=FFoundrylineEconomyTuning::PressBrakeCents+100000)FirstAffordable=I+1;
+  if(!FirstAffordable&&Serial.M.State.Commerce.CashCents-Serial.M.State.Commerce.PayrollAccruedCents>=FFoundrylineEconomyTuning::PressBrakeCents+100000)FirstAffordable=I+1;
   if(I==2)Root->SetObjectField(TEXT("serial_first_three"),Serial.Report(Start));
  }
  Root->SetArrayField(TEXT("serial_jobs"),Jobs);Root->SetObjectField(TEXT("serial_eight_total"),Serial.Report(Start));Root->SetNumberField(TEXT("first_job_count_affording_brake_plus_1000_reserve"),FirstAffordable);
  TestTrue(TEXT("Real starter progression starts with default $4000"),Start.Cash==400000);
  // Assert the agreed tuning targets against real purchases, freight and payroll.
- if(Jobs.Num()>=3){const auto Three=Root->GetObjectField(TEXT("serial_first_three"));const double Average=Three->GetNumberField(TEXT("cash_gain_cents"))/3;Root->SetNumberField(TEXT("ordinary_first_three_average_net_cents"),Average);Root->SetBoolField(TEXT("target_450_to_500_average_net_met"),Average>=45000&&Average<=50000);TestTrue(TEXT("Ordinary first three jobs average $450-$500 net cash"),Average>=45000&&Average<=50000);}
- Root->SetBoolField(TEXT("target_brake_after_4_to_6_jobs_with_1000_reserve_met"),FirstAffordable>=4&&FirstAffordable<=6);
+ if(Jobs.Num()>=3){const auto Three=Root->GetObjectField(TEXT("serial_first_three"));const double Average=Three->GetNumberField(TEXT("net_after_payroll_accrual_cents"))/3;Root->SetNumberField(TEXT("ordinary_first_three_average_net_cents"),Average);Root->SetBoolField(TEXT("target_600_to_800_average_net_met"),Average>=60000&&Average<=80000);TestTrue(TEXT("Ordinary first three jobs average $600-$800 net cash"),Average>=60000&&Average<=80000);}
+ Root->SetBoolField(TEXT("target_brake_after_3_to_5_jobs_with_1000_reserve_met"),FirstAffordable>=3&&FirstAffordable<=5);
  TestTrue(TEXT("Eight genuine ordinary basic orders remain playable"),Jobs.Num()==8);
- TestTrue(TEXT("Brake becomes affordable after 4-6 jobs with $1000 reserve"),FirstAffordable>=4&&FirstAffordable<=6);
+ TestTrue(TEXT("Brake becomes affordable after 3-5 jobs with $1000 reserve"),FirstAffordable>=3&&FirstAffordable<=5);
  Runner Queued(*this);const Mark QStart=At(Queued.M);TArray<int> QIds;double TotalSteel=0;
  for(int I=0;I<3;++I){const int Id=Queued.Accept(I==0?Part::Bracket:Part::MountingPlate,I==0?40:60);if(!Id){Ok=false;break;}QIds.Add(Id);const auto* O=Queued.Order(Id);TotalSteel+=O->Quantity*(O->Part==uint8(Part::MountingPlate)?2:5);}
  if(QIds.Num()==3&&Queued.Steel(TotalSteel)){for(int Id:QIds)if(!Queued.Queue(Id))Ok=false;for(int Id:QIds)if(!Queued.Ship(Id)){Ok=false;break;}}else Ok=false;
@@ -102,9 +102,9 @@ bool FEconomyProgressionBenchmark::RunTest(const FString&){
    // This separate mark excludes the measured order from the warmup figures.
    auto Warmup=MakeShared<FJsonObject>();Warmup->SetNumberField(TEXT("cash_gain_cents"),OperatingStart.Cash-WarmupStart.Cash);Warmup->SetNumberField(TEXT("cost_cents"),OperatingStart.Cost-WarmupStart.Cost);Warmup->SetNumberField(TEXT("revenue_cents"),OperatingStart.Revenue-WarmupStart.Revenue);Warmup->SetNumberField(TEXT("wages_cents"),OperatingStart.Wages-WarmupStart.Wages);Warmup->SetNumberField(TEXT("game_minutes"),OperatingStart.Clock-WarmupStart.Clock);J->SetObjectField(TEXT("warmup_financial_delta"),Warmup);
    J->SetNumberField(TEXT("starting_raw_steel_lb"),StartingRaw);J->SetNumberField(TEXT("cash_gain_including_capital_and_warmups_cents"),Control.M.State.Commerce.CashCents-CapitalStart.Cash);
-   const auto End=At(Control.M);const double Minutes=FMath::Max(1.,End.Clock-OperatingStart.Clock);const double Rate=(End.Cash-OperatingStart.Cash+FMath::RoundToInt64((RawLb(Control.M)-StartingRaw)*FFoundrylineEconomyTuning::SteelCentsPerLb))/Minutes;
+   const auto End=At(Control.M);const double Minutes=FMath::Max(1.,End.Clock-OperatingStart.Clock);const double Rate=(End.Cash-OperatingStart.Cash-(End.Accrued-OperatingStart.Accrued)+FMath::RoundToInt64((RawLb(Control.M)-StartingRaw)*FFoundrylineEconomyTuning::SteelCentsPerLb))/Minutes;
    J->SetNumberField(TEXT("operating_net_cents_per_game_minute"),Rate);
-   J->SetNumberField(TEXT("inventory_adjusted_net_cents"),End.Cash-OperatingStart.Cash+FMath::RoundToInt64((RawLb(Control.M)-StartingRaw)*FFoundrylineEconomyTuning::SteelCentsPerLb));
+   J->SetNumberField(TEXT("inventory_adjusted_net_cents"),End.Cash-OperatingStart.Cash-(End.Accrued-OperatingStart.Accrued)+FMath::RoundToInt64((RawLb(Control.M)-StartingRaw)*FFoundrylineEconomyTuning::SteelCentsPerLb));
    if(Upgrade)FormedRate=Rate;else BlankRate=Rate;Root->SetObjectField(Upgrade?TEXT("formed_upgrade_control"):TEXT("blank_control"),J);
   }else Ready=false;
   Ok&=Ready;

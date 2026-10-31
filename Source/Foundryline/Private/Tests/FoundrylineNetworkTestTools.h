@@ -9,6 +9,7 @@ class UFoundrylineNetworkTestTools : public UBlueprintFunctionLibrary
 {
  GENERATED_BODY()
 public:
+ UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Factory",meta=(DevelopmentOnly)) static bool TestFactoryCheckpoint(APlayerController* Player,const FString& Slot,bool Load);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static bool QueuePavement(APlayerController* Player,FName Mode,const TArray<FVector>& Points,float Width,int32 Lanes,bool Truck,bool Curbs);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static bool QueuePavementPaint(APlayerController* Player,int32 Kind,const TArray<FVector>& Points,float Width);
  UFUNCTION(BlueprintCallable,Category="Foundryline|Editor|Pavement",meta=(DevelopmentOnly)) static bool QueuePavementOption(APlayerController* Player,FIntVector Cursor,FName Action);
