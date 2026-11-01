@@ -65,3 +65,14 @@ The complete editable Content snapshot is stored there through Git LFS.
 Restore-Unreal-Content.cmd and Sync-FoundrylineContent.ps1 provide the developer
 workflow; see COLLABORATOR_SETUP.md. Invitation acceptance must be performed by
 Caleb, and access cannot be validated using his credentials from this machine.
+
+Private main commit: 31ccda38f968f208111862895afee3cfa95d33e6. Git LFS uploaded
+1,253 asset objects (approximately 3.2 GB); the content tree has 1,273 files.
+Under Windows PowerShell 5.1, tested restore into a separate minimal project
+folder: all 1,273 files copied, main-menu hash matched, and a replaced sentinel
+file survived intact in Saved/ContentSyncBackups. A no-change publish-copy run
+copied zero files. Independently cloned private Git metadata from GitHub and
+downloaded both L_MainMenu and L_FirstShopStarter through LFS; hashes matched
+the local full-content project. These checks use the owner's credentials.
+Logs: Saved/Logs/PrivateContentRestoreSmoke.log and
+Saved/Logs/PrivateContentPublishSmoke.log.
