@@ -3,6 +3,7 @@ Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
+/Build/Windows/FileOpenOrder/
 .vs/
 .idea/
 *.sln

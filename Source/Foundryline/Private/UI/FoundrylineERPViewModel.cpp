@@ -1,5 +1,5 @@
-#include "Logistics/FoundrylineRackAccess.h"
 #include "UI/FoundrylineERPViewModel.h"
+#include "Logistics/FoundrylineRackAccess.h"
 #include "Companies/FoundrylineBusinessRegistry.h"
 #include "Production/FoundrylineFactoryTypes.h"
 #include "Inventory/FoundrylineSheetStock.h"
