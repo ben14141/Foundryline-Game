@@ -4,13 +4,28 @@ Unreal Engine 5.8 C++ manufacturing/business-management game with first-person o
 
 The current starter loop buys steel sheets, cuts brackets and plates on a plasma table, automatically handles pallets using assigned forklift drivers, schedules freight, and pays customer orders on delivery. Employees are hired free for testing, have persistent random names, and receive specific machine, forklift or welding-zone jobs. Handyman character visuals provide walking and work poses.
 
-## Repository scope
+## Work on the game in Unreal (Caleb / collaborators)
 
-**This is a public source repository with a reviewed original-equipment asset subset.** Licensed Fab assets and most Unreal content/local source art are excluded. Original plasma, brake and roller geometry/CNC assets are included, along with [original headache-rack, bench/fixture, cradle and rack-level model packages](Docs/Architecture/ORIGINAL_MODEL_ASSETS.md); see [equipment asset publication](Docs/Architecture/EQUIPMENT_ASSET_PUBLICATION.md). A fresh clone is not playable until its authorized content is restored. See [repository content and dependencies](Docs/REPOSITORY_CONTENT.md). Existing local content is preserved.
+Pull main, install Git LFS, accept access to **ben14141/Foundryline-Content**, and
+double-click **Restore-Unreal-Content.cmd**. It restores the complete editable
+Content directory from the private companion repository. Then build/open
+Foundryline.uproject in Unreal Engine 5.8. See
+[collaborator setup and asset editing](Docs/COLLABORATOR_SETUP.md).
+
+## Play on Windows (playtesters)
+
+After pulling main, double-click **Play-Foundryline.cmd**. It downloads and
+verifies the complete packaged Windows playtest, then starts the game. No Unreal
+Editor or private asset backup is needed for this path. See
+[Windows playtest instructions](Docs/PLAY_WITHOUT_UNREAL.md).
+
+## Editable source content
+
+**This is a public source repository with a reviewed original-equipment asset subset.** Licensed Fab assets and most Unreal content/local source art are excluded. Original plasma, brake and roller geometry/CNC assets are included, along with [original headache-rack, bench/fixture, cradle and rack-level model packages](Docs/Architecture/ORIGINAL_MODEL_ASSETS.md); see [equipment asset publication](Docs/Architecture/EQUIPMENT_ASSET_PUBLICATION.md). Opening a fresh clone in Unreal requires authorized content restoration; use the packaged download above to play. See [repository content and dependencies](Docs/REPOSITORY_CONTENT.md). Existing local content is preserved.
 
 ## Build and play
 
-With Unreal Engine 5.8 and the Visual Studio C++ Unreal toolchain installed, generate project files from `Foundryline.uproject` and build `FoundrylineEditor` for Development / Win64. Restore authorized content before opening the starter map `/Game/Foundryline/Maps/L_CutPartsStarter`.
+With Unreal Engine 5.8 and the Visual Studio C++ Unreal toolchain installed, generate project files from `Foundryline.uproject` and build `FoundrylineEditor` for Development / Win64. Restore authorized content before opening the main menu `/Game/Foundryline/Maps/L_MainMenu` or starter map `/Game/Foundryline/Maps/L_FirstShopStarter`.
 
 Play starts in first person near the office computer. Press E to open ERP; Property View is available through that computer. Team supports free hiring and explicit job/equipment assignment. ERP provides 1x/4x/8x simulation controls. Start paused, accept a basic order, buy steel, program the plasma, then book finished pallets on the loading tablet.
 
