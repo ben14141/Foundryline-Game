@@ -4,7 +4,15 @@ Unreal Engine 5.8 C++ manufacturing/business-management game with first-person o
 
 The current starter loop buys steel sheets, cuts brackets and plates on a plasma table, automatically handles pallets using assigned forklift drivers, schedules freight, and pays customer orders on delivery. Employees are hired free for testing, have persistent random names, and receive specific machine, forklift or welding-zone jobs. Handyman character visuals provide walking and work poses.
 
-## Play on Windows (Caleb / playtesters)
+## Work on the game in Unreal (Caleb / collaborators)
+
+Pull main, install Git LFS, accept access to **ben14141/Foundryline-Content**, and
+double-click **Restore-Unreal-Content.cmd**. It restores the complete editable
+Content directory from the private companion repository. Then build/open
+Foundryline.uproject in Unreal Engine 5.8. See
+[collaborator setup and asset editing](Docs/COLLABORATOR_SETUP.md).
+
+## Play on Windows (playtesters)
 
 After pulling main, double-click **Play-Foundryline.cmd**. It downloads and
 verifies the complete packaged Windows playtest, then starts the game. No Unreal

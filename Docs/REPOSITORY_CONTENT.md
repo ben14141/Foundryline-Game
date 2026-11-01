@@ -1,5 +1,10 @@
 # Public repository content
 
+Authorized Unreal collaborators restore editable assets with
+**Restore-Unreal-Content.cmd** from the private **ben14141/Foundryline-Content**
+repository. See [collaborator setup](COLLABORATOR_SETUP.md). Keep that repository
+private; do not publish its assets to this public source repository.
+
 Players can now use **Play-Foundryline.cmd** and the packaged GitHub Release
 without restoring editable content. See [Windows playtest](PLAY_WITHOUT_UNREAL.md).
 The restrictions below apply to editable source assets, not playing the compiled

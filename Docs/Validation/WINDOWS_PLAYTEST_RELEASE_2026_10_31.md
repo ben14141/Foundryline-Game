@@ -50,3 +50,18 @@ full production/economy suite or a test on Caleb's hardware. Internet
 multiplayer, NAT traversal and an FPS guarantee remain unverified.
 
 The requested employee/plasma/inventory UI notes remain deferred.
+
+The published archive was subsequently downloaded through the actual launcher
+under Windows PowerShell 5.1 into a separate installation directory. SHA-256
+verification and extraction succeeded. A second invocation reused the existing
+installation. The archive contains no editable assets or PDB symbols.
+
+## Editable collaborator handoff
+
+The user clarified that Caleb will also develop in Unreal. Created the private
+ben14141/Foundryline-Content companion repository and issued CalebM61 a write
+invitation, matching his existing write role in the public source repository.
+The complete editable Content snapshot is stored there through Git LFS.
+Restore-Unreal-Content.cmd and Sync-FoundrylineContent.ps1 provide the developer
+workflow; see COLLABORATOR_SETUP.md. Invitation acceptance must be performed by
+Caleb, and access cannot be validated using his credentials from this machine.
